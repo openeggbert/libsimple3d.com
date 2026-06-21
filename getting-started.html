@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Getting Started — simple-3d</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html" class="active">Getting Started</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Build</h3>
+  <ul>
+    <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#system-deps">System packages</a></li>
+    <li><a href="#u3d">U3D backend</a></li>
+    <li><a href="#nova3d">NOVA3D backend</a></li>
+    <li><a href="#windows">Windows (MinGW)</a></li>
+    <li><a href="#web">Web / Emscripten</a></li>
+    <li><a href="#cmake-options">CMake options</a></li>
+  </ul>
+  <h3>Integration</h3>
+  <ul>
+    <li><a href="#cmake-integration">CMake subdirectory</a></li>
+    <li><a href="#project-structure">Project structure</a></li>
+    <li><a href="#ide">IDE setup</a></li>
+  </ul>
+  <h3>First steps</h3>
+  <ul>
+    <li><a href="#first-game">Your first game</a></li>
+    <li><a href="#first-lua">Your first Lua script</a></li>
+    <li><a href="#asset-paths">Asset paths</a></li>
+    <li><a href="#asset-formats">Asset formats</a></li>
+    <li><a href="#debugging">Debugging</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+  </ul>
+</aside>
+
+<main class="content">
+<h1>Getting Started</h1>
+<p>
+  This guide walks you through every step: installing dependencies, building the library,
+  integrating it into your CMake project, and writing your first game.
+</p>
+
+<!-- ─── REQUIREMENTS ───────────────────────────────────────────── -->
+<h2 id="requirements">Requirements</h2>
+<table>
+  <tr><th>Dependency</th><th>Min version</th><th>Notes</th></tr>
+  <tr>
+    <td>CMake</td><td>3.21</td>
+    <td>Modern target-based build. Earlier versions lack <code>target_sources(FILE_SET)</code>.</td>
+  </tr>
+  <tr>
+    <td>C++ compiler</td><td>C++23</td>
+    <td>GCC 13+, Clang 16+, MSVC 2022 17.5+ (v143). C++23 is required for <code>std::expected</code> and deducing <code>this</code>.</td>
+  </tr>
+  <tr>
+    <td>U3D (Urho3D fork)</td><td>any recent</td>
+    <td>Must be pre-built. Default search path: <code>/rv/data/library/github.com/u3d-community/U3D/cmake-build-debug</code>. Override with <code>-DU3D_HOME=…</code>.</td>
+  </tr>
+  <tr>
+    <td>Git</td><td>any</td>
+    <td>For cloning the repository.</td>
+  </tr>
+</table>
+
+<!-- ─── SYSTEM PACKAGES ────────────────────────────────────────── -->
+<h2 id="system-deps">System Packages</h2>
+<h3>Debian / Ubuntu</h3>
+<pre><span class="sh-cm"># C++ toolchain</span>
+sudo apt install gcc-13 g++-13 cmake ninja-build git
+
+<span class="sh-cm"># U3D runtime dependencies</span>
+sudo apt install \
+  libsdl2-dev libsdl2-image-dev \
+  libbullet-dev \
+  liblua5.1-dev libluajit-5.1-dev \
+  libenet-dev \
+  libfreetype6-dev \
+  libassimp-dev
+
+<span class="sh-cm"># Use gcc-13 as default</span>
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 130
+sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 130</pre>
+
+<h3>Fedora / RHEL</h3>
+<pre>sudo dnf install gcc13 g++13 cmake ninja-build git \
+  SDL2-devel bullet-devel lua-devel luajit-devel \
+  enet-devel freetype-devel assimp-devel</pre>
+
+<h3>macOS (Homebrew)</h3>
+<pre>brew install cmake ninja gcc@13 sdl2 bullet lua luajit enet freetype assimp</pre>
+
+<div class="callout info">
+  <h4>Note — Ninja</h4>
+  <p>All build commands below use the Makefile generator. Replace <code>-j$(nproc)</code> with
+  <code>-GNinja</code> and drop <code>-j</code> for faster incremental builds:
+  <code>cmake -S . -B build -GNinja &amp;&amp; ninja -C build</code></p>
+</div>
+
+<!-- ─── U3D BUILD ──────────────────────────────────────────────── -->
+<h2 id="u3d">Build — U3D Backend (default)</h2>
+<p>
+  The U3D backend links against the <a href="https://github.com/u3d-community/U3D">u3d-community/U3D</a>
+  fork and is the recommended target for Linux, Windows, and macOS desktop development.
+</p>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <h3>Clone simple-3d</h3>
+    <pre>git clone https://github.com/openeggbert/simple-3d
+cd simple-3d</pre>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <h3>Configure (U3D in default location)</h3>
+    <pre>cmake -S . -B build-u3d -DCMAKE_BUILD_TYPE=Debug</pre>
+    <p>If U3D is not in the default path, specify it explicitly:</p>
+    <pre>cmake -S . -B build-u3d \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DU3D_HOME=/path/to/U3D/cmake-build-debug</pre>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <h3>Build</h3>
+    <pre>cmake --build build-u3d -j$(nproc)</pre>
+    <p>The static library <code>libsimple3d.a</code> (Linux) or <code>simple3d.lib</code> (Windows) is produced in <code>build-u3d/</code>.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">4</div>
+  <div class="step-body">
+    <h3>Run sample (optional)</h3>
+    <pre>./build-u3d/samples/blupi_proto/blupi_proto</pre>
+  </div>
+</div>
+
+<!-- ─── NOVA3D BUILD ───────────────────────────────────────────── -->
+<h2 id="nova3d">Build — NOVA3D Backend</h2>
+<p>
+  NOVA3D is Robert Vokac's Urho3D fork with an XNA C++ runtime underneath.
+  The public API of simple-3d is identical between backends.
+</p>
+<pre>cmake -S . -B build-nova3d \
+  -DSIMPLE3D_ENGINE=NOVA3D \
+  -DNOVA3D_HOME=/path/to/nova3d/build
+cmake --build build-nova3d -j$(nproc)</pre>
+
+<!-- ─── WINDOWS ────────────────────────────────────────────────── -->
+<h2 id="windows">Windows — MinGW Cross-Compile</h2>
+<p>
+  Cross-compile from Linux to Windows using the MinGW-w64 toolchain bundled with simple-3d.
+  Install <code>mingw-w64</code> first:
+</p>
+<pre><span class="sh-cm"># Debian/Ubuntu</span>
+sudo apt install mingw-w64
+
+<span class="sh-cm"># Configure and build</span>
+cmake -S . -B build-windows \
+  -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/mingw-w64.cmake \
+  -DSIMPLE3D_ENGINE=U3D
+cmake --build build-windows -j$(nproc)</pre>
+
+<p>
+  The toolchain file sets up the <code>x86_64-w64-mingw32</code> cross-compiler and configures
+  DLL search paths automatically. The resulting <code>.exe</code> and <code>.dll</code> files can
+  be copied to a Windows machine and run without further setup.
+</p>
+
+<div class="callout warn">
+  <h4>Windows native build</h4>
+  <p>Native Windows builds (MSVC or MinGW on Windows itself) are supported but not regularly tested in CI.
+  The CMake configuration is identical; use the Visual Studio 2022 generator or a Windows MinGW installation.</p>
+</div>
+
+<!-- ─── WEB ────────────────────────────────────────────────────── -->
+<h2 id="web">Web / Emscripten (Planned)</h2>
+<p>
+  Web support via Emscripten is defined in <code>CMakeLists.txt</code> but not yet tested end-to-end
+  (Task #9). The build command is:
+</p>
+<pre><span class="sh-cm"># Requires Emscripten SDK activated in current shell:</span>
+<span class="sh-cm"># source /path/to/emsdk/emsdk_env.sh</span>
+emcmake cmake -S . -B build-web -DSIMPLE3D_ENGINE=U3D
+cmake --build build-web -j$(nproc)</pre>
+<div class="callout warn">
+  <h4>Status</h4>
+  <p>This build path is experimental. Track progress in Task #9 in the project's issue tracker.</p>
+</div>
+
+<!-- ─── CMAKE OPTIONS ──────────────────────────────────────────── -->
+<h2 id="cmake-options">CMake Options Reference</h2>
+<table>
+  <tr><th>Option</th><th>Default</th><th>Description</th></tr>
+  <tr>
+    <td><code>SIMPLE3D_ENGINE</code></td>
+    <td><code>U3D</code></td>
+    <td>Backend selection. Values: <code>U3D</code>, <code>NOVA3D</code>.</td>
+  </tr>
+  <tr>
+    <td><code>U3D_HOME</code></td>
+    <td><em>auto-detect</em></td>
+    <td>Path to the U3D build directory (where <code>U3DConfig.cmake</code> lives).</td>
+  </tr>
+  <tr>
+    <td><code>URHO3D_HOME</code></td>
+    <td><em>fallback</em></td>
+    <td>Alias for <code>U3D_HOME</code>. Checked if <code>U3D_HOME</code> is not set.</td>
+  </tr>
+  <tr>
+    <td><code>NOVA3D_HOME</code></td>
+    <td><em>auto-detect</em></td>
+    <td>Path to the NOVA3D build directory. Used only when <code>SIMPLE3D_ENGINE=NOVA3D</code>.</td>
+  </tr>
+  <tr>
+    <td><code>SIMPLE3D_BUILD_TESTS</code></td>
+    <td><code>OFF</code></td>
+    <td>Build unit tests. Requires Google Test. Tests do not need a display or GPU.</td>
+  </tr>
+  <tr>
+    <td><code>SIMPLE3D_BUILD_SAMPLES</code></td>
+    <td><code>ON</code></td>
+    <td>Build sample applications (currently <code>blupi_proto</code>).</td>
+  </tr>
+  <tr>
+    <td><code>CMAKE_BUILD_TYPE</code></td>
+    <td><code>Release</code></td>
+    <td>Use <code>Debug</code> during development for full symbols and assertions.</td>
+  </tr>
+  <tr>
+    <td><code>CMAKE_TOOLCHAIN_FILE</code></td>
+    <td>—</td>
+    <td>Pass <code>cmake/toolchains/mingw-w64.cmake</code> for Windows cross-compile.</td>
+  </tr>
+</table>
+
+<!-- ─── CMAKE INTEGRATION ─────────────────────────────────────── -->
+<h2 id="cmake-integration">Integrating into Your Project</h2>
+<p>The recommended way to consume simple-3d is as a CMake subdirectory:</p>
+<pre><span class="sh-cm"># Recommended: Git submodule</span>
+git submodule add https://github.com/openeggbert/simple-3d ext/simple-3d</pre>
+
+<pre><span class="cm"># CMakeLists.txt for your game</span>
+cmake_minimum_required(VERSION <span class="nm">3.21</span>)
+project(my-awesome-game CXX)
+
+<span class="cm"># The engine backend is set by the parent project or on the cmake command line</span>
+<span class="cm"># option(SIMPLE3D_ENGINE "U3D or NOVA3D" "U3D")</span>
+
+add_subdirectory(ext/simple-3d simple3d)
+
+add_executable(my-game
+    src/main.cpp
+    src/GameplayScene.cpp
+    src/EnemyController.cpp
+)
+
+target_link_libraries(my-game PRIVATE simple3d)
+target_compile_features(my-game PRIVATE cxx_std_23)
+
+<span class="cm"># Copy game data next to the executable</span>
+add_custom_command(TARGET my-game POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/Data $&lt;TARGET_FILE_DIR:my-game&gt;/Data)</pre>
+
+<div class="callout ok">
+  <h4>Automatic include propagation</h4>
+  <p>The <code>simple3d</code> CMake target propagates <code>include/</code> as a public include directory.
+  After <code>target_link_libraries(my-game PRIVATE simple3d)</code> you can use
+  <code>#include &lt;Simple3D/Simple3D.h&gt;</code> without any additional include path flags.</p>
+</div>
+
+<!-- ─── PROJECT STRUCTURE ─────────────────────────────────────── -->
+<h2 id="project-structure">Recommended Project Structure</h2>
+<pre>my-game/
+├── CMakeLists.txt
+├── ext/
+│   └── simple-3d/           ← git submodule
+├── src/
+│   ├── main.cpp             ← Game subclass + main()
+│   ├── GameState.h/.cpp     ← scene management
+│   └── EnemyAI.h/.cpp      ← gameplay logic
+└── Data/                    ← all runtime assets
+    ├── Models/
+    │   ├── Character.mdl
+    │   ├── Ground.mdl
+    │   └── Enemy.mdl
+    ├── Textures/
+    │   └── Character_D.png
+    ├── Animations/
+    │   ├── idle.ani
+    │   ├── run.ani
+    │   └── jump.ani
+    ├── Scripts/
+    │   ├── player.lua
+    │   └── enemy.lua
+    ├── Sounds/
+    │   ├── jump.wav
+    │   └── coin.wav
+    ├── Music/
+    │   └── theme.ogg
+    └── Maps/
+        └── level1.tmx</pre>
+
+<!-- ─── IDE SETUP ──────────────────────────────────────────────── -->
+<h2 id="ide">IDE Setup</h2>
+<h3>VS Code with CMake Tools</h3>
+<ol>
+  <li>Install extensions: <strong>C/C++</strong> (Microsoft), <strong>CMake Tools</strong> (Microsoft).</li>
+  <li>Open the project folder. CMake Tools will detect <code>CMakeLists.txt</code> automatically.</li>
+  <li>Press <kbd>Ctrl+Shift+P</kbd> → <em>CMake: Configure</em>. Select your kit (GCC 13 or Clang 16).</li>
+  <li>Set CMake arguments in <code>.vscode/settings.json</code>:</li>
+</ol>
+<pre>{
+    "cmake.configureArgs": [
+        "-DU3D_HOME=/path/to/U3D/cmake-build-debug",
+        "-DCMAKE_BUILD_TYPE=Debug"
+    ]
+}</pre>
+<ol start="5">
+  <li>Press <kbd>F7</kbd> to build, <kbd>F5</kbd> to debug (requires <code>launch.json</code>).</li>
+</ol>
+
+<h3>CLion</h3>
+<ol>
+  <li><em>File → Open</em> → select the project folder.</li>
+  <li>In <em>Settings → Build → CMake</em>, add CMake options:
+    <code>-DU3D_HOME=/path/to/U3D/cmake-build-debug</code></li>
+  <li>CLion automatically detects the <code>CMakeLists.txt</code> and creates run configurations.</li>
+  <li>Use the built-in debugger with full variable inspection.</li>
+</ol>
+
+<!-- ─── FIRST GAME ─────────────────────────────────────────────── -->
+<h2 id="first-game">Your First Game</h2>
+<p>
+  Create <code>src/main.cpp</code>. The complete program below creates a spinning box, a directional
+  light, a camera, and a HUD label — all in under 40 lines.
+</p>
+<pre><span class="kw">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">HelloGame</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+    <span class="ty">Entity</span>* box     = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*  hud     = <span class="kw">nullptr</span>;
+    <span class="ty">float</span>   angle   = <span class="val">0.0f</span>;
+    <span class="ty">float</span>   elapsed = <span class="val">0.0f</span>;
+
+    <span class="cm">// Start() is called once after the engine is fully initialised.</span>
+    <span class="cm">// Create all scene objects here; never in the constructor.</span>
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Hello simple-3d"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.08f</span>, <span class="val">0.08f</span>, <span class="val">0.12f</span>));
+
+        <span class="cm">// A rotating box at world origin, 5 m in front of the camera.</span>
+        box = <span class="fn">CreateEntity</span>(<span class="st">"Box"</span>);
+        box-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        box-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">5.0f</span>);
+
+        <span class="cm">// Directional sun light.</span>
+        <span class="kw">auto</span> sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.95f</span>, <span class="val">0.85f</span>), <span class="val">1.0f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50</span>, -<span class="val">30</span>, <span class="val">0</span>));
+
+        <span class="cm">// Fill light from below.</span>
+        <span class="kw">auto</span> fill = <span class="fn">CreateEntity</span>(<span class="st">"Fill"</span>);
+        fill-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">0.3f</span>, <span class="val">0.35f</span>, <span class="val">0.5f</span>), <span class="val">0.4f</span>);
+        fill-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(-<span class="val">50</span>, <span class="val">30</span>, <span class="val">0</span>));
+
+        <span class="cm">// Default camera looks at world origin from Z=-</span>
+        <span class="fn">CreateCamera</span>();
+
+        <span class="cm">// On-screen timer.</span>
+        hud = <span class="fn">CreateLabel</span>(<span class="st">"Time: 0.0 s  |  Press ESC to quit"</span>);
+        hud-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">20</span>);
+        hud-&gt;<span class="fn">SetFontSize</span>(<span class="val">16</span>);
+        hud-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.8f</span>, <span class="val">0.8f</span>, <span class="val">0.8f</span>));
+    }
+
+    <span class="cm">// Update() is called every frame.  dt = seconds since last frame.</span>
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        angle   += dt * <span class="val">60.0f</span>;
+        elapsed += dt;
+
+        box-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(angle, angle * <span class="val">0.4f</span>, <span class="val">0</span>));
+
+        hud-&gt;<span class="fn">SetText</span>(<span class="st">"Time: "</span> + std::<span class="fn">to_string</span>((<span class="ty">int</span>)elapsed) + <span class="st">" s  |  ESC to quit"</span>);
+
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>() {
+    <span class="kw">return</span> <span class="fn">CreateGame</span>&lt;<span class="ty">HelloGame</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── FIRST LUA ───────────────────────────────────────────────── -->
+<h2 id="first-lua">Your First Lua Script</h2>
+<p>
+  Any entity can have a Lua script attached. The script receives the same lifecycle callbacks as
+  C++ code. Scripts live in the <code>Data/Scripts/</code> folder.
+</p>
+<p>Step 1 — Attach the script in C++:</p>
+<pre><span class="cm">// In Start():</span>
+box-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/spin.lua"</span>);</pre>
+
+<p>Step 2 — Create <code>Data/Scripts/spin.lua</code>:</p>
+<pre><span class="lua-cm">-- spin.lua: Rotate the entity around Y axis.</span>
+<span class="lua-kw">local</span> angle = <span class="lua-num">0</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node   <span class="lua-cm">-- simple-3d convention: alias self.node</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    angle = angle + dt * <span class="lua-num">90</span>            <span class="lua-cm">-- 90 degrees per second</span>
+    entity:SetRotation(Quaternion(angle, <span class="lua-num">0</span>, <span class="lua-num">0</span>))
+<span class="lua-kw">end</span></pre>
+
+<div class="callout ok">
+  <h4>The entity convention</h4>
+  <p>
+    In Urho3D Lua, the owning Node is always accessible as <code>self.node</code>.
+    Simple3D convention is to copy it to a module-level <code>entity</code> variable in <code>Start()</code>
+    for cleaner syntax in <code>Update()</code> and event callbacks.
+  </p>
+</div>
+
+<h3>Lua script with animation and physics</h3>
+<pre><span class="lua-cm">-- Scripts/player.lua</span>
+speed     = <span class="lua-num">6</span>
+jumpForce = <span class="lua-num">8</span>
+<span class="lua-kw">local</span> anim
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node
+    anim   = entity:GetAnimationController()
+    <span class="lua-kw">if</span> anim <span class="lua-op">==</span> <span class="lua-kw">nil</span> <span class="lua-kw">then</span>
+        print(<span class="lua-str">"[player.lua] WARNING: no AnimationController found"</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">local</span> move = Vector3(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+    <span class="lua-kw">if</span> Input:IsKeyDown(<span class="lua-str">"W"</span>) <span class="lua-kw">then</span> move.z = move.z + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:IsKeyDown(<span class="lua-str">"S"</span>) <span class="lua-kw">then</span> move.z = move.z - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:IsKeyDown(<span class="lua-str">"A"</span>) <span class="lua-kw">then</span> move.x = move.x - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:IsKeyDown(<span class="lua-str">"D"</span>) <span class="lua-kw">then</span> move.x = move.x + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+
+    <span class="lua-kw">local</span> moving = move:Length() &gt; <span class="lua-num">0</span>
+    <span class="lua-kw">if</span> moving <span class="lua-kw">then</span>
+        entity:MoveRelative(move:Normalized() * speed * dt)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-kw">if</span> anim <span class="lua-kw">then</span>
+        anim:Play(moving <span class="lua-kw">and</span> <span class="lua-str">"run"</span> <span class="lua-kw">or</span> <span class="lua-str">"idle"</span>, <span class="lua-num">0</span>, <span class="lua-kw">true</span>, <span class="lua-num">0.2</span>)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-kw">if</span> Input:IsKeyPress(<span class="lua-str">"Space"</span>) <span class="lua-kw">and</span> entity:IsOnGround() <span class="lua-kw">then</span>
+        entity:ApplyImpulse(Vector3(<span class="lua-num">0</span>, jumpForce, <span class="lua-num">0</span>))
+        PlaySound(<span class="lua-str">"Sounds/jump.wav"</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── ASSET PATHS ─────────────────────────────────────────────── -->
+<h2 id="asset-paths">Asset Paths</h2>
+<p>
+  All asset paths are relative to Urho3D's resource search directories. By default, simple-3d
+  adds the following directories to the search path at startup:
+</p>
+<ol>
+  <li>The directory where the game executable resides.</li>
+  <li>The current working directory at the time of launch.</li>
+  <li>Each directory also has its <code>Data/</code> sub-folder added automatically.</li>
+</ol>
+<p>
+  This means if your executable is at <code>build/my-game</code> and assets are in
+  <code>build/Data/</code>, the path <code>"Models/hero.fbx"</code> resolves to
+  <code>build/Data/Models/hero.fbx</code>.
+</p>
+
+<h3>Canonical directory layout</h3>
+<pre>my-game/               ← project root
+├── CMakeLists.txt
+└── Data/              ← all game assets
+    ├── Models/        ← 3D meshes (OBJ, FBX, MDL, GLTF)
+    ├── Textures/      ← diffuse, normal, specular maps (PNG, JPG, DDS)
+    ├── Animations/    ← skeletal animations (.ani)
+    ├── Materials/     ← Urho3D material definitions (.xml)
+    ├── Techniques/    ← custom render techniques (.xml)
+    ├── Scripts/       ← Lua scripts (.lua)
+    ├── Sounds/        ← sound effects (WAV, OGG — short files)
+    ├── Music/         ← background music (OGG, WAV — streamed)
+    ├── Maps/          ← Tiled tile maps (.tmx)
+    ├── Sprites/       ← 2D sprites (PNG) and Spriter files (.scml)
+    └── Fonts/         ← fonts for UI labels (.ttf, .otf)</pre>
+
+<p>Reference assets with paths relative to <code>Data/</code>:</p>
+<pre><span class="cm">// Correct:</span>
+entity-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Character.mdl"</span>);       <span class="cm">// → Data/Models/Character.mdl</span>
+entity-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/player.lua"</span>);      <span class="cm">// → Data/Scripts/player.lua</span>
+<span class="fn">PlaySound</span>(<span class="st">"Sounds/jump.wav"</span>);                  <span class="cm">// → Data/Sounds/jump.wav</span>
+<span class="fn">LoadTileMap</span>(<span class="st">"Maps/level1.tmx"</span>);               <span class="cm">// → Data/Maps/level1.tmx</span></pre>
+
+<!-- ─── ASSET FORMATS ───────────────────────────────────────────── -->
+<h2 id="asset-formats">Supported Asset Formats</h2>
+<table>
+  <tr><th>Category</th><th>Formats</th><th>Notes</th></tr>
+  <tr>
+    <td>3D models</td>
+    <td>OBJ, FBX, GLTF, MDL</td>
+    <td>MDL is Urho3D's native binary format (faster loading). FBX and GLTF are imported via Assimp at build time.</td>
+  </tr>
+  <tr>
+    <td>Textures</td>
+    <td>PNG, JPG, DDS, KTX</td>
+    <td>DDS with mipmaps is preferred for GPU efficiency. Urho3D auto-generates mipmaps from PNG/JPG.</td>
+  </tr>
+  <tr>
+    <td>Skeletal animation</td>
+    <td>ANI (Urho3D native)</td>
+    <td>Export from FBX/GLTF using Urho3D's AssetImporter tool.</td>
+  </tr>
+  <tr>
+    <td>Sound effects</td>
+    <td>WAV, OGG</td>
+    <td>Short sounds. Loaded fully into memory. Keep under ~2 MB.</td>
+  </tr>
+  <tr>
+    <td>Music</td>
+    <td>OGG, WAV</td>
+    <td>Streamed from disk. OGG recommended (smaller files, same quality).</td>
+  </tr>
+  <tr>
+    <td>2D sprites</td>
+    <td>PNG, JPG</td>
+    <td>Transparent backgrounds require PNG.</td>
+  </tr>
+  <tr>
+    <td>Animated sprites</td>
+    <td>SCML (Spriter)</td>
+    <td>Spriter 2D animation definition format.</td>
+  </tr>
+  <tr>
+    <td>Tile maps</td>
+    <td>TMX (Tiled)</td>
+    <td>Tiled Map Editor format. Orthographic and isometric supported.</td>
+  </tr>
+  <tr>
+    <td>Materials</td>
+    <td>XML (Urho3D)</td>
+    <td>Optional — simple-3d applies default materials when none is specified.</td>
+  </tr>
+  <tr>
+    <td>Scripts</td>
+    <td>LUA</td>
+    <td>Plain UTF-8 Lua 5.1 / LuaJIT compatible scripts.</td>
+  </tr>
+</table>
+
+<!-- ─── DEBUGGING ─────────────────────────────────────────────── -->
+<h2 id="debugging">Debugging</h2>
+<h3>Debug vs Release build</h3>
+<p>
+  Always develop with <code>-DCMAKE_BUILD_TYPE=Debug</code>. This enables:
+</p>
+<ul>
+  <li>Full debug symbols (<code>-g</code>) for GDB/LLDB.</li>
+  <li>Urho3D assertions on invalid API usage.</li>
+  <li>simple-3d log messages at <code>LOG_DEBUG</code> level.</li>
+  <li>Addresses sanitizer (add <code>-DCMAKE_CXX_FLAGS="-fsanitize=address"</code> if needed).</li>
+</ul>
+
+<h3>Console log output</h3>
+<p>
+  simple-3d forwards all Urho3D log messages to stdout. Look for lines starting with
+  <code>[Warning]</code> or <code>[Error]</code> when assets fail to load.
+</p>
+<pre><span class="sh-cm"># Run with verbose logging:</span>
+./my-game 2&gt;&amp;1 | tee game.log</pre>
+
+<h3>Common runtime errors</h3>
+<table>
+  <tr><th>Message</th><th>Cause</th><th>Fix</th></tr>
+  <tr>
+    <td><code>Failed to load resource Models/hero.mdl</code></td>
+    <td>Asset not found in any resource path.</td>
+    <td>Check that <code>Data/</code> is next to the executable and the file exists.</td>
+  </tr>
+  <tr>
+    <td><code>NULL pointer in Entity::AddRigidBody</code></td>
+    <td>Calling physics methods before <code>Start()</code> completes.</td>
+    <td>Never call engine API from constructors — use <code>Start()</code>.</td>
+  </tr>
+  <tr>
+    <td>Blank window, no 3D scene</td>
+    <td>No camera created, or camera not looking at scene.</td>
+    <td>Call <code>CreateCamera()</code> in <code>Start()</code>. Default position is Z=0 looking toward +Z.</td>
+  </tr>
+  <tr>
+    <td>Entity falls through floor</td>
+    <td>Static rigid body has no <code>AddBoxCollider</code> / <code>AddMeshCollider</code>.</td>
+    <td>Always pair <code>AddRigidBody(0.0f)</code> with a collider call.</td>
+  </tr>
+  <tr>
+    <td>Lua script not running</td>
+    <td>File path wrong, or script has a syntax error on load.</td>
+    <td>Check log for <code>Failed to load Script</code>; run <code>luac -p yourscript.lua</code> to validate syntax.</td>
+  </tr>
+</table>
+
+<!-- ─── TROUBLESHOOTING ────────────────────────────────────────── -->
+<h2 id="troubleshooting">Build Troubleshooting</h2>
+<table>
+  <tr><th>Error</th><th>Cause</th><th>Fix</th></tr>
+  <tr>
+    <td><code>Could not find U3DConfig.cmake</code></td>
+    <td><code>U3D_HOME</code> not set or wrong path.</td>
+    <td>Pass <code>-DU3D_HOME=/path/to/U3D/build</code> to CMake.</td>
+  </tr>
+  <tr>
+    <td><code>error: 'std::expected' was not declared</code></td>
+    <td>Compiler does not support C++23.</td>
+    <td>Upgrade to GCC 13+ or Clang 16+.</td>
+  </tr>
+  <tr>
+    <td><code>undefined reference to Urho3D::…</code></td>
+    <td>U3D library not found at link time.</td>
+    <td>Check <code>U3D_HOME</code> points to a fully built U3D (run <code>ls $U3D_HOME/lib</code>).</td>
+  </tr>
+  <tr>
+    <td><code>LuaJIT not found</code></td>
+    <td>U3D was built without LuaJIT, or headers missing.</td>
+    <td>Install <code>libluajit-5.1-dev</code> and rebuild U3D with <code>-DURHO3D_LUA=ON -DURHO3D_LUAJIT=ON</code>.</td>
+  </tr>
+  <tr>
+    <td>linker: <code>multiple definition of Simple3D::…</code></td>
+    <td>simple-3d added twice as a CMake subdirectory.</td>
+    <td>Use <code>if(NOT TARGET simple3d)</code> guard before <code>add_subdirectory</code>.</td>
+  </tr>
+</table>
+
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d — part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

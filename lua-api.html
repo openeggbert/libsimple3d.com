@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lua API Reference — simple-3d</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html" class="active">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Overview</h3>
+  <ul>
+    <li><a href="#how-scripts-work">How scripts work</a></li>
+    <li><a href="#attach">Attaching scripts</a></li>
+    <li><a href="#lifecycle">Lifecycle</a></li>
+    <li><a href="#globals">Urho3D globals</a></li>
+  </ul>
+  <h3>Entity (Node)</h3>
+  <ul>
+    <li><a href="#node-simple3d">Simple3D extensions</a></li>
+    <li><a href="#node-urho3d">Urho3D Node methods</a></li>
+    <li><a href="#node-animation">AnimationController</a></li>
+    <li><a href="#node-physics">Physics from Lua</a></li>
+  </ul>
+  <h3>Input</h3>
+  <ul>
+    <li><a href="#input">Input API</a></li>
+    <li><a href="#key-strings">Key strings</a></li>
+  </ul>
+  <h3>Global functions</h3>
+  <ul>
+    <li><a href="#audio">Audio</a></li>
+    <li><a href="#scene">Scene queries</a></li>
+  </ul>
+  <h3>Math types</h3>
+  <ul>
+    <li><a href="#vector3">Vector3</a></li>
+    <li><a href="#vector2">Vector2</a></li>
+    <li><a href="#color">Color</a></li>
+    <li><a href="#quaternion">Quaternion</a></li>
+  </ul>
+  <h3>Examples</h3>
+  <ul>
+    <li><a href="#ex-platformer">3D platformer</a></li>
+    <li><a href="#ex-enemy">Enemy AI</a></li>
+    <li><a href="#ex-collectible">Collectible</a></li>
+    <li><a href="#ex-tween">Simple tween</a></li>
+  </ul>
+  <h3>Advanced</h3>
+  <ul>
+    <li><a href="#inter-script">Script communication</a></li>
+    <li><a href="#debug">Debugging Lua</a></li>
+    <li><a href="#performance">Performance tips</a></li>
+    <li><a href="#pitfalls">Common pitfalls</a></li>
+  </ul>
+</aside>
+
+<main class="content">
+<h1>Lua Scripting API</h1>
+
+<div class="section-intro">
+  Scripts are attached to individual entities via <code>entity-&gt;AddScript("Scripts/name.lua")</code> in C++.
+  Each script runs in Urho3D's <code>LuaScriptInstance</code> component using a LuaJIT VM.
+  Simple3D adds custom global functions and Node method extensions on top of Urho3D's own Lua bindings.
+</div>
+
+<!-- ─── HOW SCRIPTS WORK ─────────────────────────────────────────── -->
+<h2 id="how-scripts-work">How Scripts Work</h2>
+<p>
+  When <code>entity-&gt;AddScript("Scripts/player.lua")</code> is called in C++, the following happens:
+</p>
+<ol>
+  <li>The file is loaded and compiled by LuaJIT via Urho3D's <code>ResourceCache</code>.</li>
+  <li>A <code>LuaScriptInstance</code> component is attached to the entity's Urho3D Node.</li>
+  <li>The script runs in a Lua <em>function environment</em> (an upvalue table), not a separate Lua state.
+      All scripts in the same scene share one LuaJIT VM. This means global variables are shared —
+      avoid collisions by using <code>local</code> for all non-intentionally-shared data.</li>
+  <li>On the first game update after <code>Start()</code> completes, the script's <code>Start()</code>
+      function is called once.</li>
+  <li>Every frame, <code>Update(dt)</code> is called with <code>dt</code> in seconds.</li>
+  <li>When the entity is destroyed, <code>Stop()</code> is called.</li>
+</ol>
+
+<div class="callout lua">
+  <h4>LuaJIT — Lua 5.1 compatible</h4>
+  <p>
+    Urho3D uses LuaJIT which is compatible with Lua 5.1. Avoid Lua 5.2/5.3/5.4-only features
+    (<code>goto</code>, <code>table.move</code>, integers, <code>string.pack</code>).
+    LuaJIT's JIT compiler makes tight loops very fast — prefer Lua for per-entity logic over
+    calling complex C++ APIs every frame.
+  </p>
+</div>
+
+<!-- ─── ATTACHING SCRIPTS ────────────────────────────────────────── -->
+<h2 id="attach">Attaching Scripts in C++</h2>
+<pre><span class="cm">// One script per entity:</span>
+player-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/player.lua"</span>);
+enemy-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/enemy.lua"</span>);
+coin-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/rotate.lua"</span>);
+
+<span class="cm">// Scripts can also be added from other Lua scripts (advanced):</span>
+<span class="cm">-- self.node:CreateComponent("LuaScriptInstance"):LoadFile("Scripts/extra.lua")</span></pre>
+
+<p>
+  If the file is not found, a <code>[Warning]</code> is logged and the call is a no-op.
+  The entity continues to exist and work normally. This allows development with missing assets.
+</p>
+
+<!-- ─── LIFECYCLE ────────────────────────────────────────────────── -->
+<h2 id="lifecycle">Script Lifecycle Functions</h2>
+<pre><span class="lua-cm">-- ┌───────────────────────────────────────────────────────────────┐
+-- │  Complete script template                                     │
+-- └───────────────────────────────────────────────────────────────┘</span>
+
+<span class="lua-cm">-- Module-level variables: shared across all frames.</span>
+<span class="lua-cm">-- Use 'local' to avoid polluting the global Lua namespace.</span>
+speed     = <span class="lua-num">5</span>          <span class="lua-cm">-- intentionally global (readable by other scripts)</span>
+<span class="lua-kw">local</span> anim = <span class="lua-kw">nil</span>       <span class="lua-cm">-- private to this script</span>
+
+<span class="lua-cm">-- Start(): called once, after the game's Start() finishes.</span>
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node   <span class="lua-cm">-- Simple3D convention: alias for the owning Node</span>
+    anim   = entity:GetAnimationController()
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- Update(dt): called every frame.</span>
+<span class="lua-cm">-- dt = seconds since last frame (same delta as C++ Update).</span>
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-cm">-- game logic here</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- Stop(): called when the entity is removed from the scene.</span>
+<span class="lua-cm">-- Optional. Use for cleanup (e.g., removing spawned children).</span>
+<span class="lua-kw">function</span> <span class="lua-fn">Stop</span>()
+    <span class="lua-cm">-- cleanup</span>
+<span class="lua-kw">end</span></pre>
+
+<table>
+  <tr><th>Function</th><th>When called</th><th>Notes</th></tr>
+  <tr>
+    <td><code>Start()</code></td>
+    <td>Once, on the first frame after the script is loaded</td>
+    <td>Always define. This is where you initialise <code>entity = self.node</code> and cache component references.</td>
+  </tr>
+  <tr>
+    <td><code>Update(dt)</code></td>
+    <td>Every frame if defined</td>
+    <td><code>dt</code> is the frame delta in seconds. If not defined, no overhead.</td>
+  </tr>
+  <tr>
+    <td><code>Stop()</code></td>
+    <td>When entity is destroyed</td>
+    <td>Optional. Rarely needed — Lua GC handles most cleanup automatically.</td>
+  </tr>
+</table>
+
+<!-- ─── GLOBALS ──────────────────────────────────────────────────── -->
+<h2 id="globals">Urho3D Globals Available in Every Script</h2>
+<p>
+  These variables are provided by Urho3D's Lua scripting subsystem and are available globally
+  in every script without any require/import.
+</p>
+<table>
+  <tr><th>Variable</th><th>Urho3D type</th><th>Description</th></tr>
+  <tr>
+    <td><code>self</code></td><td>table</td>
+    <td>The <code>LuaScriptInstance</code> script component table. Contains <code>self.node</code>.</td>
+  </tr>
+  <tr>
+    <td><code>self.node</code></td><td>Node</td>
+    <td>The Urho3D <code>Node</code> that owns this script component. Alias it as <code>entity</code> in <code>Start()</code>.</td>
+  </tr>
+  <tr>
+    <td><code>scene</code></td><td>Scene</td>
+    <td>The current Urho3D scene. Used for physics raycasts, component queries across the scene, and scene-level operations.</td>
+  </tr>
+  <tr>
+    <td><code>cache</code></td><td>ResourceCache</td>
+    <td>Asset cache. Load resources: <code>cache:GetResource("Model", "Models/hero.mdl")</code>.</td>
+  </tr>
+  <tr>
+    <td><code>input</code></td><td>Input</td>
+    <td>Low-level Urho3D input subsystem. Prefer the <code>Input:</code> (capital I) Simple3D helper for game scripts.</td>
+  </tr>
+  <tr>
+    <td><code>audio</code></td><td>Audio</td>
+    <td>Urho3D audio subsystem. For most use-cases, use the <code>PlaySound()</code> and <code>PlayMusic()</code> global functions instead.</td>
+  </tr>
+  <tr>
+    <td><code>time</code></td><td>Time</td>
+    <td>Timer subsystem. <code>time:GetTimeStep()</code> returns the same value as <code>dt</code> in <code>Update(dt)</code>. <code>time:GetElapsedTime()</code> returns seconds since application start.</td>
+  </tr>
+  <tr>
+    <td><code>Input</code></td><td>Input</td>
+    <td>Same as <code>input</code> but capitalised. Simple3D convention uses <code>Input:</code> for the helper methods registered by the binding layer.</td>
+  </tr>
+</table>
+
+<!-- ─── NODE SIMPLE3D EXTENSIONS ────────────────────────────────── -->
+<h2 id="node-simple3d">Simple3D Node Extensions</h2>
+<p>
+  These methods are added to the <code>Node</code> metatable by the Simple3D Lua binding layer.
+  They are available on any <code>Node</code> — use them via <code>entity:MethodName()</code>.
+</p>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>entity:MoveRelative(delta)</code></td>
+    <td>delta: Vector3</td>
+    <td>—</td>
+    <td>Moves the entity by <code>delta</code> in world space. If a <code>RigidBody</code> is present, adjusts velocity for physics-based movement. Otherwise, translates the node directly. Preferred for character controllers.</td>
+  </tr>
+  <tr>
+    <td><code>entity:IsOnGround()</code></td>
+    <td>—</td>
+    <td>bool</td>
+    <td>Fires a downward raycast of 0.7 m from the entity's origin. Returns <code>true</code> if it hits another rigid body (not itself). Use for jump gating.</td>
+  </tr>
+  <tr>
+    <td><code>entity:ApplyImpulse(impulse)</code></td>
+    <td>impulse: Vector3</td>
+    <td>—</td>
+    <td>Calls <code>RigidBody:ApplyImpulse()</code>. Instantly changes velocity (mass-independent). Use for jump, knockback.</td>
+  </tr>
+  <tr>
+    <td><code>entity:ApplyForce(force)</code></td>
+    <td>force: Vector3</td>
+    <td>—</td>
+    <td>Calls <code>RigidBody:ApplyForce()</code>. Accumulates each frame (mass-dependent). Use for thrust, wind.</td>
+  </tr>
+  <tr>
+    <td><code>entity:SetLinearVelocity(v)</code></td>
+    <td>v: Vector3</td>
+    <td>—</td>
+    <td>Directly sets the rigid body's linear velocity. Use for precision control (e.g., set horizontal component without changing vertical).</td>
+  </tr>
+  <tr>
+    <td><code>entity:GetLinearVelocity()</code></td>
+    <td>—</td>
+    <td>Vector3</td>
+    <td>Returns the current linear velocity in m/s.</td>
+  </tr>
+</table>
+
+<!-- ─── NODE URHO3D ──────────────────────────────────────────────── -->
+<h2 id="node-urho3d">Standard Urho3D Node Methods</h2>
+<p>
+  All Urho3D Node methods are available via the <code>entity:</code> alias.
+  Here are the most commonly used:
+</p>
+<pre><span class="lua-cm">── Position, rotation, scale ────────────────────────────────────</span>
+entity:GetPosition()                    <span class="lua-cm">-- → Vector3 world-space</span>
+entity:SetPosition(Vector3(<span class="lua-num">0</span>, <span class="lua-num">2</span>, <span class="lua-num">0</span>))
+entity:GetWorldPosition()               <span class="lua-cm">-- world-space (vs local for children)</span>
+entity:Translate(Vector3(<span class="lua-num">1</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>))   <span class="lua-cm">-- built-in world-space translate</span>
+
+entity:GetRotation()                    <span class="lua-cm">-- → Quaternion</span>
+entity:SetRotation(Quaternion(<span class="lua-num">45</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>))
+entity:GetDirection()                   <span class="lua-cm">-- → Vector3 forward direction</span>
+
+entity:GetScale()                       <span class="lua-cm">-- → Vector3</span>
+entity:SetScale(Vector3(<span class="lua-num">1</span>, <span class="lua-num">2</span>, <span class="lua-num">1</span>))
+
+<span class="lua-cm">── Component access ─────────────────────────────────────────────</span>
+entity:GetComponent(<span class="lua-str">"RigidBody"</span>)       <span class="lua-cm">-- → RigidBody or nil</span>
+entity:GetComponent(<span class="lua-str">"StaticModel"</span>)    <span class="lua-cm">-- → StaticModel or nil</span>
+entity:GetAnimationController()         <span class="lua-cm">-- → AnimationController or nil</span>
+
+<span class="lua-cm">── Children ─────────────────────────────────────────────────────</span>
+entity:GetNumChildren()                 <span class="lua-cm">-- → int</span>
+entity:GetChild(<span class="lua-str">"WeaponBone"</span>)         <span class="lua-cm">-- → Node by name</span>
+entity:GetChild(<span class="lua-num">0</span>)                     <span class="lua-cm">-- → Node by index</span>
+entity:GetParent()                      <span class="lua-cm">-- → Node or nil</span>
+
+<span class="lua-cm">── Identity ─────────────────────────────────────────────────────</span>
+entity:GetName()                        <span class="lua-cm">-- → string</span>
+entity:GetID()                          <span class="lua-cm">-- → int unique ID</span></pre>
+
+<!-- ─── ANIMATION ────────────────────────────────────────────────── -->
+<h2 id="node-animation">AnimationController</h2>
+<pre><span class="lua-kw">local</span> anim = entity:GetAnimationController()
+
+<span class="lua-cm">-- Play with all options</span>
+anim:Play(<span class="lua-str">"run"</span>)                           <span class="lua-cm">-- defaults: layer=0, loop=true, fade=0.2s</span>
+anim:Play(<span class="lua-str">"run"</span>, <span class="lua-num">0</span>, <span class="lua-kw">true</span>, <span class="lua-num">0.2</span>)           <span class="lua-cm">-- name, layer, looped, fadeTime</span>
+anim:Play(<span class="lua-str">"jump"</span>, <span class="lua-num">0</span>, <span class="lua-kw">false</span>, <span class="lua-num">0.1</span>)         <span class="lua-cm">-- one-shot: loop=false</span>
+anim:Play(<span class="lua-str">"shoot"</span>, <span class="lua-num">1</span>, <span class="lua-kw">false</span>, <span class="lua-num">0.05</span>)       <span class="lua-cm">-- upper-body layer: layer=1</span>
+
+<span class="lua-cm">-- Stop</span>
+anim:Stop(<span class="lua-str">"run"</span>)                           <span class="lua-cm">-- stop specific clip</span>
+anim:Stop(<span class="lua-str">"run"</span>, <span class="lua-num">0.3</span>)                    <span class="lua-cm">-- stop with 0.3s fade</span>
+anim:StopAll()                             <span class="lua-cm">-- stop all clips</span>
+
+<span class="lua-cm">-- Query</span>
+<span class="lua-kw">local</span> playing = anim:IsPlaying(<span class="lua-str">"run"</span>)    <span class="lua-cm">-- → bool</span>
+<span class="lua-kw">local</span> t       = anim:GetTime(<span class="lua-str">"run"</span>)      <span class="lua-cm">-- → float seconds</span>
+<span class="lua-kw">local</span> weight  = anim:GetWeight(<span class="lua-str">"aim"</span>)   <span class="lua-cm">-- → float 0–1</span>
+
+<span class="lua-cm">-- Control</span>
+anim:SetWeight(<span class="lua-str">"aim"</span>, <span class="lua-num">0.7</span>)             <span class="lua-cm">-- blend weight 0–1</span>
+anim:SetSpeed(<span class="lua-str">"run"</span>, <span class="lua-num">1.5</span>)              <span class="lua-cm">-- playback speed multiplier</span>
+anim:SetTime(<span class="lua-str">"run"</span>, <span class="lua-num">0.5</span>)               <span class="lua-cm">-- seek to position in seconds</span></pre>
+
+<div class="callout info">
+  <h4>Animation layers</h4>
+  <p>
+    Layers allow separate body-part animation blending. Convention: layer 0 = lower body / full body;
+    layer 1 = upper body (aiming, shooting). Calling <code>Play("run", 0, …)</code> while
+    <code>Play("shoot", 1, …)</code> is active blends both simultaneously.
+  </p>
+</div>
+
+<!-- ─── PHYSICS FROM LUA ─────────────────────────────────────────── -->
+<h2 id="node-physics">Physics from Lua</h2>
+<p>
+  Simple3D extensions cover the most common physics operations. For advanced cases, access
+  the <code>RigidBody</code> component directly:
+</p>
+<pre><span class="lua-kw">local</span> rb = entity:GetComponent(<span class="lua-str">"RigidBody"</span>)
+<span class="lua-kw">if</span> rb <span class="lua-kw">then</span>
+    rb:SetLinearVelocity(Vector3(<span class="lua-num">5</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>))
+    rb:SetAngularVelocity(Vector3(<span class="lua-num">0</span>, <span class="lua-num">1</span>, <span class="lua-num">0</span>))  <span class="lua-cm">-- spin around Y axis</span>
+    rb:SetGravityOverride(Vector3(<span class="lua-num">0</span>, -<span class="lua-num">20</span>, <span class="lua-num">0</span>)) <span class="lua-cm">-- heavier gravity for this body</span>
+    rb:SetMass(<span class="lua-num">70</span>)
+    <span class="lua-kw">local</span> v = rb:GetLinearVelocity()          <span class="lua-cm">-- → Vector3</span>
+    rb:ApplyImpulse(Vector3(<span class="lua-num">0</span>, <span class="lua-num">8</span>, <span class="lua-num">0</span>))
+    rb:SetEnabled(<span class="lua-kw">false</span>)                     <span class="lua-cm">-- disable physics temporarily</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- 2D physics</span>
+<span class="lua-kw">local</span> rb2 = entity:GetComponent(<span class="lua-str">"RigidBody2D"</span>)
+<span class="lua-kw">if</span> rb2 <span class="lua-kw">then</span>
+    rb2:SetLinearVelocity(Vector2(<span class="lua-num">5</span>, <span class="lua-num">0</span>))
+    rb2:ApplyLinearImpulseToCenter(Vector2(<span class="lua-num">0</span>, <span class="lua-num">8</span>), <span class="lua-kw">true</span>)
+    <span class="lua-kw">local</span> v2 = rb2:GetLinearVelocity()       <span class="lua-cm">-- → Vector2</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── INPUT ────────────────────────────────────────────────────── -->
+<h2 id="input">Input</h2>
+<p>
+  Use the <code>Input:</code> (capitalised) global for the Simple3D-style helper API.
+  The lowercase <code>input</code> is the raw Urho3D input subsystem.
+</p>
+<pre><span class="lua-cm">── Keyboard ─────────────────────────────────────────────────────</span>
+Input:IsKeyDown(<span class="lua-str">"W"</span>)          <span class="lua-cm">-- true while key held (by string shortcut)</span>
+Input:IsKeyDown(KEY_W)         <span class="lua-cm">-- same, using Urho3D key code constant</span>
+Input:IsKeyDown(KEY_SPACE)
+
+Input:IsKeyPress(<span class="lua-str">"Space"</span>)     <span class="lua-cm">-- true only on first frame of key press</span>
+Input:IsKeyPress(KEY_RETURN)
+
+<span class="lua-cm">── Mouse ────────────────────────────────────────────────────────</span>
+Input:GetMousePosition()       <span class="lua-cm">-- → IntVector2 (screen pixels; 0,0 = top-left)</span>
+Input:GetMouseButtonDown(MOUSEB_LEFT)    <span class="lua-cm">-- → bool</span>
+Input:GetMouseButtonDown(MOUSEB_RIGHT)
+Input:GetMouseButtonPress(MOUSEB_LEFT)   <span class="lua-cm">-- first frame only</span>
+Input:GetMouseMoveX()         <span class="lua-cm">-- → int pixel delta X this frame</span>
+Input:GetMouseMoveY()         <span class="lua-cm">-- → int pixel delta Y this frame</span></pre>
+
+<!-- ─── KEY STRINGS ───────────────────────────────────────────────── -->
+<h2 id="key-strings">Key String Shortcuts</h2>
+<p>
+  Simple3D registers common string shortcuts so you can write <code>Input:IsKeyDown("W")</code>
+  instead of <code>Input:IsKeyDown(KEY_W)</code>. Both forms work.
+</p>
+<table>
+  <tr><th>String</th><th>Key</th><th>String</th><th>Key</th></tr>
+  <tr><td><code>"W"</code></td><td>W key</td><td><code>"Space"</code></td><td>Space bar</td></tr>
+  <tr><td><code>"A"</code></td><td>A key</td><td><code>"Escape"</code></td><td>Escape</td></tr>
+  <tr><td><code>"S"</code></td><td>S key</td><td><code>"Return"</code></td><td>Enter</td></tr>
+  <tr><td><code>"D"</code></td><td>D key</td><td><code>"Tab"</code></td><td>Tab</td></tr>
+  <tr><td><code>"Q"</code></td><td>Q key</td><td><code>"Backspace"</code></td><td>Backspace</td></tr>
+  <tr><td><code>"E"</code></td><td>E key</td><td><code>"Shift"</code></td><td>Left Shift</td></tr>
+  <tr><td><code>"R"</code></td><td>R key</td><td><code>"Ctrl"</code></td><td>Left Ctrl</td></tr>
+  <tr><td><code>"F"</code></td><td>F key</td><td><code>"Alt"</code></td><td>Left Alt</td></tr>
+  <tr><td><code>"Up"</code></td><td>Up arrow</td><td><code>"F1"</code> … <code>"F12"</code></td><td>Function keys</td></tr>
+  <tr><td><code>"Down"</code></td><td>Down arrow</td><td><code>"0"</code> … <code>"9"</code></td><td>Number row</td></tr>
+  <tr><td><code>"Left"</code></td><td>Left arrow</td><td><code>"KP0"</code> … <code>"KP9"</code></td><td>Numpad digits</td></tr>
+  <tr><td><code>"Right"</code></td><td>Right arrow</td><td><code>"KPEnter"</code></td><td>Numpad Enter</td></tr>
+</table>
+
+<!-- ─── AUDIO ─────────────────────────────────────────────────────── -->
+<h2 id="audio">Audio — Global Functions</h2>
+<div class="callout lua">
+  <h4>Status</h4>
+  <p>
+    These functions are part of the Simple3D custom Lua binding layer (Task #3).
+    They are available when the binding layer is fully initialised, which is the case
+    in all standard simple-3d builds.
+  </p>
+</div>
+<table>
+  <tr><th>Function</th><th>Parameters</th><th>Description</th></tr>
+  <tr>
+    <td><code>PlaySound(path)</code></td>
+    <td>path: string</td>
+    <td>Play a one-shot SFX at full volume. Path relative to Data/.</td>
+  </tr>
+  <tr>
+    <td><code>PlaySound(path, volume)</code></td>
+    <td>path: string, volume: float 0–1</td>
+    <td>Play a one-shot SFX at the specified volume.</td>
+  </tr>
+  <tr>
+    <td><code>PlayMusic(path)</code></td>
+    <td>path: string</td>
+    <td>Stream background music, looped. Replaces any currently playing music.</td>
+  </tr>
+  <tr>
+    <td><code>PlayMusic(path, loop)</code></td>
+    <td>path: string, loop: bool</td>
+    <td>Stream background music. <code>loop = false</code> plays once.</td>
+  </tr>
+  <tr>
+    <td><code>StopMusic()</code></td>
+    <td>—</td>
+    <td>Stop the currently playing music.</td>
+  </tr>
+</table>
+
+<!-- ─── SCENE QUERIES ────────────────────────────────────────────── -->
+<h2 id="scene">Scene Queries — Global Functions</h2>
+<table>
+  <tr><th>Function</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>FindEntity(name)</code></td>
+    <td>Node (or nil)</td>
+    <td>Find a scene entity by name. Returns the Urho3D Node; use its methods directly. Returns <code>nil</code> if not found.</td>
+  </tr>
+</table>
+<pre><span class="lua-kw">local</span> playerNode = FindEntity(<span class="lua-str">"Player"</span>)
+<span class="lua-kw">if</span> playerNode <span class="lua-kw">then</span>
+    <span class="lua-kw">local</span> pos = playerNode:GetPosition()
+    <span class="lua-kw">local</span> dist = (entity:GetPosition() - pos):Length()
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── VECTOR3 ───────────────────────────────────────────────────── -->
+<h2 id="vector3">Vector3</h2>
+<pre><span class="lua-cm">-- Construction</span>
+<span class="lua-kw">local</span> v = Vector3(<span class="lua-num">1</span>, <span class="lua-num">2</span>, <span class="lua-num">3</span>)
+<span class="lua-kw">local</span> zero = Vector3(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+Vector3.ZERO   <span class="lua-cm">-- constant: (0, 0, 0)</span>
+Vector3.ONE    <span class="lua-cm">-- constant: (1, 1, 1)</span>
+Vector3.UP     <span class="lua-cm">-- constant: (0, 1, 0)</span>
+Vector3.FORWARD <span class="lua-cm">-- constant: (0, 0, 1)</span>
+Vector3.RIGHT  <span class="lua-cm">-- constant: (1, 0, 0)</span>
+
+<span class="lua-cm">-- Fields</span>
+v.x, v.y, v.z
+
+<span class="lua-cm">-- Arithmetic operators (returns new Vector3)</span>
+v + other         <span class="lua-cm">-- add</span>
+v - other         <span class="lua-cm">-- subtract</span>
+v * scalar        <span class="lua-cm">-- scale: Vector3(2,2,2) * 3 = Vector3(6,6,6)</span>
+v / scalar        <span class="lua-cm">-- divide</span>
+-v                <span class="lua-cm">-- negate</span>
+
+<span class="lua-cm">-- Methods</span>
+v:Length()         <span class="lua-cm">-- → float magnitude</span>
+v:LengthSquared()  <span class="lua-cm">-- → float (cheaper than Length, avoids sqrt)</span>
+v:Normalized()     <span class="lua-cm">-- → unit Vector3 (length = 1). Returns ZERO if length is 0.</span>
+v:Dot(other)       <span class="lua-cm">-- → float dot product</span>
+v:Cross(other)     <span class="lua-cm">-- → Vector3 cross product</span>
+v:Distance(other)  <span class="lua-cm">-- → float distance between two points</span>
+v:Lerp(other, t)   <span class="lua-cm">-- → interpolated Vector3; t in 0..1</span>
+v:Abs()            <span class="lua-cm">-- → component-wise absolute value</span></pre>
+
+<!-- ─── VECTOR2 ───────────────────────────────────────────────────── -->
+<h2 id="vector2">Vector2</h2>
+<pre><span class="lua-kw">local</span> v2 = Vector2(<span class="lua-num">3</span>, <span class="lua-num">4</span>)
+v2.x, v2.y
+v2:Length()
+v2:Normalized()
+v2:Dot(other)
+v2 + other
+v2 * scalar</pre>
+
+<!-- ─── COLOR ────────────────────────────────────────────────────── -->
+<h2 id="color">Color</h2>
+<pre><span class="lua-kw">local</span> c = Color(<span class="lua-num">1</span>, <span class="lua-num">0.5</span>, <span class="lua-num">0</span>, <span class="lua-num">1</span>)   <span class="lua-cm">-- r, g, b, a  (each 0.0–1.0)</span>
+c.r, c.g, c.b, c.a
+
+<span class="lua-cm">-- Constants</span>
+Color.WHITE         <span class="lua-cm">-- (1, 1, 1, 1)</span>
+Color.BLACK         <span class="lua-cm">-- (0, 0, 0, 1)</span>
+Color.RED           <span class="lua-cm">-- (1, 0, 0, 1)</span>
+Color.GREEN         <span class="lua-cm">-- (0, 1, 0, 1)</span>
+Color.BLUE          <span class="lua-cm">-- (0, 0, 1, 1)</span>
+Color.YELLOW        <span class="lua-cm">-- (1, 1, 0, 1)</span>
+Color.CYAN          <span class="lua-cm">-- (0, 1, 1, 1)</span>
+Color.MAGENTA       <span class="lua-cm">-- (1, 0, 1, 1)</span>
+Color.TRANSPARENT   <span class="lua-cm">-- (0, 0, 0, 0)</span></pre>
+
+<!-- ─── QUATERNION ───────────────────────────────────────────────── -->
+<h2 id="quaternion">Quaternion</h2>
+<pre><span class="lua-cm">-- Construction (angles in degrees)</span>
+<span class="lua-kw">local</span> q = Quaternion(<span class="lua-num">45</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)      <span class="lua-cm">-- yaw=45° rotation around Y axis</span>
+<span class="lua-kw">local</span> q2 = Quaternion(<span class="lua-num">0</span>, <span class="lua-num">30</span>, <span class="lua-num">0</span>)    <span class="lua-cm">-- pitch=30° rotation around X axis</span>
+Quaternion.IDENTITY                    <span class="lua-cm">-- no rotation</span>
+
+<span class="lua-cm">-- Composition</span>
+<span class="lua-kw">local</span> combined = q * q2               <span class="lua-cm">-- apply q first, then q2</span>
+
+<span class="lua-cm">-- Methods</span>
+q:Normalized()
+q:Inverse()
+q:ToEulerAngles()   <span class="lua-cm">-- → Vector3 (yaw, pitch, roll) in degrees</span>
+q:Slerp(other, t)   <span class="lua-cm">-- spherical interpolation</span></pre>
+
+<!-- ─── EXAMPLES ─────────────────────────────────────────────────── -->
+<h2 id="ex-platformer">Example: 3D Platformer Controller</h2>
+<pre><span class="lua-cm">-- Scripts/player.lua</span>
+<span class="lua-cm">-- 3D platformer: WASD movement, Space to jump, animations.</span>
+
+speed     = <span class="lua-num">6</span>     <span class="lua-cm">-- m/s horizontal movement speed</span>
+jumpForce = <span class="lua-num">8</span>     <span class="lua-cm">-- impulse magnitude for jump</span>
+<span class="lua-kw">local</span> anim
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node
+    anim   = entity:GetAnimationController()
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-cm">-- ── Horizontal movement ───────────────────────────────</span>
+    <span class="lua-kw">local</span> move = Vector3(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+    <span class="lua-kw">if</span> Input:IsKeyDown(<span class="lua-str">"W"</span>) <span class="lua-kw">then</span> move.z = move.z + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:IsKeyDown(<span class="lua-str">"S"</span>) <span class="lua-kw">then</span> move.z = move.z - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:IsKeyDown(<span class="lua-str">"A"</span>) <span class="lua-kw">then</span> move.x = move.x - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:IsKeyDown(<span class="lua-str">"D"</span>) <span class="lua-kw">then</span> move.x = move.x + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+
+    <span class="lua-kw">local</span> moving = move:Length() &gt; <span class="lua-num">0</span>
+    <span class="lua-kw">if</span> moving <span class="lua-kw">then</span>
+        entity:MoveRelative(move:Normalized() * speed * dt)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- ── Animation ─────────────────────────────────────────</span>
+    <span class="lua-kw">if</span> anim <span class="lua-kw">then</span>
+        anim:Play(moving <span class="lua-kw">and</span> <span class="lua-str">"run"</span> <span class="lua-kw">or</span> <span class="lua-str">"idle"</span>, <span class="lua-num">0</span>, <span class="lua-kw">true</span>, <span class="lua-num">0.2</span>)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- ── Jump ──────────────────────────────────────────────</span>
+    <span class="lua-kw">if</span> Input:IsKeyPress(<span class="lua-str">"Space"</span>) <span class="lua-kw">and</span> entity:IsOnGround() <span class="lua-kw">then</span>
+        entity:ApplyImpulse(Vector3(<span class="lua-num">0</span>, jumpForce, <span class="lua-num">0</span>))
+        <span class="lua-kw">if</span> anim <span class="lua-kw">then</span> anim:Play(<span class="lua-str">"jump"</span>, <span class="lua-num">0</span>, <span class="lua-kw">false</span>, <span class="lua-num">0.1</span>) <span class="lua-kw">end</span>
+        PlaySound(<span class="lua-str">"Sounds/jump.wav"</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<h2 id="ex-enemy">Example: Simple Enemy AI</h2>
+<pre><span class="lua-cm">-- Scripts/enemy.lua</span>
+<span class="lua-cm">-- Chase the player when close enough, play attack animation when in range.</span>
+
+chaseRange  = <span class="lua-num">15</span>    <span class="lua-cm">-- metres: start chasing when player within this range</span>
+attackRange = <span class="lua-num">1.5</span>   <span class="lua-cm">-- metres: attack when this close</span>
+speed       = <span class="lua-num">3</span>     <span class="lua-cm">-- m/s movement speed</span>
+
+<span class="lua-kw">local</span> target = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> anim   = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> state  = <span class="lua-str">"idle"</span>  <span class="lua-cm">-- "idle", "chase", "attack"</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node
+    target = FindEntity(<span class="lua-str">"Player"</span>)
+    anim   = entity:GetAnimationController()
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> <span class="lua-kw">not</span> target <span class="lua-kw">then</span> <span class="lua-kw">return</span> <span class="lua-kw">end</span>
+
+    <span class="lua-kw">local</span> dir  = target:GetPosition() - entity:GetPosition()
+    dir.y = <span class="lua-num">0</span>   <span class="lua-cm">-- horizontal distance only</span>
+    <span class="lua-kw">local</span> dist = dir:Length()
+
+    <span class="lua-cm">-- ── State machine ─────────────────────────────────────</span>
+    <span class="lua-kw">if</span> dist &lt;= attackRange <span class="lua-kw">then</span>
+        state = <span class="lua-str">"attack"</span>
+    <span class="lua-kw">elseif</span> dist &lt;= chaseRange <span class="lua-kw">then</span>
+        state = <span class="lua-str">"chase"</span>
+    <span class="lua-kw">else</span>
+        state = <span class="lua-str">"idle"</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- ── Behaviour ─────────────────────────────────────────</span>
+    <span class="lua-kw">if</span> state == <span class="lua-str">"chase"</span> <span class="lua-kw">then</span>
+        entity:MoveRelative(dir:Normalized() * speed * dt)
+        <span class="lua-kw">if</span> anim <span class="lua-kw">then</span> anim:Play(<span class="lua-str">"walk"</span>, <span class="lua-num">0</span>, <span class="lua-kw">true</span>, <span class="lua-num">0.2</span>) <span class="lua-kw">end</span>
+    <span class="lua-kw">elseif</span> state == <span class="lua-str">"attack"</span> <span class="lua-kw">then</span>
+        <span class="lua-kw">if</span> anim <span class="lua-kw">then</span> anim:Play(<span class="lua-str">"attack"</span>, <span class="lua-num">0</span>, <span class="lua-kw">true</span>, <span class="lua-num">0.05</span>) <span class="lua-kw">end</span>
+    <span class="lua-kw">else</span>
+        <span class="lua-kw">if</span> anim <span class="lua-kw">then</span> anim:Play(<span class="lua-str">"idle"</span>, <span class="lua-num">0</span>, <span class="lua-kw">true</span>, <span class="lua-num">0.3</span>) <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<h2 id="ex-collectible">Example: Collectible (Rotating, Destroy on Contact)</h2>
+<pre><span class="lua-cm">-- Scripts/collectible.lua</span>
+<span class="lua-cm">-- Spins in place. Calls C++ trigger callback to destroy on player contact.</span>
+<span class="lua-cm">-- The C++ code must set up the TriggerSphere and SetOnTriggerEnter.</span>
+
+<span class="lua-kw">local</span> angle = <span class="lua-num">0</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    angle = angle + dt * <span class="lua-num">120</span>   <span class="lua-cm">-- 120 degrees per second</span>
+    entity:SetRotation(Quaternion(angle, <span class="lua-num">0</span>, <span class="lua-num">0</span>))
+
+    <span class="lua-cm">-- Bob up and down</span>
+    <span class="lua-kw">local</span> pos = entity:GetPosition()
+    pos.y = <span class="lua-num">1.0</span> + math.sin(angle * <span class="lua-num">0.05</span>) * <span class="lua-num">0.2</span>
+    entity:SetPosition(pos)
+<span class="lua-kw">end</span></pre>
+
+<h2 id="ex-tween">Example: Simple Tween / Timer</h2>
+<pre><span class="lua-cm">-- Scripts/tween.lua</span>
+<span class="lua-cm">-- Move an entity from startPos to endPos over 'duration' seconds.</span>
+
+duration  = <span class="lua-num">2.0</span>
+<span class="lua-kw">local</span> t         = <span class="lua-num">0</span>
+<span class="lua-kw">local</span> startPos  = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> endPos    = <span class="lua-kw">nil</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity   = self.node
+    startPos = entity:GetPosition()
+    endPos   = startPos + Vector3(<span class="lua-num">0</span>, <span class="lua-num">5</span>, <span class="lua-num">0</span>)  <span class="lua-cm">-- move 5 m upward</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> t &gt;= duration <span class="lua-kw">then</span> <span class="lua-kw">return</span> <span class="lua-kw">end</span>
+
+    t = t + dt
+    <span class="lua-kw">local</span> alpha = math.min(t / duration, <span class="lua-num">1.0</span>)
+
+    <span class="lua-cm">-- Smooth-step easing: s = 3α² - 2α³</span>
+    <span class="lua-kw">local</span> s = alpha * alpha * (<span class="lua-num">3</span> - <span class="lua-num">2</span> * alpha)
+    entity:SetPosition(startPos:Lerp(endPos, s))
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── INTER-SCRIPT ──────────────────────────────────────────────── -->
+<h2 id="inter-script">Script Communication</h2>
+<p>
+  Because all scripts share one Lua VM, you can use globals, but this couples scripts tightly.
+  A cleaner pattern is to use <code>FindEntity()</code> to locate entities and read their state:
+</p>
+<pre><span class="lua-cm">-- In enemy.lua — find player and read health:</span>
+<span class="lua-kw">local</span> playerNode = FindEntity(<span class="lua-str">"Player"</span>)
+
+<span class="lua-cm">-- Player script must expose its health as a node uservalue or via a global.</span>
+<span class="lua-cm">-- Simplest: use a shared global table indexed by node ID:</span>
+<span class="lua-cm">-- EntityData = EntityData or {}  (defined in player.lua)</span>
+<span class="lua-cm">-- EntityData[self.node:GetID()] = { health = 100 }</span>
+
+<span class="lua-cm">-- Enemy reads it:</span>
+<span class="lua-kw">local</span> playerHealth = EntityData[playerNode:GetID()].health</pre>
+
+<!-- ─── DEBUGGING ─────────────────────────────────────────────────── -->
+<h2 id="debug">Debugging Lua Scripts</h2>
+<p>Use <code>print()</code> — output goes to stdout (same as the C++ log):</p>
+<pre>print(<span class="lua-str">"position:"</span>, entity:GetPosition().x, entity:GetPosition().y)
+print(<span class="lua-str">"velocity:"</span>, entity:GetLinearVelocity():Length())</pre>
+
+<p>Validate syntax before running (saves a round-trip launch):</p>
+<pre>luac -p Scripts/player.lua   <span class="sh-cm"># or: luajit -b player.lua /dev/null</span></pre>
+
+<p>Common Lua runtime errors:</p>
+<table>
+  <tr><th>Error message</th><th>Likely cause</th><th>Fix</th></tr>
+  <tr>
+    <td><code>attempt to index a nil value (global 'entity')</code></td>
+    <td><code>entity</code> not assigned in <code>Start()</code>.</td>
+    <td>Add <code>entity = self.node</code> as the first line of <code>Start()</code>.</td>
+  </tr>
+  <tr>
+    <td><code>attempt to call a nil value (method 'Play')</code></td>
+    <td><code>GetAnimationController()</code> returned nil.</td>
+    <td>Call <code>entity-&gt;AddAnimationController()</code> in C++ before the script runs.</td>
+  </tr>
+  <tr>
+    <td><code>attempt to perform arithmetic on a nil value</code></td>
+    <td>Math operation on uninitialized variable.</td>
+    <td>Check that all local variables are initialized in <code>Start()</code>.</td>
+  </tr>
+  <tr>
+    <td><code>bad argument #1 to 'Play' (string expected, got nil)</code></td>
+    <td>Animation name variable is nil.</td>
+    <td>Check the variable name passed to <code>anim:Play()</code>.</td>
+  </tr>
+</table>
+
+<!-- ─── PERFORMANCE ───────────────────────────────────────────────── -->
+<h2 id="performance">Performance Tips</h2>
+<ul>
+  <li>
+    <strong>Cache component references.</strong> Calling <code>entity:GetComponent("RigidBody")</code>
+    every frame is slower than caching it in <code>Start()</code>:
+    <code>local rb = entity:GetComponent("RigidBody")</code>.
+  </li>
+  <li>
+    <strong>Cache FindEntity results.</strong> <code>FindEntity()</code> iterates the scene registry.
+    Cache the result in <code>Start()</code>, not in <code>Update()</code>.
+  </li>
+  <li>
+    <strong>Avoid string concatenation in Update.</strong> <code>"Pos: " .. pos.x</code>
+    allocates a new string object every frame. For HUD text that updates frequently,
+    cache the format or update at a lower rate.
+  </li>
+  <li>
+    <strong>Use LengthSquared() for distance comparisons.</strong>
+    <code>dir:LengthSquared() &lt; 4</code> is faster than <code>dir:Length() &lt; 2</code>
+    (avoids a square root).
+  </li>
+  <li>
+    <strong>LuaJIT JIT-compiles hot paths.</strong> Tight Update loops with simple math are
+    compiled to native code automatically — no manual optimization needed for typical game logic.
+  </li>
+</ul>
+
+<!-- ─── PITFALLS ───────────────────────────────────────────────────── -->
+<h2 id="pitfalls">Common Pitfalls</h2>
+<table>
+  <tr><th>Pitfall</th><th>Explanation</th></tr>
+  <tr>
+    <td>Forgetting <code>local</code></td>
+    <td>Lua variables without <code>local</code> are global. If two scripts use a global named <code>speed</code>, they overwrite each other. Always use <code>local</code> for private variables.</td>
+  </tr>
+  <tr>
+    <td>Using <code>entity</code> before <code>Start()</code></td>
+    <td>Module-level code (outside any function) runs at load time, before <code>Start()</code>. <code>self.node</code> is not yet set at load time. Only access it inside <code>Start()</code> or later.</td>
+  </tr>
+  <tr>
+    <td>Calling <code>FindEntity</code> every frame</td>
+    <td>FindEntity walks the entity registry. Call it once in <code>Start()</code> and cache the result.</td>
+  </tr>
+  <tr>
+    <td>Destroying entities from Lua</td>
+    <td>Do not destroy entities directly from Lua scripts — call <code>DestroyEntity()</code> only from C++. Instead, set a flag in Lua and have C++ check it in <code>Update()</code>.</td>
+  </tr>
+  <tr>
+    <td>Vector3 mutation</td>
+    <td>In Urho3D Lua, Vector3 is a userdata, not a Lua table. You cannot set <code>v.x = 5</code> directly if <code>v</code> is returned by a method — cache it as a local first: <code>local pos = entity:GetPosition(); pos.x = 5; entity:SetPosition(pos)</code>.</td>
+  </tr>
+</table>
+
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d — part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

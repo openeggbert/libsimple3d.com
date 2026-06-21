@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Architecture — simple-3d</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="architecture.html" class="active">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Architecture</h3>
+  <ul>
+    <li><a href="#layers">Layer overview</a></li>
+    <li><a href="#rules">Design rules</a></li>
+    <li><a href="#pimpl">PIMPL isolation</a></li>
+    <li><a href="#game-bootstrap">Game bootstrap</a></li>
+    <li><a href="#entity-model">Entity model</a></li>
+    <li><a href="#entity-registry">Entity registry</a></li>
+    <li><a href="#physics">Physics integration</a></li>
+    <li><a href="#lua">Lua scripting</a></li>
+    <li><a href="#resource-loading">Resource loading</a></li>
+    <li><a href="#threading">Threading model</a></li>
+    <li><a href="#backends">Backend switching</a></li>
+    <li><a href="#component-map">Component mapping</a></li>
+    <li><a href="#layout">File layout</a></li>
+    <li><a href="#internal-headers">Internal headers</a></li>
+  </ul>
+</aside>
+
+<main class="content">
+<h1>Architecture</h1>
+<p>
+  simple-3d is a strict layered wrapper. Every design decision flows from a single rule:
+  <em>engine internals must never appear in the public API surface.</em>
+</p>
+
+<!-- ─── LAYERS ─────────────────────────────────────────────────── -->
+<h2 id="layers">Layer Overview</h2>
+<div class="arch-diagram">┌─────────────────────────────────────────────────────────────┐
+│  Game code                                                  │
+│  C++ subclass of Simple3D::Game  +  .lua scripts            │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         │  Simple3D public API
+                         │  include/Simple3D/*.h
+                         │  (no Urho3D types; only math aliases)
+                         │
+┌────────────────────────▼────────────────────────────────────┐
+│  simple-3d library                                          │
+│  • Simple3D::Game         — application bootstrap            │
+│  • Simple3D::Entity       — scene object (PIMPL)            │
+│  • Simple3D::Camera       — viewport (PIMPL)                │
+│  • Simple3D::NetworkManager — ENet client/server (PIMPL)    │
+│  • Simple3D::Label        — UI text (PIMPL)                 │
+│  • Simple3D::Vector3/Color/Quaternion/… — math aliases      │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         │  internal calls only
+                         │  src/Simple3D/Internal/
+                         │
+              ┌──────────▼──────────────┐
+              │  Urho3D fork (U3D or    │
+              │  NOVA3D)                │
+              │                         │
+              │  • Scene graph          │
+              │  • Bullet 3D physics    │
+              │  • Box2D 2D physics     │
+              │  • Recast/Detour nav    │
+              │  • ENet networking      │
+              │  • LuaJIT scripting     │
+              │  • bgfx / GLES renderer │
+              │  • Audio streaming      │
+              └──────────┬──────────────┘
+                         │
+                         │  (NOVA3D backend only)
+              ┌──────────▼──────────────┐
+              │  XNA C++ runtime        │
+              │  (Robert Vokac's fork)  │
+              │  rendering / audio /    │
+              │  input abstraction      │
+              └──────────┬──────────────┘
+                         │
+              ┌──────────▼──────────────┐
+              │  GPU / Audio backends   │
+              │  Vulkan / OpenGL ES /   │
+              │  bgfx / OpenAL          │
+              └──────────┬──────────────┘
+                         │
+              ┌──────────▼──────────────┐
+              │  SDL3 / OS              │
+              │  windowing, events,     │
+              │  filesystem abstraction │
+              └─────────────────────────┘</div>
+
+<!-- ─── DESIGN RULES ───────────────────────────────────────────── -->
+<h2 id="rules">Design Rules</h2>
+
+<h3>Rule 1 — Public headers contain no Urho3D types</h3>
+<p>
+  Files under <code>include/Simple3D/</code> must never <code>#include</code> any Urho3D engine
+  class header. This is enforced by a header-only compile test in the CMake build that compiles
+  each public header <em>without</em> Urho3D on the include path.
+</p>
+<p>
+  The only exception is <code>Core/Types.h</code>, which imports Urho3D math types as
+  <code>Simple3D::</code> aliases. These types are ABI-identical — they compile to the same
+  struct layout with the same vtable (none) and the same sizeof — so no conversion overhead
+  occurs when passing them across the API boundary.
+</p>
+
+<h3>Rule 2 — Engine types are hidden via PIMPL</h3>
+<p>
+  Every class with a backing Urho3D object declares <code>struct Impl;</code> in the public
+  header and stores it via <code>std::unique_ptr&lt;Impl&gt;</code>. The <code>Impl</code>
+  struct is defined only in the corresponding <code>.cpp</code> file, which is free to include
+  any Urho3D header.
+</p>
+
+<h3>Rule 3 — Internal headers live in src/</h3>
+<p>
+  Bridge headers in <code>src/Simple3D/Internal/</code> allow different <code>.cpp</code> files
+  to share internal conversions (e.g., <code>GetNode(Entity*)</code>) without exposing them to
+  game code. These files are <em>never</em> installed and <em>never</em> included from
+  <code>include/</code>.
+</p>
+
+<h3>Rule 4 — Game subclass = game entry point</h3>
+<p>
+  Users subclass <code>Simple3D::Game</code> and override three methods.
+  <code>CreateGame&lt;T&gt;()</code> handles all engine initialisation before calling
+  <code>Start()</code>. Game code never touches <code>Urho3D::Context</code> or
+  <code>Urho3D::Application</code>.
+</p>
+
+<!-- ─── PIMPL ───────────────────────────────────────────────────── -->
+<h2 id="pimpl">PIMPL Isolation — Detailed Example</h2>
+<p>
+  Here is the full pattern as used for <code>Entity</code>:
+</p>
+<pre><span class="cm">// ── include/Simple3D/Entity/Entity.h ────────────────────────</span>
+<span class="kw">#pragma once</span>
+<span class="kw">#include</span> <span class="st">&lt;Simple3D/Core/Types.h&gt;</span>   <span class="cm">// only math; no Urho3D engine headers</span>
+<span class="kw">#include</span> <span class="st">&lt;string&gt;</span>
+<span class="kw">#include</span> <span class="st">&lt;functional&gt;</span>
+<span class="kw">#include</span> <span class="st">&lt;vector&gt;</span>
+<span class="kw">#include</span> <span class="st">&lt;memory&gt;</span>
+
+<span class="kw">namespace</span> <span class="ty">Simple3D</span> {
+
+<span class="kw">class</span> <span class="ty">AnimationController</span>;   <span class="cm">// forward-declared — still no engine types</span>
+
+<span class="kw">class</span> <span class="ty">Entity</span> {
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">SetPosition</span>(<span class="ty">float</span> x, <span class="ty">float</span> y, <span class="ty">float</span> z);
+    <span class="kw">void</span> <span class="fn">AddModel</span>(<span class="kw">const</span> std::<span class="ty">string</span>&amp; path);
+    <span class="kw">void</span> <span class="fn">AddRigidBody</span>(<span class="ty">float</span> mass);
+    <span class="cm">// ... more public methods ...</span>
+
+<span class="kw">private</span>:
+    <span class="kw">struct</span> Impl;                            <span class="cm">// forward declaration only</span>
+    std::<span class="ty">unique_ptr</span>&lt;Impl&gt; impl;            <span class="cm">// owns the Urho3D Node</span>
+
+    <span class="cm">// Allow internal bridge to access impl directly</span>
+    <span class="kw">friend</span> <span class="kw">class</span> <span class="ty">EntityBridge</span>;
+};
+
+} <span class="cm">// namespace Simple3D</span></pre>
+
+<pre><span class="cm">// ── src/Simple3D/Entity/Entity.cpp ──────────────────────────</span>
+<span class="kw">#include</span> <span class="st">&lt;Simple3D/Entity/Entity.h&gt;</span>
+<span class="kw">#include</span> <span class="st">"../Internal/UrhoEngine.h"</span>     <span class="cm">// Urho3D freely available here</span>
+
+<span class="kw">namespace</span> <span class="ty">Simple3D</span> {
+
+<span class="kw">struct</span> <span class="ty">Entity</span>::Impl {
+    <span class="ty">Urho3D</span>::<span class="ty">SharedPtr</span>&lt;<span class="ty">Urho3D</span>::<span class="ty">Node</span>&gt; node;
+    <span class="cm">// Other implementation details...</span>
+};
+
+<span class="kw">void</span> <span class="ty">Entity</span>::<span class="fn">AddRigidBody</span>(<span class="ty">float</span> mass) {
+    <span class="kw">auto</span>* rb = impl-&gt;node-&gt;GetOrCreateComponent&lt;<span class="ty">Urho3D</span>::<span class="ty">RigidBody</span>&gt;();
+    rb-&gt;SetMass(mass);
+    rb-&gt;SetCollisionEventMode(<span class="ty">Urho3D</span>::COLLISION_ALWAYS);
+}
+
+} <span class="cm">// namespace Simple3D</span></pre>
+
+<p>
+  The consequence: changing how <code>AddRigidBody</code> works internally (different Urho3D component,
+  different configuration) only requires recompiling <code>Entity.cpp</code> — game code that calls
+  <code>entity-&gt;AddRigidBody(1.0f)</code> does not recompile.
+</p>
+
+<!-- ─── GAME BOOTSTRAP ─────────────────────────────────────────── -->
+<h2 id="game-bootstrap">Game Bootstrap — What Happens Inside Run()</h2>
+<p>
+  When the user calls <code>CreateGame&lt;MyGame&gt;()-&gt;Run()</code>, the following sequence
+  runs before <code>Start()</code> is ever called:
+</p>
+<ol>
+  <li><strong>Context created</strong> — <code>Urho3D::Context</code> allocated, all subsystems registered.</li>
+  <li><strong>Renderer initialised</strong> — SDL3 window created, GPU context established, bgfx/GLES backend selected.</li>
+  <li><strong>Audio system started</strong> — OpenAL (or platform audio) initialised, master volume set to 1.0.</li>
+  <li><strong>Input system initialised</strong> — keyboard / mouse / touch event handlers installed.</li>
+  <li><strong>Scene created</strong> — A root <code>Urho3D::Scene</code> created with <code>PhysicsWorld</code> (Bullet 3D) and <code>PhysicsWorld2D</code> (Box2D) components attached automatically.</li>
+  <li><strong>Lua state initialised</strong> — Urho3D's LuaJIT scripting component registered; all Urho3D Lua bindings registered; Simple3D custom Lua bindings registered.</li>
+  <li><strong>Viewport created</strong> — Default <code>Urho3D::Viewport</code> set up for the full window.</li>
+  <li><strong>User's Start() called</strong> — At this point the scene, renderer, input, audio, and Lua are all ready.</li>
+  <li><strong>Main loop runs</strong> — Each frame: process events → update physics → call user's <code>Update(dt)</code> → render → present.</li>
+  <li><strong>User's Stop() called</strong> — On exit signal or <code>Quit()</code>.</li>
+</ol>
+
+<!-- ─── ENTITY MODEL ────────────────────────────────────────────── -->
+<h2 id="entity-model">Entity Component Model (Internal)</h2>
+<p>
+  Each <code>Simple3D::Entity</code> wraps exactly one <code>Urho3D::Node</code>.
+  Components are created and configured on the node via Urho3D's built-in ECS:
+</p>
+<table>
+  <tr><th>Simple3D method</th><th>Urho3D call</th><th>Notes</th></tr>
+  <tr><td><code>AddModel(path)</code></td><td><code>node-&gt;CreateComponent&lt;StaticModel&gt;()</code></td><td>Loads mesh from ResourceCache</td></tr>
+  <tr><td><code>AddDirectionalLight(c, i)</code></td><td><code>CreateComponent&lt;Light&gt;(); light-&gt;SetLightType(LIGHT_DIRECTIONAL)</code></td><td></td></tr>
+  <tr><td><code>AddPointLight(c, r)</code></td><td><code>CreateComponent&lt;Light&gt;(); LIGHT_POINT; SetRange(r)</code></td><td></td></tr>
+  <tr><td><code>AddSpotLight(c, r, a)</code></td><td><code>CreateComponent&lt;Light&gt;(); LIGHT_SPOT; SetRange; SetFov</code></td><td></td></tr>
+  <tr><td><code>AddRigidBody(mass)</code></td><td><code>GetOrCreateComponent&lt;RigidBody&gt;(); SetMass(mass)</code></td><td>GetOrCreate → safe to call twice</td></tr>
+  <tr><td><code>AddBoxCollider(size)</code></td><td><code>GetOrCreateComponent&lt;CollisionShape&gt;(); SetBox(size)</code></td><td>Full-size Vector3, not half-extents</td></tr>
+  <tr><td><code>AddCapsuleCollider(r, h)</code></td><td><code>SetCapsule(r*2, h, ...)</code></td><td></td></tr>
+  <tr><td><code>AddSphereCollider(r)</code></td><td><code>SetSphere(r*2)</code></td><td></td></tr>
+  <tr><td><code>AddMeshCollider(path)</code></td><td><code>SetTriangleMesh(model)</code></td><td>Static bodies only (mass=0)</td></tr>
+  <tr><td><code>AddTriggerBox(size)</code></td><td><code>SetBox; rb-&gt;SetTrigger(true)</code></td><td>No physics response, only callbacks</td></tr>
+  <tr><td><code>AddAnimationController()</code></td><td><code>GetOrCreateComponent&lt;AnimationController&gt;()</code></td><td></td></tr>
+  <tr><td><code>AddScript(path)</code></td><td><code>CreateComponent&lt;LuaScriptInstance&gt;(); LoadFile(path)</code></td><td>Logs warning if file missing</td></tr>
+  <tr><td><code>AddSprite2D(path)</code></td><td><code>CreateComponent&lt;StaticSprite2D&gt;(); SetSprite(path)</code></td><td></td></tr>
+  <tr><td><code>AddAnimatedSprite2D(scml)</code></td><td><code>CreateComponent&lt;AnimatedSprite2D&gt;(); SetAnimationSet(scml)</code></td><td>Spriter .scml format</td></tr>
+  <tr><td><code>AddRigidBody2D(mass)</code></td><td><code>CreateComponent&lt;RigidBody2D&gt;(); SetMass(mass)</code></td><td>Box2D body</td></tr>
+  <tr><td><code>AddBoxCollider2D(w, h)</code></td><td><code>CreateComponent&lt;CollisionBox2D&gt;(); SetSize(w, h)</code></td><td></td></tr>
+  <tr><td><code>AddCircleCollider2D(r)</code></td><td><code>CreateComponent&lt;CollisionCircle2D&gt;(); SetRadius(r)</code></td><td></td></tr>
+</table>
+
+<!-- ─── ENTITY REGISTRY ────────────────────────────────────────── -->
+<h2 id="entity-registry">Entity Registry</h2>
+<p>
+  A key design challenge: Urho3D internally uses raw <code>Urho3D::Node*</code> pointers.
+  When a trigger fires, the callback receives a <code>Node*</code> — but game code needs an
+  <code>Entity*</code>. The same problem arises in <code>GetParent()</code> and
+  <code>CreateChild()</code>.
+</p>
+<p>
+  The solution is a <strong>bi-directional registry</strong> stored inside <code>GameImpl</code>:
+</p>
+<pre><span class="cm">// Inside GameImpl (src, not public):</span>
+<span class="ty">std</span>::<span class="ty">unordered_map</span>&lt;<span class="ty">Urho3D</span>::<span class="ty">Node</span>*, <span class="ty">std</span>::<span class="ty">unique_ptr</span>&lt;<span class="ty">Entity</span>&gt;&gt; entityRegistry;</pre>
+<p>
+  Every <code>CreateEntity()</code> call creates an <code>Urho3D::Node</code>, allocates an
+  <code>Entity</code>, and inserts the pair. Every <code>DestroyEntity()</code> removes and
+  deletes both. When trigger callbacks or parent lookups need to convert a <code>Node*</code>
+  to an <code>Entity*</code>, they look it up in this map.
+</p>
+<p>
+  <code>Entity::CreateChild()</code> creates a child <code>Node</code> and also registers the
+  resulting <code>Entity</code> in the same registry, so hierarchy-traversal functions always
+  return valid <code>Entity*</code> values.
+</p>
+
+<!-- ─── PHYSICS ─────────────────────────────────────────────────── -->
+<h2 id="physics">Physics Integration</h2>
+<p>
+  simple-3d includes both a 3D physics world (Bullet) and a 2D physics world (Box2D) in the
+  same scene. They do not interact — a 3D rigid body does not know about 2D rigid bodies and
+  vice versa.
+</p>
+<h3>3D physics (Bullet)</h3>
+<p>
+  <code>PhysicsWorld</code> is automatically added to the root Urho3D Scene in
+  <code>Game::Run()</code>. Gravity is <code>(0, -9.81, 0)</code> by default.
+  Physics runs at 60 Hz fixed timestep; rendering is uncapped.
+</p>
+<p>
+  Trigger volumes use <code>RigidBody::SetTrigger(true)</code>, which disables collision
+  response while preserving overlap events. The enter/exit callbacks set via
+  <code>SetOnTriggerEnter</code> receive an <code>Entity*</code> resolved from the registry.
+</p>
+<p>
+  <code>IsOnGround()</code> performs a downward raycast of 0.7 m from the entity's origin.
+  It hits any body on any collision layer. If you need layer filtering, use
+  <code>SetCollisionMask</code> on the rigid body or perform your own raycast via Urho3D directly
+  (this is an advanced use case not yet exposed in the simple-3d API).
+</p>
+
+<h3>2D physics (Box2D)</h3>
+<p>
+  <code>PhysicsWorld2D</code> is added automatically alongside the 3D world.
+  2D bodies use <code>RigidBody2D</code> and 2D colliders use <code>CollisionBox2D</code> /
+  <code>CollisionCircle2D</code>. They live in the XY plane.
+  Tile maps loaded via <code>LoadTileMap()</code> automatically create static <code>RigidBody2D</code>
+  collision shapes from Tiled collision layers.
+</p>
+
+<!-- ─── LUA ────────────────────────────────────────────────────── -->
+<h2 id="lua">Lua Scripting Architecture</h2>
+<p>
+  Scripts are managed by Urho3D's <code>LuaScriptInstance</code> component.
+  Each entity's script runs in its own Lua function environment (not a separate Lua state),
+  so scripts can communicate via shared globals, but simple-3d convention discourages this.
+  Prefer <code>FindEntity()</code> and explicit message passing.
+</p>
+<p>
+  The Lua state lifecycle:
+</p>
+<ol>
+  <li><code>entity-&gt;AddScript("path.lua")</code> loads and compiles the file via ResourceCache.</li>
+  <li>A <code>LuaScriptInstance</code> component is attached to the Urho3D Node.</li>
+  <li>When the scene first updates, <code>Start()</code> in the script is called once.</li>
+  <li>Every frame, <code>Update(dt)</code> is called if it exists.</li>
+  <li>When the entity is destroyed, <code>Stop()</code> is called if it exists.</li>
+</ol>
+
+<h3>Custom Lua bindings registration</h3>
+<p>
+  Simple3D custom bindings are registered during <code>Game::Run()</code> initialisation,
+  before user's <code>Start()</code> is called. They are registered via Urho3D's
+  <code>RegisterLuaLibrary</code> mechanism and extend the <code>Node</code> Lua metatable:
+</p>
+<pre><span class="cm">// src/Simple3D/Core/LuaBindings.cpp</span>
+<span class="kw">void</span> <span class="fn">RegisterSimple3DLua</span>(<span class="ty">Urho3D</span>::<span class="ty">Context</span>* ctx) {
+    <span class="kw">auto</span>* lua = ctx-&gt;GetSubsystem&lt;<span class="ty">Urho3D</span>::<span class="ty">LuaScript</span>&gt;();
+
+    <span class="cm">// Extend the Node metatable with simple-3d helpers</span>
+    lua-&gt;ExecuteString(R<span class="st">"LUA(
+        function Node:MoveRelative(delta)
+            local rb = self:GetComponent("RigidBody")
+            if rb then
+                local vel = Vector3(delta.x, 0, delta.z) / 0.016  -- approx
+                rb:SetLinearVelocity(vel + Vector3(0, rb:GetLinearVelocity().y, 0))
+            else
+                self:Translate(delta)
+            end
+        end
+
+        function Node:IsOnGround()
+            -- raycast 0.7m down
+            local hit = scene:GetPhysicsWorld():RaycastSingle(
+                Ray(self:GetWorldPosition(), Vector3(0,-1,0)), 0.7)
+            return hit.body ~= nil and hit.body ~= self:GetComponent("RigidBody")
+        end
+    )LUA"</span>);
+
+    <span class="cm">// Register global functions (PlaySound, FindEntity, …)</span>
+    <span class="fn">RegisterAudioLua</span>(lua);
+    <span class="fn">RegisterSceneLua</span>(lua);
+}</pre>
+
+<!-- ─── RESOURCE LOADING ────────────────────────────────────────── -->
+<h2 id="resource-loading">Resource Loading</h2>
+<p>
+  All asset loading goes through <code>Urho3D::ResourceCache</code>, which is an LRU cache
+  that loads assets from disk on first use and returns the same object on subsequent requests.
+  Resources are reference-counted — they stay loaded as long as at least one component
+  references them.
+</p>
+<p>
+  When you call <code>entity-&gt;AddModel("Models/hero.mdl")</code>, simple-3d calls:
+</p>
+<pre><span class="kw">auto</span>* cache = GetSubsystem&lt;<span class="ty">Urho3D</span>::<span class="ty">ResourceCache</span>&gt;();
+<span class="kw">auto</span>* model = cache-&gt;GetResource&lt;<span class="ty">Urho3D</span>::<span class="ty">Model</span>&gt;(<span class="st">"Models/hero.mdl"</span>);
+<span class="kw">if</span> (!model) {
+    <span class="fn">URHO3D_LOGWARNING</span>(<span class="st">"simple-3d: AddModel — resource not found: Models/hero.mdl"</span>);
+    <span class="kw">return</span>;
+}
+staticModel-&gt;<span class="fn">SetModel</span>(model);</pre>
+<p>
+  If a resource is not found, simple-3d logs a <code>[Warning]</code> message and returns
+  without crashing. The entity is still created and all other calls still work — this allows
+  development to continue with placeholder assets.
+</p>
+
+<!-- ─── THREADING ───────────────────────────────────────────────── -->
+<h2 id="threading">Threading Model</h2>
+<p>
+  simple-3d is <strong>single-threaded</strong>. All public API calls must be made from the
+  main thread. This is the same constraint as direct Urho3D use.
+</p>
+<p>
+  Internally, Urho3D may use worker threads for:
+</p>
+<ul>
+  <li>Physics simulation stepping (Bullet has its own dispatch).</li>
+  <li>Background resource loading (ResourceCache can queue load jobs).</li>
+  <li>Navigation mesh baking (Recast bakes on a worker thread).</li>
+  <li>Network I/O (ENet runs on the main thread's event loop, not a separate thread).</li>
+</ul>
+<p>
+  None of these affect the simple-3d API contract: <code>Start()</code>, <code>Update(dt)</code>,
+  <code>Stop()</code>, and all entity/camera/label operations are always called from the main thread.
+</p>
+
+<!-- ─── BACKENDS ────────────────────────────────────────────────── -->
+<h2 id="backends">Backend Switching</h2>
+<p>
+  The CMake variable <code>SIMPLE3D_ENGINE</code> selects the backend. Both backends expose the
+  same Urho3D API surface. Only the CMake linkage section in <code>CMakeLists.txt</code> differs:
+</p>
+<div class="col2">
+<div>
+<pre><span class="cm"># U3D backend linkage</span>
+find_package(U3D REQUIRED
+    PATHS ${U3D_HOME}
+          ${URHO3D_HOME})
+
+target_link_libraries(simple3d
+    PUBLIC Urho3D)</pre>
+</div>
+<div>
+<pre><span class="cm"># NOVA3D backend linkage</span>
+find_package(NOVA3D REQUIRED
+    PATHS ${NOVA3D_HOME})
+
+target_link_libraries(simple3d
+    PUBLIC nova3d)</pre>
+</div>
+</div>
+<p>
+  Because simple-3d source files only include <code>Internal/UrhoEngine.h</code> (an
+  umbrella header that maps to whichever backend is selected), switching backends
+  requires only a <code>cmake -DSIMPLE3D_ENGINE=NOVA3D</code> reconfigure followed by a
+  full rebuild. Game source files are untouched.
+</p>
+
+<!-- ─── COMPONENT MAP ──────────────────────────────────────────── -->
+<h2 id="component-map">Complete Component Mapping</h2>
+<table>
+  <tr><th>simple-3d call</th><th>Urho3D component(s) created</th><th>Method</th></tr>
+  <tr><td><code>AddModel(path)</code></td><td><code>StaticModel</code></td><td><code>CreateComponent</code></td></tr>
+  <tr><td><code>AddDirectionalLight(c, i)</code></td><td><code>Light</code> (DIRECTIONAL)</td><td><code>CreateComponent</code></td></tr>
+  <tr><td><code>AddPointLight(c, r)</code></td><td><code>Light</code> (POINT)</td><td><code>CreateComponent</code></td></tr>
+  <tr><td><code>AddSpotLight(c, r, a)</code></td><td><code>Light</code> (SPOT)</td><td><code>CreateComponent</code></td></tr>
+  <tr><td><code>AddRigidBody(mass)</code></td><td><code>RigidBody</code></td><td><code>GetOrCreateComponent</code></td></tr>
+  <tr><td><code>AddBoxCollider(size)</code></td><td><code>CollisionShape</code></td><td><code>GetOrCreateComponent</code>; <code>SetBox</code></td></tr>
+  <tr><td><code>AddCapsuleCollider(r, h)</code></td><td><code>CollisionShape</code></td><td><code>SetCapsule</code></td></tr>
+  <tr><td><code>AddSphereCollider(r)</code></td><td><code>CollisionShape</code></td><td><code>SetSphere</code></td></tr>
+  <tr><td><code>AddMeshCollider(path)</code></td><td><code>CollisionShape</code></td><td><code>SetTriangleMesh</code></td></tr>
+  <tr><td><code>AddTriggerBox/Sphere/Capsule</code></td><td><code>CollisionShape</code> + <code>RigidBody (trigger=true)</code></td><td>Subscribe <code>E_NODECOLLISIONSTART</code></td></tr>
+  <tr><td><code>AddAnimationController()</code></td><td><code>AnimationController</code></td><td><code>GetOrCreateComponent</code></td></tr>
+  <tr><td><code>AddScript(lua)</code></td><td><code>LuaScriptInstance</code></td><td><code>CreateComponent</code>; <code>LoadFile</code></td></tr>
+  <tr><td><code>AddSprite2D(path)</code></td><td><code>StaticSprite2D</code></td><td><code>CreateComponent</code></td></tr>
+  <tr><td><code>AddAnimatedSprite2D(scml)</code></td><td><code>AnimatedSprite2D</code></td><td><code>CreateComponent</code></td></tr>
+  <tr><td><code>AddRigidBody2D(mass)</code></td><td><code>RigidBody2D</code></td><td><code>CreateComponent</code></td></tr>
+  <tr><td><code>AddBoxCollider2D(w, h)</code></td><td><code>CollisionBox2D</code></td><td><code>CreateComponent</code></td></tr>
+  <tr><td><code>AddCircleCollider2D(r)</code></td><td><code>CollisionCircle2D</code></td><td><code>CreateComponent</code></td></tr>
+  <tr><td><code>CreateCamera()</code></td><td><code>Camera</code> component on new Node</td><td>New Node, <code>CreateComponent&lt;Camera&gt;</code></td></tr>
+  <tr><td><code>CreateLabel(text)</code></td><td><code>Text</code> UI element</td><td>Added to UI root element</td></tr>
+  <tr><td><code>LoadTileMap(path)</code></td><td><code>TileMap2D</code> on new Node</td><td>Also creates <code>RigidBody2D</code> + <code>CollisionPolygon2D</code> for each Tiled collision layer</td></tr>
+</table>
+
+<!-- ─── FILE LAYOUT ─────────────────────────────────────────────── -->
+<h2 id="layout">File Layout</h2>
+<div class="arch-diagram">simple-3d/
+├── include/Simple3D/            ← installed public headers (no Urho3D types)
+│   ├── Simple3D.h               ← single-include umbrella
+│   ├── Core/
+│   │   ├── Types.h              ← math aliases (Vector2/3/4, Color, …)
+│   │   ├── Keys.h               ← Key / MouseButton enum
+│   │   └── Game.h               ← Game base class
+│   ├── Entity/
+│   │   └── Entity.h             ← Entity class (PIMPL)
+│   ├── Camera/
+│   │   └── Camera.h             ← Camera class (PIMPL)
+│   ├── Audio/
+│   │   └── Audio.h              ← free functions (PlayMusic, PlaySound, …)
+│   ├── Network/
+│   │   └── NetworkManager.h     ← NetworkManager class (PIMPL)
+│   └── UI/
+│       └── Label.h              ← Label class (PIMPL)
+│
+├── src/Simple3D/                ← private implementation
+│   ├── Internal/                ← bridge headers (Urho3D types allowed)
+│   │   ├── UrhoEngine.h         ← full Urho3D umbrella include
+│   │   ├── EntityInternal.h     ← GetNode(Entity*) / MakeEntity(Node*)
+│   │   └── CameraInternal.h     ← GetCameraNode() / MakeCamera(…)
+│   ├── Core/
+│   │   ├── Game.cpp             ← Urho3D application bootstrap + registry
+│   │   ├── LuaBindings.cpp      ← simple-3d custom Lua bindings
+│   │   └── NavMesh.cpp          ← BuildNavMesh implementation
+│   ├── Entity/
+│   │   └── Entity.cpp           ← all Entity methods
+│   ├── Camera/
+│   │   └── Camera.cpp
+│   ├── Audio/
+│   │   └── Audio.cpp
+│   ├── Network/
+│   │   └── NetworkManager.cpp
+│   └── UI/
+│       └── Label.cpp
+│
+├── tests/Simple3D/              ← unit tests (headless, no GPU needed)
+│   ├── CMakeLists.txt
+│   ├── test_entity.cpp
+│   └── test_math.cpp
+│
+├── samples/                     ← sample games
+│   └── blupi_proto/             ← 3D platformer acceptance test
+│       ├── CMakeLists.txt
+│       ├── main.cpp
+│       └── Data/
+│
+├── cmake/
+│   └── toolchains/
+│       └── mingw-w64.cmake      ← Windows cross-compile toolchain
+│
+├── CMakeLists.txt               ← top-level build definition
+├── ARCHITECTURE.md
+├── API.md
+├── LUA_API.md
+├── CLAUDE.md                    ← AI assistant context file
+├── plan.md                      ← task plan
+└── README.md</div>
+
+<!-- ─── INTERNAL HEADERS ─────────────────────────────────────────── -->
+<h2 id="internal-headers">Internal Headers Reference</h2>
+<table>
+  <tr><th>File</th><th>Purpose</th><th>Used by</th></tr>
+  <tr>
+    <td><code>Internal/UrhoEngine.h</code></td>
+    <td>Umbrella include that pulls in all Urho3D headers needed by the implementation layer. Also defines backend-specific preprocessor guards.</td>
+    <td>All <code>src/</code> <code>.cpp</code> files</td>
+  </tr>
+  <tr>
+    <td><code>Internal/EntityInternal.h</code></td>
+    <td>Declares <code>GetNode(Entity*)</code> (returns the backing <code>Urho3D::Node*</code>) and <code>MakeEntity(Node*, GameImpl*)</code> (wraps a Node in a new Entity and registers it).</td>
+    <td><code>Game.cpp</code>, <code>Camera.cpp</code>, trigger callbacks</td>
+  </tr>
+  <tr>
+    <td><code>Internal/CameraInternal.h</code></td>
+    <td>Declares <code>GetCameraNode(Camera*)</code> and <code>GetUrhoCamera(Camera*)</code> for follow/orbit logic that needs to read the Urho3D camera position.</td>
+    <td><code>Game.cpp</code></td>
+  </tr>
+</table>
+
+<div class="callout danger">
+  <h4>Never include internal headers from game code</h4>
+  <p>
+    Files in <code>src/Simple3D/Internal/</code> are not installed and are not part of the public API.
+    Including them from game code will break when the library is updated. Always use only
+    <code>#include &lt;Simple3D/Simple3D.h&gt;</code>.
+  </p>
+</div>
+
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d — part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

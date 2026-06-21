@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Examples — simple-3d</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html" class="active">Examples</a>
+    <a href="features.html">Features</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Examples</h3>
+  <ul>
+    <li><a href="#hello">Hello World</a></li>
+    <li><a href="#platformer">3D Platformer</a></li>
+    <li><a href="#fps">First-Person Shooter</a></li>
+    <li><a href="#2d-sidescroller">2D Sidescroller</a></li>
+    <li><a href="#nav-ai">AI Navigation</a></li>
+    <li><a href="#splitscreen">Split-Screen</a></li>
+    <li><a href="#networking">Networking</a></li>
+    <li><a href="#triggers">Trigger Zones</a></li>
+    <li><a href="#hud">HUD &amp; UI</a></li>
+    <li><a href="#orbit-cam">Orbit Camera</a></li>
+    <li><a href="#2d-topdown">2D Top-Down</a></li>
+    <li><a href="#procedural">Procedural Scene</a></li>
+  </ul>
+</aside>
+
+<main class="content">
+<h1>Examples</h1>
+<p>
+  Complete, runnable code samples for common game patterns with simple-3d.
+  Each example is self-contained — copy it into <code>main.cpp</code> and build.
+  Replace asset paths with your own files.
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="hello">Hello World — Spinning Cube</h2>
+<p>
+  The minimal simple-3d program. Creates a box, two lights, a camera, and a HUD label.
+  The box spins 60°/s around Y and 24°/s around X. Press <kbd>ESC</kbd> to quit.
+</p>
+<pre><span class="kw">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">HelloGame</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+    <span class="ty">Entity</span>* box     = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*  hud     = <span class="kw">nullptr</span>;
+    <span class="ty">float</span>   angle   = <span class="val">0.0f</span>;
+    <span class="ty">float</span>   elapsed = <span class="val">0.0f</span>;
+
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Hello simple-3d"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.08f</span>, <span class="val">0.08f</span>, <span class="val">0.12f</span>));
+
+        <span class="cm">// Box mesh 5 m in front of the origin</span>
+        box = <span class="fn">CreateEntity</span>(<span class="st">"Box"</span>);
+        box-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        box-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">5.0f</span>);
+
+        <span class="cm">// Three-point lighting</span>
+        <span class="kw">auto</span> key = <span class="fn">CreateEntity</span>(<span class="st">"KeyLight"</span>);
+        key-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.95f</span>, <span class="val">0.85f</span>), <span class="val">1.0f</span>);
+        key-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50</span>, -<span class="val">45</span>, <span class="val">0</span>));
+
+        <span class="kw">auto</span> fill = <span class="fn">CreateEntity</span>(<span class="st">"FillLight"</span>);
+        fill-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">0.3f</span>, <span class="val">0.4f</span>, <span class="val">0.6f</span>), <span class="val">0.4f</span>);
+        fill-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(-<span class="val">20</span>, <span class="val">160</span>, <span class="val">0</span>));
+
+        <span class="kw">auto</span> back = <span class="fn">CreateEntity</span>(<span class="st">"BackLight"</span>);
+        back-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">0.6f</span>, <span class="val">0.5f</span>, <span class="val">0.4f</span>), <span class="val">0.3f</span>);
+        back-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">30</span>, <span class="val">120</span>, <span class="val">0</span>));
+
+        <span class="fn">CreateCamera</span>();
+
+        hud = <span class="fn">CreateLabel</span>(<span class="st">"Time: 0 s    ESC to quit"</span>);
+        hud-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">20</span>);
+        hud-&gt;<span class="fn">SetFontSize</span>(<span class="val">15</span>);
+        hud-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.75f</span>, <span class="val">0.75f</span>, <span class="val">0.75f</span>));
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        angle   += dt * <span class="val">60.0f</span>;
+        elapsed += dt;
+
+        box-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(angle, angle * <span class="val">0.4f</span>, <span class="val">0</span>));
+        hud-&gt;<span class="fn">SetText</span>(<span class="st">"Time: "</span> + std::<span class="fn">to_string</span>((<span class="ty">int</span>)elapsed) + <span class="st">" s    ESC to quit"</span>);
+
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>() { <span class="kw">return</span> <span class="fn">CreateGame</span>&lt;<span class="ty">HelloGame</span>&gt;()-&gt;<span class="fn">Run</span>(); }</pre>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="platformer">3D Platformer</h2>
+<p>
+  Third-person platformer with physics player, follow camera with collision avoidance,
+  animated character, 10 collectible coins, a score HUD, and background music.
+  Player movement is delegated to a Lua script (see <a href="lua-api.html#ex-platformer">Lua API → platformer example</a>).
+</p>
+<pre><span class="kw">class</span> <span class="ty">PlatformerGame</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+    <span class="ty">Entity</span>* player;
+    <span class="ty">Camera</span>* camera;
+    <span class="ty">Label</span>*  scoreLabel;
+    <span class="ty">Label</span>*  msgLabel;
+    <span class="ty">int</span>     score = <span class="val">0</span>;
+
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Coin Collector"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.4f</span>, <span class="val">0.6f</span>, <span class="val">0.9f</span>));
+
+        <span class="cm">// ── Level geometry ───────────────────────────────────</span>
+        <span class="kw">auto</span> ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Ground.mdl"</span>);
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">100</span>, <span class="val">1</span>, <span class="val">100</span>));
+
+        <span class="cm">// Platforms</span>
+        <span class="ty">float</span> platPositions[][<span class="val">3</span>] = {{<span class="val">5</span>,<span class="val">2</span>,<span class="val">0</span>},{-<span class="val">5</span>,<span class="val">4</span>,<span class="val">3</span>},{<span class="val">0</span>,<span class="val">6</span>,-<span class="val">5</span>}};
+        <span class="kw">for</span> (<span class="kw">auto</span>&amp; p : platPositions) {
+            <span class="kw">auto</span> plat = <span class="fn">CreateEntity</span>(<span class="st">"Platform"</span>);
+            plat-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Platform.mdl"</span>);
+            plat-&gt;<span class="fn">SetPosition</span>(p[<span class="val">0</span>], p[<span class="val">1</span>], p[<span class="val">2</span>]);
+            plat-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+            plat-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">3</span>, <span class="val">0.5f</span>, <span class="val">3</span>));
+        }
+
+        <span class="cm">// ── Player ───────────────────────────────────────────</span>
+        player = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Character.mdl"</span>);
+        player-&gt;<span class="fn">AddAnimationController</span>();
+        player-&gt;<span class="fn">AddRigidBody</span>(<span class="val">70.0f</span>);
+        player-&gt;<span class="fn">AddCapsuleCollider</span>(<span class="val">0.4f</span>, <span class="val">1.75f</span>);
+        player-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">2</span>, <span class="val">0</span>);
+        player-&gt;<span class="fn">SetCollisionLayer</span>(<span class="val">1</span>);
+        player-&gt;<span class="fn">SetCollisionMask</span>(<span class="val">0xFF</span>);
+        player-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/player.lua"</span>);
+
+        <span class="cm">// ── Collectible coins ────────────────────────────────</span>
+        <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i &lt; <span class="val">10</span>; ++i) {
+            <span class="ty">float</span> x = (<span class="ty">float</span>)(rand() % <span class="val">30</span> - <span class="val">15</span>);
+            <span class="ty">float</span> z = (<span class="ty">float</span>)(rand() % <span class="val">30</span> - <span class="val">15</span>);
+            <span class="kw">auto</span> coin = <span class="fn">CreateEntity</span>(<span class="st">"Coin" + std::to_string(i)</span>);
+            coin-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Coin.mdl"</span>);
+            coin-&gt;<span class="fn">SetPosition</span>(x, <span class="val">1.5f</span>, z);
+            coin-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/collectible.lua"</span>);  <span class="cm">// spins</span>
+            coin-&gt;<span class="fn">AddTriggerSphere</span>(<span class="val">1.2f</span>);
+            coin-&gt;<span class="fn">SetCollisionLayer</span>(<span class="val">2</span>);
+            coin-&gt;<span class="fn">SetCollisionMask</span>(<span class="val">1</span>);  <span class="cm">// only player</span>
+            coin-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>, coin](Entity* other) {
+                <span class="kw">if</span> (other != player) <span class="kw">return</span>;
+                ++score;
+                scoreLabel-&gt;<span class="fn">SetText</span>(<span class="st">"Coins: " + std::to_string(score) + "/10"</span>);
+                <span class="fn">PlaySound</span>(<span class="st">"Sounds/coin.wav"</span>);
+                <span class="fn">DestroyEntity</span>(coin);
+                <span class="kw">if</span> (score == <span class="val">10</span>) {
+                    msgLabel-&gt;<span class="fn">SetText</span>(<span class="st">"You collected all coins!"</span>);
+                    msgLabel-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+                }
+            });
+        }
+
+        <span class="cm">// ── Lighting ─────────────────────────────────────────</span>
+        <span class="kw">auto</span> sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.95f</span>, <span class="val">0.8f</span>), <span class="val">1.0f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50</span>, -<span class="val">30</span>, <span class="val">0</span>));
+
+        <span class="cm">// ── Camera ───────────────────────────────────────────</span>
+        camera = <span class="fn">CreateCamera</span>();
+        camera-&gt;<span class="fn">Follow</span>(player, <span class="val">6.0f</span>, <span class="val">2.5f</span>);
+        camera-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">7.0f</span>);
+        camera-&gt;<span class="fn">SetCollisionEnabled</span>(<span class="kw">true</span>);
+        camera-&gt;<span class="fn">SetFOV</span>(<span class="val">60.0f</span>);
+
+        <span class="cm">// ── HUD ──────────────────────────────────────────────</span>
+        scoreLabel = <span class="fn">CreateLabel</span>(<span class="st">"Coins: 0/10"</span>);
+        scoreLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">20</span>);
+        scoreLabel-&gt;<span class="fn">SetFontSize</span>(<span class="val">22</span>);
+        scoreLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::WHITE);
+
+        msgLabel = <span class="fn">CreateLabel</span>(<span class="st">""</span>);
+        msgLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">300</span>, <span class="val">250</span>);
+        msgLabel-&gt;<span class="fn">SetFontSize</span>(<span class="val">32</span>);
+        msgLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1</span>, <span class="val">1</span>, <span class="val">0</span>));
+        msgLabel-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);
+
+        <span class="fn">PlayMusic</span>(<span class="st">"Music/outdoor.ogg"</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+
+        <span class="cm">// Respawn if player falls off the map</span>
+        <span class="kw">if</span> (player-&gt;<span class="fn">GetPosition</span>().y &lt; -<span class="val">20</span>) {
+            player-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">3</span>, <span class="val">0</span>);
+            player-&gt;<span class="fn">SetLinearVelocity</span>(<span class="ty">Vector3</span>::ZERO);
+        }
+    }
+};</pre>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="fps">First-Person Shooter Setup</h2>
+<p>
+  FPS camera with mouse capture, weapon model as a child entity attached to the camera,
+  and a simple shoot mechanic using a trigger sphere.
+</p>
+<pre><span class="kw">class</span> <span class="ty">FPSGame</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+    <span class="ty">Entity</span>* player;
+    <span class="ty">Entity</span>* weapon;
+    <span class="ty">Camera</span>* camera;
+    <span class="ty">Label</span>*  crosshair;
+    <span class="ty">Label</span>*  ammoLabel;
+    <span class="ty">int</span>     ammo = <span class="val">30</span>;
+
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"FPS Demo"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.3f</span>, <span class="val">0.5f</span>, <span class="val">0.3f</span>));
+
+        <span class="cm">// Level</span>
+        <span class="kw">auto</span> floor = <span class="fn">CreateEntity</span>(<span class="st">"Floor"</span>);
+        floor-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/LevelFloor.mdl"</span>);
+        floor-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        floor-&gt;<span class="fn">AddMeshCollider</span>(<span class="st">"Models/LevelFloor.mdl"</span>);
+
+        <span class="cm">// Player capsule (invisible)</span>
+        player = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player-&gt;<span class="fn">AddRigidBody</span>(<span class="val">80.0f</span>);
+        player-&gt;<span class="fn">AddCapsuleCollider</span>(<span class="val">0.4f</span>, <span class="val">1.8f</span>);
+        player-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">1</span>, <span class="val">0</span>);
+        player-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/fps_player.lua"</span>);
+
+        <span class="cm">// Camera in FPS mode</span>
+        camera = <span class="fn">CreateCamera</span>();
+        camera-&gt;<span class="fn">SetFPSMode</span>(player);
+        camera-&gt;<span class="fn">SetFPSSensitivity</span>(<span class="val">0.15f</span>);
+        camera-&gt;<span class="fn">SetFPSHeadOffset</span>(<span class="val">1.65f</span>);
+        camera-&gt;<span class="fn">SetFOV</span>(<span class="val">75.0f</span>);
+
+        <span class="cm">// Crosshair label (centered)</span>
+        crosshair = <span class="fn">CreateLabel</span>(<span class="st">"+"</span>);
+        crosshair-&gt;<span class="fn">SetPosition</span>(<span class="val">630</span>, <span class="val">358</span>);   <span class="cm">// ~center of 1280x720</span>
+        crosshair-&gt;<span class="fn">SetFontSize</span>(<span class="val">24</span>);
+        crosshair-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0</span>, <span class="val">1</span>, <span class="val">0</span>));
+
+        ammoLabel = <span class="fn">CreateLabel</span>(<span class="st">"Ammo: 30"</span>);
+        ammoLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">680</span>);
+        ammoLabel-&gt;<span class="fn">SetFontSize</span>(<span class="val">20</span>);
+        ammoLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::WHITE);
+
+        <span class="fn">PlayMusic</span>(<span class="st">"Music/fps_ambient.ogg"</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) {
+            camera-&gt;<span class="fn">Detach</span>();   <span class="cm">// release mouse cursor</span>
+            <span class="fn">Quit</span>();
+        }
+
+        <span class="cm">// Simple fire on left click</span>
+        <span class="kw">if</span> (<span class="fn">IsMouseButtonDown</span>(<span class="ty">MouseButton</span>::Left) &amp;&amp; ammo &gt; <span class="val">0</span>) {
+            ammo--;
+            ammoLabel-&gt;<span class="fn">SetText</span>(<span class="st">"Ammo: " + std::to_string(ammo)</span>);
+            <span class="fn">PlaySound</span>(<span class="st">"Sounds/gunshot.wav"</span>);
+        }
+    }
+};</pre>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="2d-sidescroller">2D Sidescroller</h2>
+<p>
+  Classic 2D sidescroller with a Tiled tile map, animated player sprite, Box2D physics,
+  and an orthographic follow camera.
+</p>
+<pre><span class="kw">class</span> <span class="ty">SideScrollerGame</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+    <span class="ty">Entity</span>* player;
+
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.6f</span>, <span class="val">0.8f</span>, <span class="val">1.0f</span>));
+
+        <span class="cm">// Tile map — also creates Box2D collision from Tiled collision layers</span>
+        <span class="fn">LoadTileMap</span>(<span class="st">"Maps/level1.tmx"</span>);
+
+        <span class="cm">// Player sprite (Spriter animated)</span>
+        player = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player-&gt;<span class="fn">AddAnimatedSprite2D</span>(<span class="st">"Sprites/hero.scml"</span>);
+        player-&gt;<span class="fn">PlayAnimation2D</span>(<span class="st">"idle"</span>);
+        player-&gt;<span class="fn">AddRigidBody2D</span>(<span class="val">60.0f</span>);
+        player-&gt;<span class="fn">AddBoxCollider2D</span>(<span class="val">0.7f</span>, <span class="val">1.6f</span>);  <span class="cm">// world units</span>
+        player-&gt;<span class="fn">SetPosition</span>(<span class="val">2.0f</span>, <span class="val">4.0f</span>, <span class="val">0.0f</span>);
+        player-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/sidescroller_player.lua"</span>);
+
+        <span class="cm">// Coin collectibles</span>
+        <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i &lt; <span class="val">8</span>; ++i) {
+            <span class="kw">auto</span> coin = <span class="fn">CreateEntity</span>(<span class="st">"Coin" + std::to_string(i)</span>);
+            coin-&gt;<span class="fn">AddSprite2D</span>(<span class="st">"Sprites/coin.png"</span>);
+            coin-&gt;<span class="fn">SetPosition</span>(<span class="val">3.0f</span> + i * <span class="val">2.0f</span>, <span class="val">3.0f</span>, <span class="val">0.0f</span>);
+            coin-&gt;<span class="fn">AddRigidBody2D</span>(<span class="val">0.0f</span>);
+            coin-&gt;<span class="fn">AddCircleCollider2D</span>(<span class="val">0.3f</span>);
+            coin-&gt;<span class="fn">AddTriggerSphere</span>(<span class="val">0.6f</span>);
+            coin-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>, coin](Entity* o) {
+                <span class="kw">if</span> (o == player) { <span class="fn">PlaySound</span>(<span class="st">"Sounds/coin.wav"</span>); <span class="fn">DestroyEntity</span>(coin); }
+            });
+        }
+
+        <span class="cm">// Orthographic camera following player</span>
+        <span class="kw">auto</span> cam = <span class="fn">CreateCamera</span>();
+        cam-&gt;<span class="fn">Setup2D</span>(<span class="val">100.0f</span>);                    <span class="cm">// 100 pixels per world unit</span>
+        cam-&gt;<span class="fn">Follow</span>(player, <span class="val">0</span>, <span class="val">0</span>);
+        cam-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">8.0f</span>);
+
+        <span class="fn">PlayMusic</span>(<span class="st">"Music/adventure.ogg"</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+    }
+};</pre>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="nav-ai">AI Navigation with NavMesh</h2>
+<p>
+  Level with a nav-mesh baked from the dungeon floor, a player character, and an enemy
+  that pathfinds to the player using <code>MoveToward()</code>. The enemy stops attacking
+  when the player moves away.
+</p>
+<pre><span class="kw">class</span> <span class="ty">AIDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+    <span class="ty">Entity</span>* player;
+    <span class="ty">Entity</span>* enemy;
+    <span class="ty">Label</span>*  statusLabel;
+
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="cm">// ── Level (static — must be placed before BuildNavMesh) ──</span>
+        <span class="kw">auto</span> floor = <span class="fn">CreateEntity</span>(<span class="st">"Floor"</span>);
+        floor-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Dungeon.mdl"</span>);
+        floor-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        floor-&gt;<span class="fn">AddMeshCollider</span>(<span class="st">"Models/Dungeon.mdl"</span>);
+        floor-&gt;<span class="fn">SetCollisionLayer</span>(<span class="val">2</span>);  <span class="cm">// camera avoidance uses layer 2</span>
+
+        <span class="cm">// Bake nav-mesh from static geometry</span>
+        <span class="fn">BuildNavMesh</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>, <span class="val">0.25f</span>);
+
+        <span class="cm">// ── Player ───────────────────────────────────────────</span>
+        player = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Player.mdl"</span>);
+        player-&gt;<span class="fn">AddAnimationController</span>();
+        player-&gt;<span class="fn">AddRigidBody</span>(<span class="val">70.0f</span>);
+        player-&gt;<span class="fn">AddCapsuleCollider</span>(<span class="val">0.4f</span>, <span class="val">1.8f</span>);
+        player-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">1</span>, <span class="val">0</span>);
+        player-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/player.lua"</span>);
+
+        <span class="cm">// ── Enemy ─────────────────────────────────────────────</span>
+        enemy = <span class="fn">CreateEntity</span>(<span class="st">"Enemy"</span>);
+        enemy-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Skeleton.mdl"</span>);
+        enemy-&gt;<span class="fn">AddAnimationController</span>();
+        enemy-&gt;<span class="fn">AddRigidBody</span>(<span class="val">80.0f</span>);
+        enemy-&gt;<span class="fn">AddCapsuleCollider</span>(<span class="val">0.45f</span>, <span class="val">1.8f</span>);
+        enemy-&gt;<span class="fn">SetPosition</span>(<span class="val">12</span>, <span class="val">1</span>, <span class="val">8</span>);
+
+        <span class="cm">// ── Lights and camera ────────────────────────────────</span>
+        <span class="kw">auto</span> pt1 = <span class="fn">CreateEntity</span>(<span class="st">"Torch1"</span>);
+        pt1-&gt;<span class="fn">AddPointLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.6f</span>, <span class="val">0.2f</span>), <span class="val">8.0f</span>);
+        pt1-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">3</span>, <span class="val">0</span>);
+
+        <span class="kw">auto</span> cam = <span class="fn">CreateCamera</span>();
+        cam-&gt;<span class="fn">Follow</span>(player, <span class="val">7.0f</span>, <span class="val">3.0f</span>);
+        cam-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">5.0f</span>);
+        cam-&gt;<span class="fn">SetCollisionEnabled</span>(<span class="kw">true</span>);
+
+        statusLabel = <span class="fn">CreateLabel</span>(<span class="st">"Enemy: idle"</span>);
+        statusLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">20</span>);
+        statusLabel-&gt;<span class="fn">SetFontSize</span>(<span class="val">16</span>);
+        statusLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::WHITE);
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+
+        <span class="ty">float</span> dist = (enemy-&gt;<span class="fn">GetPosition</span>() - player-&gt;<span class="fn">GetPosition</span>()).<span class="fn">Length</span>();
+
+        <span class="kw">if</span> (dist &lt; <span class="val">1.8f</span>) {
+            <span class="cm">// Attack range</span>
+            enemy-&gt;<span class="fn">StopMoving</span>();
+            <span class="kw">auto</span>* anim = enemy-&gt;<span class="fn">GetAnimationController</span>();
+            <span class="kw">if</span> (anim) anim-&gt;<span class="fn">Play</span>(<span class="st">"attack"</span>, <span class="val">0</span>, <span class="kw">true</span>, <span class="val">0.1f</span>);
+            statusLabel-&gt;<span class="fn">SetText</span>(<span class="st">"Enemy: ATTACKING"</span>);
+        } <span class="kw">else</span> <span class="kw">if</span> (dist &lt; <span class="val">20.0f</span>) {
+            <span class="cm">// Chase range — MoveToward auto-navigates via nav-mesh</span>
+            <span class="ty">bool</span> moving = enemy-&gt;<span class="fn">MoveToward</span>(player, <span class="val">3.5f</span>, dt);
+            <span class="kw">auto</span>* anim = enemy-&gt;<span class="fn">GetAnimationController</span>();
+            <span class="kw">if</span> (anim) anim-&gt;<span class="fn">Play</span>(moving ? <span class="st">"walk"</span> : <span class="st">"idle"</span>, <span class="val">0</span>, <span class="kw">true</span>, <span class="val">0.2f</span>);
+            statusLabel-&gt;<span class="fn">SetText</span>(<span class="st">"Enemy: chasing  dist=" + std::to_string((int)dist) + "m"</span>);
+        } <span class="kw">else</span> {
+            enemy-&gt;<span class="fn">StopMoving</span>();
+            <span class="kw">auto</span>* anim = enemy-&gt;<span class="fn">GetAnimationController</span>();
+            <span class="kw">if</span> (anim) anim-&gt;<span class="fn">Play</span>(<span class="st">"idle"</span>, <span class="val">0</span>, <span class="kw">true</span>, <span class="val">0.3f</span>);
+            statusLabel-&gt;<span class="fn">SetText</span>(<span class="st">"Enemy: idle"</span>);
+        }
+    }
+};</pre>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="splitscreen">Split-Screen Co-op</h2>
+<p>
+  Two players in the same scene with independent cameras, each occupying half the screen.
+  Each camera follows its own player independently.
+</p>
+<pre><span class="kw">class</span> <span class="ty">CoopGame</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+    <span class="ty">Entity</span>* p1;
+    <span class="ty">Entity</span>* p2;
+    <span class="ty">Camera</span>* cam1;
+    <span class="ty">Camera</span>* cam2;
+
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="cm">// Shared level</span>
+        <span class="kw">auto</span> ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Ground.mdl"</span>);
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">80</span>, <span class="val">1</span>, <span class="val">80</span>));
+
+        <span class="cm">// Player 1 — WASD controls in script</span>
+        p1 = <span class="fn">CreateEntity</span>(<span class="st">"Player1"</span>);
+        p1-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/P1.mdl"</span>);
+        p1-&gt;<span class="fn">AddRigidBody</span>(<span class="val">70.0f</span>);
+        p1-&gt;<span class="fn">AddCapsuleCollider</span>(<span class="val">0.4f</span>, <span class="val">1.8f</span>);
+        p1-&gt;<span class="fn">SetPosition</span>(-<span class="val">3</span>, <span class="val">2</span>, <span class="val">0</span>);
+        p1-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/player1_wasd.lua"</span>);
+
+        <span class="cm">// Player 2 — Arrow key controls in script</span>
+        p2 = <span class="fn">CreateEntity</span>(<span class="st">"Player2"</span>);
+        p2-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/P2.mdl"</span>);
+        p2-&gt;<span class="fn">AddRigidBody</span>(<span class="val">70.0f</span>);
+        p2-&gt;<span class="fn">AddCapsuleCollider</span>(<span class="val">0.4f</span>, <span class="val">1.8f</span>);
+        p2-&gt;<span class="fn">SetPosition</span>(<span class="val">3</span>, <span class="val">2</span>, <span class="val">0</span>);
+        p2-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/player2_arrows.lua"</span>);
+
+        <span class="cm">// Sun</span>
+        <span class="kw">auto</span> sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>::WHITE, <span class="val">1.0f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50</span>, -<span class="val">30</span>, <span class="val">0</span>));
+
+        <span class="cm">// Left viewport — follows P1</span>
+        cam1 = <span class="fn">CreateCamera</span>();
+        cam1-&gt;<span class="fn">Follow</span>(p1, <span class="val">6.0f</span>, <span class="val">3.0f</span>);
+        cam1-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">7.0f</span>);
+        cam1-&gt;<span class="fn">SetViewport</span>(<span class="val">0</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.5f</span>, <span class="val">1.0f</span>);
+
+        <span class="cm">// Right viewport — follows P2</span>
+        cam2 = <span class="fn">CreateCamera</span>();
+        cam2-&gt;<span class="fn">Follow</span>(p2, <span class="val">6.0f</span>, <span class="val">3.0f</span>);
+        cam2-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">7.0f</span>);
+        cam2-&gt;<span class="fn">SetViewport</span>(<span class="val">1</span>, <span class="val">0.5f</span>, <span class="val">0.0f</span>, <span class="val">0.5f</span>, <span class="val">1.0f</span>);
+
+        <span class="fn">PlayMusic</span>(<span class="st">"Music/coop.ogg"</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+    }
+};</pre>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="networking">Networking — Client/Server Game State</h2>
+<p>
+  Minimal multiplayer: server broadcasts all player positions, clients send their own
+  position. Scene entities (created on the server) replicate automatically; custom messages
+  handle player-specific state.
+</p>
+<pre><span class="kw">class</span> <span class="ty">MultiGame</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+    <span class="ty">NetworkManager</span>* net     = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*         myPlayer = <span class="kw">nullptr</span>;
+    <span class="ty">bool</span>            isServer = <span class="kw">false</span>;
+
+    <span class="kw">static const</span> <span class="ty">int</span> MSG_PLAYER_POS = <span class="val">100</span>;
+
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        net = <span class="fn">CreateNetworkManager</span>();
+
+        <span class="cm">// Register message handler (both client and server)</span>
+        net-&gt;<span class="fn">SetOnMessage</span>([](<span class="ty">int</span> sender, <span class="ty">int</span> msgId,
+                            <span class="kw">const</span> std::<span class="ty">vector</span>&lt;<span class="ty">uint8_t</span>&gt;&amp; data) {
+            <span class="kw">if</span> (msgId == <span class="val">100</span> &amp;&amp; data.size() == <span class="kw">sizeof</span>(<span class="ty">float</span>) * <span class="val">3</span>) {
+                <span class="ty">float</span> x, y, z;
+                std::<span class="fn">memcpy</span>(&amp;x, data.data() + <span class="val">0</span>, <span class="val">4</span>);
+                std::<span class="fn">memcpy</span>(&amp;y, data.data() + <span class="val">4</span>, <span class="val">4</span>);
+                std::<span class="fn">memcpy</span>(&amp;z, data.data() + <span class="val">8</span>, <span class="val">4</span>);
+                <span class="cm">// update remote player entity at (x,y,z)…</span>
+            }
+        });
+
+        <span class="cm">// Launch as server (in real code, read from config/args)</span>
+        isServer = <span class="kw">true</span>;
+        <span class="kw">if</span> (isServer) {
+            net-&gt;<span class="fn">StartServer</span>(<span class="val">7777</span>, <span class="val">16</span>);
+            net-&gt;<span class="fn">SetOnClientConnected</span>([](<span class="ty">int</span> id) {
+                <span class="cm">// spawn remote player entity…</span>
+            });
+            net-&gt;<span class="fn">SetOnClientDisconnected</span>([](<span class="ty">int</span> id) {
+                <span class="cm">// destroy remote player entity…</span>
+            });
+        } <span class="kw">else</span> {
+            net-&gt;<span class="fn">Connect</span>(<span class="st">"127.0.0.1"</span>, <span class="val">7777</span>);
+            net-&gt;<span class="fn">SetOnServerConnected</span>([]{ <span class="cm">/* ready */</span> });
+        }
+
+        <span class="cm">// Create local player</span>
+        myPlayer = <span class="fn">CreateEntity</span>(<span class="st">"MyPlayer"</span>);
+        myPlayer-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Character.mdl"</span>);
+        myPlayer-&gt;<span class="fn">AddRigidBody</span>(<span class="val">70.0f</span>);
+        myPlayer-&gt;<span class="fn">AddCapsuleCollider</span>(<span class="val">0.4f</span>, <span class="val">1.8f</span>);
+        myPlayer-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">2</span>, <span class="val">0</span>);
+        myPlayer-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/player.lua"</span>);
+
+        <span class="kw">auto</span> cam = <span class="fn">CreateCamera</span>();
+        cam-&gt;<span class="fn">Follow</span>(myPlayer, <span class="val">6.0f</span>);
+        cam-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>);
+    }
+
+    <span class="ty">float</span> broadcastTimer = <span class="val">0</span>;
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+
+        <span class="cm">// Broadcast position 20 times/sec</span>
+        broadcastTimer += dt;
+        <span class="kw">if</span> (broadcastTimer &gt;= <span class="val">0.05f</span>) {
+            broadcastTimer = <span class="val">0</span>;
+            <span class="ty">Vector3</span> pos = myPlayer-&gt;<span class="fn">GetPosition</span>();
+            std::<span class="ty">vector</span>&lt;<span class="ty">uint8_t</span>&gt; data(<span class="val">12</span>);
+            std::<span class="fn">memcpy</span>(data.data() + <span class="val">0</span>, &amp;pos.x, <span class="val">4</span>);
+            std::<span class="fn">memcpy</span>(data.data() + <span class="val">4</span>, &amp;pos.y, <span class="val">4</span>);
+            std::<span class="fn">memcpy</span>(data.data() + <span class="val">8</span>, &amp;pos.z, <span class="val">4</span>);
+            <span class="kw">if</span> (net-&gt;<span class="fn">IsServer</span>())       net-&gt;<span class="fn">Broadcast</span>(MSG_PLAYER_POS, data);
+            <span class="kw">else if</span> (net-&gt;<span class="fn">IsConnected</span>()) net-&gt;<span class="fn">SendToServer</span>(MSG_PLAYER_POS, data);
+        }
+    }
+};</pre>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="triggers">Trigger Zones — Checkpoint System</h2>
+<pre><span class="kw">class</span> <span class="ty">CheckpointGame</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+    <span class="ty">Entity</span>* player;
+    <span class="ty">Vector3</span> checkpoint = <span class="ty">Vector3</span>(<span class="val">0</span>, <span class="val">2</span>, <span class="val">0</span>);
+    <span class="ty">Label</span>*  msgLabel;
+
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="kw">auto</span> ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Ground.mdl"</span>);
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">100</span>, <span class="val">1</span>, <span class="val">100</span>));
+
+        player = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Character.mdl"</span>);
+        player-&gt;<span class="fn">AddRigidBody</span>(<span class="val">70.0f</span>);
+        player-&gt;<span class="fn">AddCapsuleCollider</span>(<span class="val">0.4f</span>, <span class="val">1.8f</span>);
+        player-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">2</span>, <span class="val">0</span>);
+        player-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/player.lua"</span>);
+
+        <span class="cm">// Checkpoint A</span>
+        <span class="fn">MakeCheckpoint</span>(<span class="ty">Vector3</span>(-<span class="val">10</span>, <span class="val">0.5f</span>, <span class="val">5</span>), <span class="ty">Vector3</span>(-<span class="val">10</span>, <span class="val">2</span>, <span class="val">5</span>), <span class="st">"Checkpoint A"</span>);
+        <span class="fn">MakeCheckpoint</span>(<span class="ty">Vector3</span>(<span class="val">10</span>,  <span class="val">0.5f</span>, <span class="val">0</span>), <span class="ty">Vector3</span>(<span class="val">10</span>,  <span class="val">2</span>, <span class="val">0</span>), <span class="st">"Checkpoint B"</span>);
+
+        <span class="cm">// Death zone below the map</span>
+        <span class="kw">auto</span> deathZone = <span class="fn">CreateEntity</span>(<span class="st">"DeathZone"</span>);
+        deathZone-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, -<span class="val">15</span>, <span class="val">0</span>);
+        deathZone-&gt;<span class="fn">AddTriggerBox</span>(<span class="ty">Vector3</span>(<span class="val">200</span>, <span class="val">5</span>, <span class="val">200</span>));
+        deathZone-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>](Entity* other) {
+            <span class="kw">if</span> (other == player) {
+                player-&gt;<span class="fn">SetPosition</span>(checkpoint);
+                player-&gt;<span class="fn">SetLinearVelocity</span>(<span class="ty">Vector3</span>::ZERO);
+                msgLabel-&gt;<span class="fn">SetText</span>(<span class="st">"Respawned!"</span>);
+                msgLabel-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+            }
+        });
+
+        <span class="kw">auto</span> cam = <span class="fn">CreateCamera</span>();
+        cam-&gt;<span class="fn">Follow</span>(player, <span class="val">6.0f</span>);
+        cam-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>);
+
+        msgLabel = <span class="fn">CreateLabel</span>(<span class="st">""</span>);
+        msgLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">300</span>, <span class="val">200</span>);
+        msgLabel-&gt;<span class="fn">SetFontSize</span>(<span class="val">28</span>);
+        msgLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1</span>, <span class="val">0.5f</span>, <span class="val">0</span>));
+        msgLabel-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);
+    }
+
+    <span class="ty">float</span> msgTimer = <span class="val">0</span>;
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+        <span class="kw">if</span> (msgLabel-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>), msgTimer += dt, msgTimer &gt; <span class="val">2.0f</span>)
+            msgLabel-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>), msgTimer = <span class="val">0</span>;
+    }
+
+<span class="kw">private</span>:
+    <span class="kw">void</span> <span class="fn">MakeCheckpoint</span>(<span class="ty">Vector3</span> pos, <span class="ty">Vector3</span> respawnPos, <span class="kw">const</span> std::<span class="ty">string</span>&amp; name) {
+        <span class="kw">auto</span> cp = <span class="fn">CreateEntity</span>(name);
+        cp-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/CheckpointFlag.mdl"</span>);
+        cp-&gt;<span class="fn">SetPosition</span>(pos);
+        cp-&gt;<span class="fn">AddTriggerCapsule</span>(<span class="val">1.5f</span>, <span class="val">4.0f</span>);
+        cp-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>, respawnPos, name](Entity* other) {
+            <span class="kw">if</span> (other == player) {
+                checkpoint = respawnPos;
+                msgLabel-&gt;<span class="fn">SetText</span>(name + <span class="st">" reached!"</span>);
+                msgLabel-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+                <span class="fn">PlaySound</span>(<span class="st">"Sounds/checkpoint.wav"</span>);
+            }
+        });
+    }
+};</pre>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="hud">HUD — Timer, Health Bar, Score</h2>
+<pre><span class="kw">class</span> <span class="ty">HUDDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+    <span class="ty">Label</span>* healthLabel;
+    <span class="ty">Label</span>* scoreLabel;
+    <span class="ty">Label</span>* timerLabel;
+    <span class="ty">Label</span>* fpsLabel;
+
+    <span class="ty">float</span> elapsed = <span class="val">0</span>;
+    <span class="ty">int</span>   health  = <span class="val">100</span>;
+    <span class="ty">int</span>   score   = <span class="val">0</span>;
+    <span class="ty">float</span> fpTimer = <span class="val">0</span>;
+    <span class="ty">int</span>   frames  = <span class="val">0</span>;
+
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"HUD Demo"</span>);
+
+        healthLabel = <span class="fn">CreateLabel</span>(<span class="st">"HP: ||||||||||||||||||||  100"</span>);
+        healthLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">20</span>);
+        healthLabel-&gt;<span class="fn">SetFontSize</span>(<span class="val">18</span>);
+        healthLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">1.0f</span>, <span class="val">0.2f</span>));
+
+        scoreLabel = <span class="fn">CreateLabel</span>(<span class="st">"Score: 0"</span>);
+        scoreLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">50</span>);
+        scoreLabel-&gt;<span class="fn">SetFontSize</span>(<span class="val">20</span>);
+        scoreLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::WHITE);
+
+        timerLabel = <span class="fn">CreateLabel</span>(<span class="st">"00:00"</span>);
+        timerLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">600</span>, <span class="val">20</span>);
+        timerLabel-&gt;<span class="fn">SetFontSize</span>(<span class="val">22</span>);
+        timerLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.9f</span>, <span class="val">0.9f</span>, <span class="val">0.9f</span>));
+
+        fpsLabel = <span class="fn">CreateLabel</span>(<span class="st">"FPS: 60"</span>);
+        fpsLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">680</span>);
+        fpsLabel-&gt;<span class="fn">SetFontSize</span>(<span class="val">12</span>);
+        fpsLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.5f</span>, <span class="val">0.5f</span>, <span class="val">0.5f</span>));
+
+        <span class="fn">CreateCamera</span>();
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        elapsed += dt;
+        fpTimer += dt;
+        frames++;
+
+        <span class="cm">// Update timer MM:SS</span>
+        <span class="ty">int</span> m = (<span class="ty">int</span>)elapsed / <span class="val">60</span>, s = (<span class="ty">int</span>)elapsed % <span class="val">60</span>;
+        <span class="kw">auto</span> <span class="fn">pad</span> = [](<span class="ty">int</span> v) { <span class="kw">return</span> (v &lt; <span class="val">10</span> ? <span class="st">"0"</span> : <span class="st">""</span>) + std::<span class="fn">to_string</span>(v); };
+        timerLabel-&gt;<span class="fn">SetText</span>(<span class="fn">pad</span>(m) + <span class="st">":"</span> + <span class="fn">pad</span>(s));
+
+        <span class="cm">// FPS counter (update once/sec)</span>
+        <span class="kw">if</span> (fpTimer &gt;= <span class="val">1.0f</span>) {
+            fpsLabel-&gt;<span class="fn">SetText</span>(<span class="st">"FPS: " + std::to_string(frames)</span>);
+            fpTimer = <span class="val">0</span>; frames = <span class="val">0</span>;
+        }
+
+        <span class="cm">// Simulate health drain with H key</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::H) &amp;&amp; health &gt; <span class="val">0</span>) {
+            health = std::<span class="fn">max</span>(<span class="val">0</span>, health - (<span class="ty">int</span>)(dt * <span class="val">20</span>));
+            <span class="ty">float</span> ratio = health / <span class="val">100.0f</span>;
+            healthLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span> - ratio, ratio, <span class="val">0</span>));
+            healthLabel-&gt;<span class="fn">SetText</span>(<span class="st">"HP: " + std::to_string(health)</span>);
+        }
+
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+    }
+};</pre>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="orbit-cam">Orbit Camera (RPG-style)</h2>
+<pre><span class="kw">class</span> <span class="ty">RPGCamera</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+    <span class="ty">Entity</span>* player;
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        player = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Character.mdl"</span>);
+        player-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">1</span>, <span class="val">0</span>);
+        player-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/player.lua"</span>);
+
+        <span class="kw">auto</span> ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Ground.mdl"</span>);
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">100</span>, <span class="val">1</span>, <span class="val">100</span>));
+
+        <span class="kw">auto</span> sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>::WHITE, <span class="val">1.0f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50</span>, -<span class="val">30</span>, <span class="val">0</span>));
+
+        <span class="cm">// Orbit camera — hold RMB and drag to rotate</span>
+        <span class="kw">auto</span> cam = <span class="fn">CreateCamera</span>();
+        cam-&gt;<span class="fn">SetOrbitMode</span>(player, <span class="val">7.0f</span>);
+        cam-&gt;<span class="fn">SetOrbitAngles</span>(<span class="val">0.0f</span>, <span class="val">25.0f</span>);       <span class="cm">// initial yaw=0°, pitch=25°</span>
+        cam-&gt;<span class="fn">SetOrbitSensitivity</span>(<span class="val">0.25f</span>);
+        cam-&gt;<span class="fn">SetOrbitPitchLimits</span>(-<span class="val">10.0f</span>, <span class="val">70.0f</span>);
+        cam-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">8.0f</span>);
+        cam-&gt;<span class="fn">SetCollisionEnabled</span>(<span class="kw">true</span>);
+        cam-&gt;<span class="fn">SetFOV</span>(<span class="val">55.0f</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+    }
+};</pre>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="procedural">Procedural Scene — Grid of Entities</h2>
+<pre><span class="kw">class</span> <span class="ty">ProceduralGame</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+    <span class="ty">float</span> time = <span class="val">0</span>;
+    std::<span class="ty">vector</span>&lt;<span class="ty">Entity</span>*&gt; boxes;
+
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.05f</span>, <span class="val">0.05f</span>, <span class="val">0.08f</span>));
+
+        <span class="cm">// 8×8 grid of boxes with staggered heights</span>
+        <span class="kw">for</span> (<span class="ty">int</span> x = -<span class="val">4</span>; x &lt; <span class="val">4</span>; ++x) {
+            <span class="kw">for</span> (<span class="ty">int</span> z = -<span class="val">4</span>; z &lt; <span class="val">4</span>; ++z) {
+                <span class="kw">auto</span> b = <span class="fn">CreateEntity</span>(<span class="st">"Box" + std::to_string(x) + "_" + std::to_string(z)</span>);
+                b-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+                b-&gt;<span class="fn">SetPosition</span>(x * <span class="val">2.5f</span>, <span class="val">0</span>, z * <span class="val">2.5f</span>);
+                b-&gt;<span class="fn">SetScale</span>(<span class="ty">Vector3</span>(<span class="val">0.8f</span>, <span class="val">0.8f</span>, <span class="val">0.8f</span>));
+                boxes.<span class="fn">push_back</span>(b);
+            }
+        }
+
+        <span class="cm">// Ambient fill + accent point light</span>
+        <span class="kw">auto</span> amb = <span class="fn">CreateEntity</span>(<span class="st">"Amb"</span>);
+        amb-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.2f</span>, <span class="val">0.3f</span>), <span class="val">0.5f</span>);
+
+        <span class="kw">auto</span> pt = <span class="fn">CreateEntity</span>(<span class="st">"Accent"</span>);
+        pt-&gt;<span class="fn">AddPointLight</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.6f</span>, <span class="val">1.0f</span>), <span class="val">20.0f</span>);
+        pt-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">5</span>, <span class="val">0</span>);
+
+        <span class="kw">auto</span> cam = <span class="fn">CreateCamera</span>();
+        cam-&gt;<span class="fn">SetOrbitMode</span>(pt, <span class="val">18.0f</span>);
+        cam-&gt;<span class="fn">SetOrbitAngles</span>(<span class="val">0</span>, <span class="val">35</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        time += dt;
+        <span class="cm">// Animate each box with a sine wave based on its grid position</span>
+        <span class="ty">int</span> i = <span class="val">0</span>;
+        <span class="kw">for</span> (<span class="kw">auto</span>* b : boxes) {
+            <span class="ty">float</span> phase = (i % <span class="val">8</span>) * <span class="val">0.4f</span> + (i / <span class="val">8</span>) * <span class="val">0.3f</span>;
+            <span class="ty">float</span> h     = std::<span class="fn">sin</span>(time * <span class="val">2.0f</span> + phase) * <span class="val">1.5f</span>;
+            <span class="ty">Vector3</span> pos = b-&gt;<span class="fn">GetPosition</span>();
+            pos.y = h;
+            b-&gt;<span class="fn">SetPosition</span>(pos);
+            b-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(time * <span class="val">30.0f</span> + phase * <span class="val">60</span>, <span class="val">0</span>, <span class="val">0</span>));
+            ++i;
+        }
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+    }
+};</pre>
+
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d — part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

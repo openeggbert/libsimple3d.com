@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>simple-3d — Clean C++/Lua 3D Game Framework</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html" class="active">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Overview</h3>
+  <ul>
+    <li><a href="#what">What is simple-3d?</a></li>
+    <li><a href="#why">Why use it?</a></li>
+    <li><a href="#features">Key Features</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#quickstart">Quick Start (C++)</a></li>
+    <li><a href="#lua-example">Lua Script Example</a></li>
+    <li><a href="#modules">Module Status</a></li>
+    <li><a href="#backends">Backends</a></li>
+    <li><a href="#comparison">Comparison</a></li>
+    <li><a href="#license">License</a></li>
+  </ul>
+  <h3>Documentation</h3>
+  <ul>
+    <li><a href="getting-started.html">Getting Started</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="api.html">C++ API Reference</a></li>
+    <li><a href="lua-api.html">Lua API Reference</a></li>
+    <li><a href="examples.html">Examples</a></li>
+    <li><a href="features.html">Feature Status</a></li>
+  </ul>
+</aside>
+
+<main class="content">
+
+<div class="hero">
+  <h1>simple-3d</h1>
+  <p class="subtitle">A clean, minimalistic 3D/2D game framework for <strong>C++23</strong> and <strong>Lua</strong>.</p>
+  <p class="tagline">
+    Write game logic against a stable, engine-agnostic API. No engine internals leak into your code.
+    Subclass <code>Game</code>, override <code>Start()</code> and <code>Update()</code>, ship.
+  </p>
+  <div>
+    <span class="badge badge-green">C++23</span>
+    <span class="badge badge-green">CMake 3.21+</span>
+    <span class="badge badge-lua">Lua / LuaJIT</span>
+    <span class="badge badge-blue">3D + 2D</span>
+    <span class="badge">Bullet Physics</span>
+    <span class="badge">Box2D</span>
+    <span class="badge">Recast Navigation</span>
+    <span class="badge">ENet Networking</span>
+    <span class="badge">Tiled Maps</span>
+    <span class="badge">Cross-platform</span>
+  </div>
+</div>
+
+<!-- ─── WHAT IS ─────────────────────────────────────────────── -->
+<h2 id="what">What is simple-3d?</h2>
+<p>
+  <strong>simple-3d</strong> is a high-level C++ game framework built as a clean wrapper around an Urho3D engine fork.
+  It exposes a minimal, game-first API without requiring you to understand any of the underlying engine's
+  internal types, subsystems, or component model.
+</p>
+<p>
+  Urho3D types (<code>Urho3D::Node</code>, <code>Urho3D::Scene</code>, <code>Urho3D::Application</code>, etc.)
+  are <strong>never</strong> visible in the public headers. They are hidden behind PIMPL classes.
+  The only exception is the math library — <code>Vector2</code>, <code>Vector3</code>,
+  <code>Color</code>, <code>Quaternion</code> and friends are re-exported as <code>Simple3D::</code> type
+  aliases because they are ABI-identical and there is no benefit to wrapping them further.
+</p>
+<p>
+  The result: you write <code>entity-&gt;AddRigidBody(1.0f)</code> and simple-3d handles the
+  <code>Urho3D::RigidBody</code> component, <code>GetOrCreateComponent</code>, collision mask setup, and
+  physics world registration behind the scenes.
+</p>
+
+<!-- ─── WHY ─────────────────────────────────────────────────── -->
+<h2 id="why">Why simple-3d?</h2>
+<div class="grid3">
+  <div class="card card-green">
+    <h3>Zero engine coupling</h3>
+    <p>Your game code never includes a single Urho3D header. Swap the backend from U3D to NOVA3D with one CMake flag — zero source changes.</p>
+  </div>
+  <div class="card card-green">
+    <h3>Designed for game code</h3>
+    <p>API methods match what you <em>think</em> about while writing a game: "give this entity a capsule collider", "make the camera follow the player". Not engine primitives.</p>
+  </div>
+  <div class="card card-green">
+    <h3>Lua for gameplay logic</h3>
+    <p>Per-entity Lua scripts with <code>Start()</code>, <code>Update(dt)</code>, and <code>Stop()</code>. Reloadable at runtime without recompiling the engine.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>Full 3D + 2D in one</h3>
+    <p>3D physics (Bullet), 2D physics (Box2D), sprites, tile maps, orthographic camera, and nav-mesh — all in the same library with one unified API surface.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>No boilerplate</h3>
+    <p>10 lines for a complete game loop, physics entity, animated character, and follow camera. Everything a game needs, nothing an engine demo needs.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>Battle-tested backend</h3>
+    <p>Built on top of an Urho3D fork — a mature engine with Bullet, Recast/Detour, ENet, LuaJIT, and bgfx rendering support.</p>
+  </div>
+</div>
+
+<!-- ─── FEATURES ─────────────────────────────────────────────── -->
+<h2 id="features">Key Features</h2>
+<div class="grid3">
+  <div class="card">
+    <h3>Entity system</h3>
+    <p>Create scene objects with <code>CreateEntity(name)</code>. Attach models, colliders, lights, animation controllers, and Lua scripts in any order.</p>
+  </div>
+  <div class="card">
+    <h3>Physics — 3D (Bullet)</h3>
+    <p>Dynamic and static rigid bodies, box/capsule/sphere/mesh colliders, trigger volumes with enter/exit callbacks, impulse/force/velocity control, collision layers.</p>
+  </div>
+  <div class="card">
+    <h3>Physics — 2D (Box2D)</h3>
+    <p>2D rigid bodies, box and circle colliders, linear velocity, impulse, ground detection. Runs alongside the 3D physics world in the same scene.</p>
+  </div>
+  <div class="card">
+    <h3>Camera modes</h3>
+    <p>Third-person follow, orbit (RMB drag), first-person FPS (mouse captured), orthographic 2D, split-screen, smooth lerp, collision avoidance.</p>
+  </div>
+  <div class="card">
+    <h3>Navigation</h3>
+    <p><code>BuildNavMesh()</code> bakes from static geometry. <code>entity-&gt;MoveToward(target, speed, dt)</code> auto-navigates. <code>FindPath()</code> returns waypoints.</p>
+  </div>
+  <div class="card">
+    <h3>Lua scripting</h3>
+    <p>Per-entity <code>.lua</code> scripts via Urho3D's <code>LuaScriptInstance</code>. Simple3D adds custom bindings: <code>MoveRelative</code>, <code>IsOnGround</code>, <code>ApplyImpulse</code>, input helpers.</p>
+  </div>
+  <div class="card">
+    <h3>Animation</h3>
+    <p>Skeletal animation via <code>AnimationController</code>. Named clips, per-layer blending, fade in/out, weight control, speed multiplier.</p>
+  </div>
+  <div class="card">
+    <h3>Networking</h3>
+    <p>ENet-based client/server. Scene entities auto-replicate. Custom messages (IDs 100–32767) with raw byte payloads. Typed connection callbacks.</p>
+  </div>
+  <div class="card">
+    <h3>Audio</h3>
+    <p>Stream OGG/WAV music with loop control. One-shot SFX with per-call volume. Master volume. Spatial 3D audio planned.</p>
+  </div>
+  <div class="card">
+    <h3>2D rendering</h3>
+    <p>Static sprites, Spriter animated sprites (<code>.scml</code>), flip control, Tiled tile map loading (<code>.tmx</code>).</p>
+  </div>
+  <div class="card">
+    <h3>Input</h3>
+    <p>Keyboard (held / first-frame), mouse position / delta / buttons, multi-touch with pressure. Gamepad planned.</p>
+  </div>
+  <div class="card">
+    <h3>UI labels</h3>
+    <p>On-screen text (HUD): screen position, font size, RGBA color, visibility toggle. Full UI panel/button system planned.</p>
+  </div>
+</div>
+
+<!-- ─── ARCHITECTURE ──────────────────────────────────────────── -->
+<h2 id="architecture">Architecture at a glance</h2>
+<div class="arch-diagram">Game Code (C++ / Lua)
+        ↓
+   simple-3d API          ← stable public boundary; no engine types visible here
+        ↓
+  Urho3D fork (U3D)       ← scene graph, physics, navigation, networking, Lua
+        ↓
+  XNA C++ runtime         ← rendering, audio, input  (NOVA3D backend only)
+        ↓
+  Vulkan / GLES / bgfx    ← GPU backends
+        ↓
+  SDL3 / OS               ← windowing, events</div>
+<p>
+  Every public class in simple-3d uses the <strong>PIMPL idiom</strong>: the <code>.h</code> file
+  declares <code>struct Impl;</code> and stores it in a <code>unique_ptr&lt;Impl&gt;</code>.
+  The <code>.cpp</code> file defines <code>Impl</code> and can include any Urho3D header it needs.
+  This guarantees that rebuilding the engine never forces recompilation of game code.
+</p>
+<p><a href="architecture.html">Full architecture documentation →</a></p>
+
+<!-- ─── QUICK START ───────────────────────────────────────────── -->
+<h2 id="quickstart">Quick Start (C++)</h2>
+<p>
+  One header, one subclass, four methods — that is everything required for a complete interactive game.
+</p>
+<pre><span class="kw">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">MyGame</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+    <span class="ty">Entity</span>* player;
+    <span class="ty">Camera</span>* camera;
+
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="cm">// ── Scene ────────────────────────────────────────────</span>
+        <span class="kw">auto</span> ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Ground.mdl"</span>);
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);                      <span class="cm">// 0 = static</span>
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">100</span>, <span class="val">1</span>, <span class="val">100</span>));
+
+        <span class="cm">// ── Player ───────────────────────────────────────────</span>
+        player = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Character.mdl"</span>);
+        player-&gt;<span class="fn">AddAnimationController</span>();
+        player-&gt;<span class="fn">AddRigidBody</span>(<span class="val">70.0f</span>);
+        player-&gt;<span class="fn">AddCapsuleCollider</span>(<span class="val">0.4f</span>, <span class="val">1.75f</span>);
+        player-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">2</span>, <span class="val">0</span>);
+        player-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/player.lua"</span>);
+
+        <span class="cm">// ── Lighting ─────────────────────────────────────────</span>
+        <span class="kw">auto</span> sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.95f</span>, <span class="val">0.85f</span>), <span class="val">1.0f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50</span>, -<span class="val">30</span>, <span class="val">0</span>));
+
+        <span class="cm">// ── Camera ───────────────────────────────────────────</span>
+        camera = <span class="fn">CreateCamera</span>();
+        camera-&gt;<span class="fn">Follow</span>(player, <span class="val">6.0f</span>, <span class="val">2.5f</span>);
+        camera-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">7.0f</span>);
+        camera-&gt;<span class="fn">SetCollisionEnabled</span>(<span class="kw">true</span>);
+
+        <span class="cm">// ── Audio ────────────────────────────────────────────</span>
+        <span class="fn">PlayMusic</span>(<span class="st">"Music/theme.ogg"</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>() {
+    <span class="kw">return</span> <span class="fn">CreateGame</span>&lt;<span class="ty">MyGame</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+<p>
+  <a href="getting-started.html">Build instructions →</a> &nbsp;·&nbsp;
+  <a href="api.html">Full C++ API reference →</a>
+</p>
+
+<!-- ─── LUA EXAMPLE ───────────────────────────────────────────── -->
+<h2 id="lua-example">Lua Script Example</h2>
+<p>
+  Attach scripts to individual entities. Each script has its own isolated Lua state with access to the
+  owning entity, input, audio, and scene. Scripts are hot-reloadable at runtime.
+</p>
+<pre><span class="lua-cm">-- Scripts/player.lua</span>
+<span class="lua-cm">-- Loaded via entity-&gt;AddScript("Scripts/player.lua") in C++</span>
+
+speed     = <span class="lua-num">6</span>    <span class="lua-cm">-- m/s horizontal movement</span>
+jumpForce = <span class="lua-num">8</span>    <span class="lua-cm">-- impulse on Space</span>
+<span class="lua-kw">local</span> anim         <span class="lua-cm">-- AnimationController reference</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node   <span class="lua-cm">-- Simple3D convention: alias self.node</span>
+    anim   = entity:GetAnimationController()
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">local</span> move = Vector3(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+
+    <span class="lua-kw">if</span> Input:IsKeyDown(<span class="lua-str">"W"</span>) <span class="lua-kw">then</span> move.z = move.z + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:IsKeyDown(<span class="lua-str">"S"</span>) <span class="lua-kw">then</span> move.z = move.z - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:IsKeyDown(<span class="lua-str">"A"</span>) <span class="lua-kw">then</span> move.x = move.x - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:IsKeyDown(<span class="lua-str">"D"</span>) <span class="lua-kw">then</span> move.x = move.x + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+
+    <span class="lua-kw">if</span> move:Length() &gt; <span class="lua-num">0</span> <span class="lua-kw">then</span>
+        entity:MoveRelative(move:Normalized() * speed * dt)
+        anim:Play(<span class="lua-str">"run"</span>, <span class="lua-num">0</span>, <span class="lua-kw">true</span>, <span class="lua-num">0.2</span>)
+    <span class="lua-kw">else</span>
+        anim:Play(<span class="lua-str">"idle"</span>, <span class="lua-num">0</span>, <span class="lua-kw">true</span>, <span class="lua-num">0.2</span>)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-kw">if</span> Input:IsKeyPress(<span class="lua-str">"Space"</span>) <span class="lua-kw">and</span> entity:IsOnGround() <span class="lua-kw">then</span>
+        entity:ApplyImpulse(Vector3(<span class="lua-num">0</span>, jumpForce, <span class="lua-num">0</span>))
+        PlaySound(<span class="lua-str">"Sounds/jump.wav"</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+<p>
+  <a href="lua-api.html">Full Lua API reference →</a> &nbsp;·&nbsp;
+  <a href="examples.html">More examples →</a>
+</p>
+
+<!-- ─── MODULES ───────────────────────────────────────────────── -->
+<h2 id="modules">Module Status</h2>
+<table>
+  <tr><th>Module</th><th>Status</th><th>C++ API</th><th>Lua binding</th><th>Notes</th></tr>
+  <tr>
+    <td>Core</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#game">Game class</a></td>
+    <td>—</td>
+    <td>Game loop, window, types, time</td>
+  </tr>
+  <tr>
+    <td>Entity</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#entity">Entity</a></td>
+    <td>Via <code>self.node</code></td>
+    <td>PIMPL over Urho3D::Node, registry</td>
+  </tr>
+  <tr>
+    <td>Camera</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#camera">Camera</a></td>
+    <td>—</td>
+    <td>Follow, FPS, orbit, ortho, split-screen</td>
+  </tr>
+  <tr>
+    <td>Audio</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#game-audio">Audio methods</a></td>
+    <td><span class="status-wip">🔄</span></td>
+    <td>PlayMusic, PlaySound, master volume</td>
+  </tr>
+  <tr>
+    <td>Input</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#game-input">Input methods</a></td>
+    <td>Via <code>Input:</code></td>
+    <td>Keyboard, mouse, touch</td>
+  </tr>
+  <tr>
+    <td>Physics 3D</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#entity-physics">Entity physics</a></td>
+    <td>Via entity extensions</td>
+    <td>Bullet — rigid bodies, triggers, layers</td>
+  </tr>
+  <tr>
+    <td>Physics 2D</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#entity-physics2d">Entity physics 2D</a></td>
+    <td>—</td>
+    <td>Box2D — rigid body, box/circle</td>
+  </tr>
+  <tr>
+    <td>Animation</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#entity-animation">Entity animation</a></td>
+    <td>Via <code>GetAnimationController()</code></td>
+    <td>Skeletal, blend layers, weights</td>
+  </tr>
+  <tr>
+    <td>Navigation</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#entity-nav">Navigation</a></td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Recast/Detour, MoveToward, FindPath</td>
+  </tr>
+  <tr>
+    <td>Networking</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#network">NetworkManager</a></td>
+    <td>—</td>
+    <td>ENet, client/server, auto-replication</td>
+  </tr>
+  <tr>
+    <td>2D sprites</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#entity-2d">Entity 2D</a></td>
+    <td>—</td>
+    <td>Static + animated Spriter</td>
+  </tr>
+  <tr>
+    <td>Tile maps</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#game-scene">LoadTileMap</a></td>
+    <td>—</td>
+    <td>Tiled .tmx format</td>
+  </tr>
+  <tr>
+    <td>UI — Label</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#label">Label</a></td>
+    <td>—</td>
+    <td>HUD text, position, color, visibility</td>
+  </tr>
+  <tr>
+    <td>Lua scripting</td>
+    <td><span class="status-wip">🔄 In progress</span></td>
+    <td>—</td>
+    <td><a href="lua-api.html">Lua API</a></td>
+    <td>Core done; custom bindings Task #3</td>
+  </tr>
+  <tr>
+    <td>Full UI system</td>
+    <td><span class="status-plan">📋 Planned</span></td>
+    <td>—</td>
+    <td>—</td>
+    <td>Panels, buttons, images — Task #17</td>
+  </tr>
+  <tr>
+    <td>Scene management</td>
+    <td><span class="status-plan">📋 Planned</span></td>
+    <td>—</td>
+    <td>—</td>
+    <td>Level transitions — Task #18</td>
+  </tr>
+  <tr>
+    <td>Spatial audio</td>
+    <td><span class="status-plan">📋 Planned</span></td>
+    <td>—</td>
+    <td>—</td>
+    <td>3D positional sound — Task #23</td>
+  </tr>
+  <tr>
+    <td>Android</td>
+    <td><span class="status-plan">📋 Planned</span></td>
+    <td>—</td>
+    <td>—</td>
+    <td>NOVA3D backend — Task #8</td>
+  </tr>
+  <tr>
+    <td>Web / Emscripten</td>
+    <td><span class="status-plan">📋 Planned</span></td>
+    <td>—</td>
+    <td>—</td>
+    <td>Task #9</td>
+  </tr>
+</table>
+
+<!-- ─── BACKENDS ──────────────────────────────────────────────── -->
+<h2 id="backends">Backends</h2>
+<p>
+  The same simple-3d source works with two different engine backends. Switch with a single CMake variable;
+  no changes to game code are needed.
+</p>
+<div class="col2">
+<div>
+<h3>U3D (default)</h3>
+<p>
+  Links against the upstream <code>u3d-community/U3D</code> Urho3D community fork.
+  Stable Bullet physics, LuaJIT scripting, Recast/Detour navigation, ENet networking.
+  Supports Linux, Windows, and macOS desktop builds.
+</p>
+<pre>cmake -S . -B build \
+  -DSIMPLE3D_ENGINE=U3D \
+  -DU3D_HOME=/path/to/u3d/build</pre>
+</div>
+<div>
+<h3>NOVA3D</h3>
+<p>
+  Links against Robert Vokac's Urho3D fork which adds an XNA C++ runtime underneath.
+  Same public API surface as U3D. Primary target for Android and experimental hardware.
+  Identical game source builds against either backend.
+</p>
+<pre>cmake -S . -B build \
+  -DSIMPLE3D_ENGINE=NOVA3D \
+  -DNOVA3D_HOME=/path/to/nova3d/build</pre>
+</div>
+</div>
+
+<!-- ─── COMPARISON ────────────────────────────────────────────── -->
+<h2 id="comparison">Comparison with Direct Urho3D Use</h2>
+<table>
+  <tr><th>Aspect</th><th>Direct Urho3D</th><th>simple-3d</th></tr>
+  <tr>
+    <td>Game entry point</td>
+    <td>Subclass <code>Urho3D::Application</code>, wire subsystems, create context</td>
+    <td><code>CreateGame&lt;MyGame&gt;()-&gt;Run()</code></td>
+  </tr>
+  <tr>
+    <td>Create a physics object</td>
+    <td>Create Node, GetOrCreateComponent&lt;RigidBody&gt;, GetOrCreateComponent&lt;CollisionShape&gt;, set shape type, set mass, add to world</td>
+    <td><code>entity-&gt;AddRigidBody(1.0f); entity-&gt;AddCapsuleCollider(0.4f, 1.8f);</code></td>
+  </tr>
+  <tr>
+    <td>Engine types in headers</td>
+    <td>Yes — <code>Urho3D::Node*</code>, <code>Urho3D::Scene*</code>, etc. in game .h files</td>
+    <td>No — only <code>Simple3D::</code> aliases; no Urho3D includes needed</td>
+  </tr>
+  <tr>
+    <td>Camera follow player</td>
+    <td>Write follow logic in Update, handle offset and smoothing manually</td>
+    <td><code>camera-&gt;Follow(player, 6.0f); camera-&gt;SetSmoothFollow(true);</code></td>
+  </tr>
+  <tr>
+    <td>Nav-mesh pathfinding</td>
+    <td>Set up NavigationMesh component, NavigationAgent, handle path callbacks, implement steering</td>
+    <td><code>BuildNavMesh(); enemy-&gt;MoveToward(player, 3.0f, dt);</code></td>
+  </tr>
+  <tr>
+    <td>Backend portability</td>
+    <td>Tightly coupled to Urho3D</td>
+    <td>Swap U3D ↔ NOVA3D with one CMake flag</td>
+  </tr>
+</table>
+
+<!-- ─── LICENSE ───────────────────────────────────────────────── -->
+<h2 id="license">License</h2>
+<p>
+  simple-3d is open source. See the <a href="https://github.com/openeggbert/simple-3d/blob/main/LICENSE">LICENSE</a>
+  file in the repository for the full text.
+  The underlying Urho3D fork (U3D) is distributed under the MIT license.
+</p>
+
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d — part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>C++ API Reference — simple-3d</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html" class="active">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Classes</h3>
+  <ul>
+    <li><a href="#game">Game</a></li>
+    <li><a href="#entity">Entity</a></li>
+    <li><a href="#camera">Camera</a></li>
+    <li><a href="#network">NetworkManager</a></li>
+    <li><a href="#label">Label</a></li>
+    <li><a href="#animation">AnimationController</a></li>
+    <li><a href="#math">Math Types</a></li>
+    <li><a href="#keys">Key enum</a></li>
+  </ul>
+  <h3>Game</h3>
+  <ul>
+    <li><a href="#game-lifecycle">Lifecycle</a></li>
+    <li><a href="#game-scene">Scene creation</a></li>
+    <li><a href="#game-audio">Audio</a></li>
+    <li><a href="#game-input">Keyboard / mouse</a></li>
+    <li><a href="#game-touch">Touch</a></li>
+    <li><a href="#game-rendering">Rendering</a></li>
+    <li><a href="#game-nav">Navigation</a></li>
+    <li><a href="#game-misc">Misc</a></li>
+  </ul>
+  <h3>Entity</h3>
+  <ul>
+    <li><a href="#entity-transform">Transform</a></li>
+    <li><a href="#entity-rendering3d">3D Rendering</a></li>
+    <li><a href="#entity-rendering2d">2D Rendering</a></li>
+    <li><a href="#entity-physics3d">Physics 3D</a></li>
+    <li><a href="#entity-physics2d">Physics 2D</a></li>
+    <li><a href="#entity-animation">Animation</a></li>
+    <li><a href="#entity-nav">Navigation</a></li>
+    <li><a href="#entity-scripting">Scripting</a></li>
+    <li><a href="#entity-hierarchy">Hierarchy</a></li>
+  </ul>
+  <h3>Camera</h3>
+  <ul>
+    <li><a href="#camera-follow">Follow</a></li>
+    <li><a href="#camera-orbit">Orbit</a></li>
+    <li><a href="#camera-fps">FPS mode</a></li>
+    <li><a href="#camera-collision">Collision</a></li>
+    <li><a href="#camera-2d">2D / ortho</a></li>
+    <li><a href="#camera-split">Split-screen</a></li>
+    <li><a href="#camera-projection">Projection</a></li>
+  </ul>
+</aside>
+
+<main class="content">
+<h1>C++ API Reference</h1>
+
+<div class="section-intro">
+  <strong>Single include:</strong> <code>#include &lt;Simple3D/Simple3D.h&gt;</code><br>
+  All public symbols live in the <code>Simple3D::</code> namespace.
+  Use <code>using namespace Simple3D;</code> in implementation files for brevity.
+  Never use it in headers — this pollutes the global namespace for users of your headers.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="game">Game</h2>
+<p>
+  <code>Game</code> is the base class for your application. Override <code>Start()</code>,
+  <code>Update()</code>, and optionally <code>Stop()</code>. Instantiate via the factory function
+  <code>CreateGame&lt;T&gt;()</code> which sets up all engine internals before returning.
+</p>
+<pre><span class="kw">#include</span> <span class="st">&lt;Simple3D/Core/Game.h&gt;</span>
+
+<span class="kw">class</span> <span class="ty">MyGame</span> : <span class="kw">public</span> <span class="ty">Simple3D::Game</span> {
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">Start</span>()           <span class="kw">override</span>;
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt)  <span class="kw">override</span>;
+    <span class="kw">void</span> <span class="fn">Stop</span>()            <span class="kw">override</span>;  <span class="cm">// optional</span>
+};
+
+<span class="ty">int</span> <span class="fn">main</span>() {
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">MyGame</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<div class="callout warn">
+  <h4>Never do engine work in the constructor</h4>
+  <p>
+    The engine is not initialised until <code>Run()</code> is called. All entity creation,
+    asset loading, and scene setup must happen in <code>Start()</code>, not in the constructor
+    of your <code>Game</code> subclass.
+  </p>
+</div>
+
+<!-- ─── LIFECYCLE ────────────────────────────────────────────────── -->
+<h3 id="game-lifecycle">Lifecycle callbacks</h3>
+<table>
+  <tr><th>Signature</th><th>When called</th><th>Notes</th></tr>
+  <tr>
+    <td><code>void Start()</code></td>
+    <td>Once, after engine fully initialised, before first frame</td>
+    <td>Create all entities, cameras, labels here. Audio and Lua ready.</td>
+  </tr>
+  <tr>
+    <td><code>void Update(float dt)</code></td>
+    <td>Every frame</td>
+    <td><code>dt</code> is the duration of the previous frame in seconds. Clamped to max 0.1 s to prevent physics tunnelling on frame spikes.</td>
+  </tr>
+  <tr>
+    <td><code>void Stop()</code></td>
+    <td>Once, when application is exiting</td>
+    <td>Optional. Called before engine shutdown. For cleanup of non-RAII resources.</td>
+  </tr>
+</table>
+
+<!-- ─── SCENE CREATION ───────────────────────────────────────────── -->
+<h3 id="game-scene">Scene creation</h3>
+<table>
+  <tr><th>Signature</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>CreateEntity(string name)</code></td><td><code>Entity*</code></td>
+    <td>Creates a new scene entity with the given name and registers it. Name must be unique within the scene for <code>FindEntity</code> to work reliably.</td>
+  </tr>
+  <tr>
+    <td><code>FindEntity(string name)</code></td><td><code>Entity*</code></td>
+    <td>Looks up a registered entity by name. Returns <code>nullptr</code> if not found. Searches only entities created via <code>CreateEntity()</code>.</td>
+  </tr>
+  <tr>
+    <td><code>DestroyEntity(Entity* e)</code></td><td><code>void</code></td>
+    <td>Removes the entity from the scene, fires <code>Stop()</code> on any attached Lua scripts, removes it from the registry, and frees memory. Do not use the pointer after this call.</td>
+  </tr>
+  <tr>
+    <td><code>CreateCamera()</code></td><td><code>Camera*</code></td>
+    <td>Creates a camera entity at world origin. Multiple cameras are supported (split-screen). The first created camera is the default viewport camera.</td>
+  </tr>
+  <tr>
+    <td><code>CreateLabel(string text)</code></td><td><code>Label*</code></td>
+    <td>Creates an on-screen UI text element. Default position (0, 0), font size 14, color white.</td>
+  </tr>
+  <tr>
+    <td><code>LoadTileMap(string path)</code></td><td><code>Entity*</code></td>
+    <td>Loads a Tiled <code>.tmx</code> file and returns the root tile map entity. Collision layers in the .tmx become <code>RigidBody2D</code> + <code>CollisionPolygon2D</code> components. <code>PhysicsWorld2D</code> is activated automatically.</td>
+  </tr>
+</table>
+
+<!-- ─── AUDIO ─────────────────────────────────────────────────────── -->
+<h3 id="game-audio">Audio</h3>
+<table>
+  <tr><th>Signature</th><th>Description</th></tr>
+  <tr>
+    <td><code>PlayMusic(string path, bool loop = true)</code></td>
+    <td>Streams audio from disk. Supports OGG Vorbis and WAV. Only one music track plays at a time; calling again replaces the current track. <code>loop = false</code> plays the track once then stops.</td>
+  </tr>
+  <tr>
+    <td><code>StopMusic()</code></td>
+    <td>Stops the currently playing music immediately. No fade-out. For fade-out, decrease master volume gradually over several frames before calling <code>StopMusic()</code>.</td>
+  </tr>
+  <tr>
+    <td><code>PlaySound(string path, float volume = 1.0f)</code></td>
+    <td>Fires a one-shot sound effect. Does not block; returns immediately. Multiple simultaneous sounds are mixed by the engine. <code>volume</code> range: 0.0 (silent) – 1.0 (full). Values &gt; 1.0 are clamped.</td>
+  </tr>
+  <tr>
+    <td><code>SetMasterVolume(float v)</code></td>
+    <td>Sets the master volume for all audio output (music + SFX). Range: 0.0 – 1.0. Persists for the lifetime of the application.</td>
+  </tr>
+</table>
+
+<div class="callout info">
+  <h4>Asset paths for audio</h4>
+  <p>Audio paths are relative to the <code>Data/</code> resource directory, like all other assets.
+  Example: <code>PlayMusic("Music/theme.ogg")</code> loads <code>Data/Music/theme.ogg</code>.</p>
+</div>
+
+<!-- ─── INPUT ─────────────────────────────────────────────────────── -->
+<h3 id="game-input">Keyboard &amp; Mouse Input</h3>
+<table>
+  <tr><th>Signature</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>IsKeyDown(Key k)</code></td><td><code>bool</code></td>
+    <td>True every frame the key is held. Use for continuous actions (movement, accelerate).</td>
+  </tr>
+  <tr>
+    <td><code>IsKeyPressed(Key k)</code></td><td><code>bool</code></td>
+    <td>True only on the <em>first</em> frame the key transitions from up to down. Use for one-shot actions (jump, fire, toggle).</td>
+  </tr>
+  <tr>
+    <td><code>IsMouseButtonDown(MouseButton b)</code></td><td><code>bool</code></td>
+    <td>True while the mouse button is held. Buttons: <code>MouseButton::Left</code>, <code>::Right</code>, <code>::Middle</code>.</td>
+  </tr>
+  <tr>
+    <td><code>GetMousePosition()</code></td><td><code>Vector2</code></td>
+    <td>Current mouse cursor position in screen pixels. (0,0) is top-left.</td>
+  </tr>
+  <tr>
+    <td><code>GetMouseDelta()</code></td><td><code>Vector2</code></td>
+    <td>Mouse movement since last frame in pixels. Use for camera rotation in FPS games. When the camera is in FPS mode, the cursor is captured and <code>GetMouseDelta()</code> returns raw mouse input, not bounded by screen edges.</td>
+  </tr>
+</table>
+
+<h4>Key enum — full reference</h4>
+<div class="col2">
+<table>
+  <tr><th>Key constants</th><th>Description</th></tr>
+  <tr><td><code>Key::A … Key::Z</code></td><td>Letter keys</td></tr>
+  <tr><td><code>Key::Num0 … Key::Num9</code></td><td>Number row keys</td></tr>
+  <tr><td><code>Key::F1 … Key::F12</code></td><td>Function keys</td></tr>
+  <tr><td><code>Key::Escape</code></td><td>Escape</td></tr>
+  <tr><td><code>Key::Return</code></td><td>Enter / Return</td></tr>
+  <tr><td><code>Key::Space</code></td><td>Space bar</td></tr>
+  <tr><td><code>Key::Backspace</code></td><td>Backspace</td></tr>
+  <tr><td><code>Key::Tab</code></td><td>Tab</td></tr>
+</table>
+<table>
+  <tr><th>Key constants</th><th>Description</th></tr>
+  <tr><td><code>Key::LShift, Key::RShift</code></td><td>Shift keys</td></tr>
+  <tr><td><code>Key::LCtrl, Key::RCtrl</code></td><td>Control keys</td></tr>
+  <tr><td><code>Key::LAlt, Key::RAlt</code></td><td>Alt keys</td></tr>
+  <tr><td><code>Key::Left, Key::Right</code></td><td>Arrow keys</td></tr>
+  <tr><td><code>Key::Up, Key::Down</code></td><td>Arrow keys</td></tr>
+  <tr><td><code>Key::Home, Key::End</code></td><td>Home / End</td></tr>
+  <tr><td><code>Key::PageUp, Key::PageDown</code></td><td>Page keys</td></tr>
+  <tr><td><code>Key::Insert, Key::Delete</code></td><td>Insert / Delete</td></tr>
+  <tr><td><code>Key::KP0 … Key::KP9</code></td><td>Numpad digits</td></tr>
+  <tr><td><code>Key::KPPlus, Key::KPMinus</code></td><td>Numpad operators</td></tr>
+</table>
+</div>
+
+<!-- ─── TOUCH ─────────────────────────────────────────────────────── -->
+<h3 id="game-touch">Touch Input</h3>
+<p>
+  Touch input is available on Android, iOS, and desktop systems with a touch screen.
+  On desktop without a touch screen, all touch counts return 0.
+</p>
+<pre><span class="ty">int</span> n = <span class="fn">GetTouchCount</span>();           <span class="cm">// number of active touch points (0–10)</span>
+
+<span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i &lt; n; ++i) {
+    <span class="ty">Vector2</span> pos  = <span class="fn">GetTouchPosition</span>(i);   <span class="cm">// screen pixels; (0,0) top-left</span>
+    <span class="ty">Vector2</span> dlt  = <span class="fn">GetTouchDelta</span>(i);      <span class="cm">// movement since last frame</span>
+    <span class="ty">float</span>   pres = <span class="fn">GetTouchPressure</span>(i);   <span class="cm">// 0.0 (lightest) – 1.0 (hardest)</span>
+}
+
+<span class="cm">// Detect tap (first frame of new touch):</span>
+<span class="ty">bool</span> tapped = (<span class="fn">GetTouchCount</span>() &gt; <span class="val">0</span> &amp;&amp; <span class="fn">GetTouchDelta</span>(<span class="val">0</span>).<span class="fn">Length</span>() &lt; <span class="val">2.0f</span>);</pre>
+
+<table>
+  <tr><th>Signature</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>GetTouchCount()</code></td><td><code>int</code></td>
+    <td>Number of currently active touch points. 0 if no touch. Max 10 (hardware-dependent).</td>
+  </tr>
+  <tr>
+    <td><code>GetTouchPosition(int index)</code></td><td><code>Vector2</code></td>
+    <td>Screen position of touch point <code>index</code> in pixels.</td>
+  </tr>
+  <tr>
+    <td><code>GetTouchDelta(int index)</code></td><td><code>Vector2</code></td>
+    <td>Movement of touch point <code>index</code> since the previous frame.</td>
+  </tr>
+  <tr>
+    <td><code>GetTouchPressure(int index)</code></td><td><code>float</code></td>
+    <td>Pressure of touch point <code>index</code>. 0.0 – 1.0. Always returns 1.0 on hardware that does not support pressure sensing.</td>
+  </tr>
+</table>
+
+<!-- ─── RENDERING ────────────────────────────────────────────────── -->
+<h3 id="game-rendering">Rendering &amp; Window</h3>
+<table>
+  <tr><th>Signature</th><th>Description</th></tr>
+  <tr>
+    <td><code>SetClearColor(Color c)</code></td>
+    <td>Background color drawn before the scene. Default: <code>Color(0.1f, 0.1f, 0.15f)</code> (dark blue-grey). Takes effect from the next frame.</td>
+  </tr>
+  <tr>
+    <td><code>SetWindowTitle(string title)</code></td>
+    <td>Sets the OS window title bar text. Can be called at any time, including from <code>Update()</code> to show FPS or player info.</td>
+  </tr>
+</table>
+
+<!-- ─── NAVIGATION ────────────────────────────────────────────────── -->
+<h3 id="game-nav">Navigation (NavMesh)</h3>
+<p>
+  Navigation mesh baking must be called <em>after</em> placing all static level geometry in
+  <code>Start()</code>. It is a potentially expensive one-time operation (runs on a worker thread
+  in Urho3D, so <code>Start()</code> returns immediately).
+</p>
+<table>
+  <tr><th>Signature</th><th>Description</th></tr>
+  <tr>
+    <td><code>BuildNavMesh(<br>&nbsp;&nbsp;float agentRadius = 0.4f,<br>&nbsp;&nbsp;float agentHeight = 1.8f,<br>&nbsp;&nbsp;float cellSize = 0.3f<br>)</code></td>
+    <td>
+      Bakes a Recast/Detour navigation mesh from all static geometry in the scene (entities with <code>AddRigidBody(0.0f)</code>).<br><br>
+      <strong>agentRadius</strong>: Minimum passage width the agent can navigate (metres). Increase to prevent agents squeezing through tight gaps.<br>
+      <strong>agentHeight</strong>: Agent height (metres). Areas with lower ceilings will be marked unwalkable.<br>
+      <strong>cellSize</strong>: Voxel size for the bake. Smaller = more accurate mesh, but slower to bake and more memory.
+    </td>
+  </tr>
+</table>
+
+<!-- ─── MISC ─────────────────────────────────────────────────────── -->
+<h3 id="game-misc">Miscellaneous</h3>
+<table>
+  <tr><th>Signature</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>Quit()</code></td><td>—</td>
+    <td>Signals the engine to exit the main loop cleanly. <code>Stop()</code> is called before the application terminates. Safe to call from <code>Update()</code> or Lua callbacks.</td>
+  </tr>
+  <tr>
+    <td><code>GetTime()</code></td><td><code>float</code></td>
+    <td>Seconds elapsed since the application started (since <code>Run()</code> was called). Uses the engine's monotonic clock — not affected by system time changes.</td>
+  </tr>
+  <tr>
+    <td><code>GetDeltaTime()</code></td><td><code>float</code></td>
+    <td>Duration of the most recently completed frame in seconds. Same value passed as <code>dt</code> to <code>Update()</code>. Useful for Lua code that needs <code>dt</code> outside of <code>Update()</code>.</td>
+  </tr>
+  <tr>
+    <td><code>CreateNetworkManager()</code></td><td><code>NetworkManager*</code></td>
+    <td>Creates and registers the network manager. Call once in <code>Start()</code>. Calling more than once returns the existing instance.</td>
+  </tr>
+  <tr>
+    <td><code>GetNetworkManager()</code></td><td><code>NetworkManager*</code></td>
+    <td>Returns the existing <code>NetworkManager</code>, or <code>nullptr</code> if <code>CreateNetworkManager()</code> has not been called.</td>
+  </tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="entity">Entity</h2>
+<p>
+  Entities are created via <code>Game::CreateEntity(name)</code> and destroyed via
+  <code>Game::DestroyEntity(e)</code>. Do not delete them manually.
+</p>
+<pre><span class="ty">Entity</span>* e = <span class="fn">CreateEntity</span>(<span class="st">"MyObject"</span>);</pre>
+
+<!-- ─── TRANSFORM ────────────────────────────────────────────────── -->
+<h3 id="entity-transform">Transform</h3>
+<table>
+  <tr><th>Signature</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>SetPosition(float x, float y, float z)</code></td><td>—</td>
+    <td>Sets the world-space position. Equivalent to <code>SetPosition(Vector3(x,y,z))</code>.</td>
+  </tr>
+  <tr>
+    <td><code>SetPosition(Vector3 pos)</code></td><td>—</td>
+    <td>Sets world-space position from a Vector3.</td>
+  </tr>
+  <tr>
+    <td><code>GetPosition()</code></td><td><code>Vector3</code></td>
+    <td>Returns current world-space position.</td>
+  </tr>
+  <tr>
+    <td><code>SetRotation(Quaternion q)</code></td><td>—</td>
+    <td>Sets world-space rotation. Construct with <code>Quaternion(yaw, pitch, roll)</code> where angles are in degrees.</td>
+  </tr>
+  <tr>
+    <td><code>GetRotation()</code></td><td><code>Quaternion</code></td>
+    <td>Returns current world-space rotation.</td>
+  </tr>
+  <tr>
+    <td><code>SetScale(float s)</code></td><td>—</td>
+    <td>Uniform scale. <code>SetScale(2.0f)</code> doubles the entity in all dimensions.</td>
+  </tr>
+  <tr>
+    <td><code>SetScale(Vector3 s)</code></td><td>—</td>
+    <td>Non-uniform scale. <code>SetScale(Vector3(1, 2, 1))</code> doubles height only.</td>
+  </tr>
+  <tr>
+    <td><code>MoveRelative(Vector3 delta)</code></td><td>—</td>
+    <td>Moves the entity in world space by <code>delta</code>. If a <code>RigidBody</code> is present, sets its linear velocity for the frame to achieve the movement; otherwise directly translates the node. Preferred over <code>SetPosition(GetPosition() + delta)</code> for physics-based characters.</td>
+  </tr>
+</table>
+
+<!-- ─── 3D RENDERING ─────────────────────────────────────────────── -->
+<h3 id="entity-rendering3d">3D Rendering</h3>
+<table>
+  <tr><th>Signature</th><th>Description</th></tr>
+  <tr>
+    <td><code>AddModel(string path)</code></td>
+    <td>Loads a 3D mesh from the resource cache and attaches a <code>StaticModel</code> component. Supported: OBJ, FBX, GLTF/GLB, MDL (Urho3D native). A default material is applied if no material file is found at the same path with a <code>.xml</code> extension.</td>
+  </tr>
+  <tr>
+    <td><code>AddDirectionalLight(Color color, float intensity)</code></td>
+    <td>Adds an infinite directional light (like the sun). Direction is determined by the entity's rotation. Set with <code>SetRotation(Quaternion(pitch, yaw, 0))</code> where pitch=45 and yaw=-30 gives a typical outdoor sun angle.</td>
+  </tr>
+  <tr>
+    <td><code>AddPointLight(Color color, float range)</code></td>
+    <td>Adds an omnidirectional point light. <code>range</code> is the distance in metres at which the light fades to zero. Uses linear attenuation by default.</td>
+  </tr>
+  <tr>
+    <td><code>AddSpotLight(Color color, float range, float angle)</code></td>
+    <td>Adds a cone-shaped spot light. <code>range</code> is the cone depth in metres; <code>angle</code> is the full cone angle in degrees (e.g., 30 = 15° on each side of center). Aimed in the entity's local -Z direction.</td>
+  </tr>
+</table>
+
+<!-- ─── 2D RENDERING ─────────────────────────────────────────────── -->
+<h3 id="entity-rendering2d">2D Rendering</h3>
+<table>
+  <tr><th>Signature</th><th>Description</th></tr>
+  <tr>
+    <td><code>AddSprite2D(string path)</code></td>
+    <td>Attaches a <code>StaticSprite2D</code>. The sprite is rendered in the XY plane. Position is in world units (convert from pixels using the PPU value set in <code>Camera::Setup2D</code>).</td>
+  </tr>
+  <tr>
+    <td><code>AddAnimatedSprite2D(string scmlPath)</code></td>
+    <td>Attaches an <code>AnimatedSprite2D</code> driven by a Spriter <code>.scml</code> file. Call <code>PlayAnimation2D(name)</code> to start a specific animation.</td>
+  </tr>
+  <tr>
+    <td><code>PlayAnimation2D(string name, bool loop = true, float speed = 1.0f)</code></td>
+    <td>Plays the named animation from the attached Spriter animation set. <code>loop = false</code> plays once then holds the last frame. <code>speed</code> multiplies the playback rate.</td>
+  </tr>
+  <tr>
+    <td><code>SetFlipX2D(bool flip)</code></td>
+    <td>Mirrors the sprite horizontally. Use to face a 2D character in the direction of movement without needing separate left/right animation sets.</td>
+  </tr>
+</table>
+
+<!-- ─── PHYSICS 3D ────────────────────────────────────────────────── -->
+<h3 id="entity-physics3d">Physics — 3D (Bullet)</h3>
+<pre><span class="cm">// ── Adding physics ─────────────────────────────────────────────────</span>
+e-&gt;<span class="fn">AddRigidBody</span>(<span class="val">70.0f</span>);                        <span class="cm">// 70 kg dynamic body</span>
+e-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);                         <span class="cm">// 0 kg = static (immovable)</span>
+
+e-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">1</span>, <span class="val">2</span>, <span class="val">1</span>));           <span class="cm">// full-size (not half-extents)</span>
+e-&gt;<span class="fn">AddCapsuleCollider</span>(<span class="val">0.4f</span>, <span class="val">1.75f</span>);           <span class="cm">// radius, total height</span>
+e-&gt;<span class="fn">AddSphereCollider</span>(<span class="val">0.5f</span>);                   <span class="cm">// radius</span>
+e-&gt;<span class="fn">AddMeshCollider</span>(<span class="st">"Models/dungeon.obj"</span>);      <span class="cm">// triangle mesh (static only)</span>
+
+<span class="cm">// ── Forces &amp; velocity ──────────────────────────────────────────────</span>
+e-&gt;<span class="fn">ApplyImpulse</span>(<span class="ty">Vector3</span>(<span class="val">0</span>, <span class="val">8</span>, <span class="val">0</span>));             <span class="cm">// instant velocity change (jump)</span>
+e-&gt;<span class="fn">ApplyForce</span>(<span class="ty">Vector3</span>(<span class="val">0</span>, <span class="val">0</span>, <span class="val">20</span>));              <span class="cm">// continuous force (rocket)</span>
+e-&gt;<span class="fn">SetLinearVelocity</span>(<span class="ty">Vector3</span>(<span class="val">5</span>, <span class="val">0</span>, <span class="val">0</span>));       <span class="cm">// override velocity directly</span>
+<span class="ty">Vector3</span> v = e-&gt;<span class="fn">GetLinearVelocity</span>();
+
+<span class="cm">// ── Ground detection ──────────────────────────────────────────────</span>
+<span class="ty">bool</span> grounded = e-&gt;<span class="fn">IsOnGround</span>();                <span class="cm">// raycast 0.7m downward</span>
+
+<span class="cm">// ── Collision filtering ────────────────────────────────────────────</span>
+e-&gt;<span class="fn">SetCollisionLayer</span>(<span class="val">1</span>);   <span class="cm">// bit flags — which layer this body IS on</span>
+e-&gt;<span class="fn">SetCollisionMask</span>(<span class="val">0xFF</span>); <span class="cm">// bit flags — which layers it COLLIDES with</span></pre>
+
+<h4>Trigger volumes</h4>
+<pre><span class="cm">// Trigger shapes</span>
+e-&gt;<span class="fn">AddTriggerBox</span>(<span class="ty">Vector3</span>(<span class="val">4</span>, <span class="val">3</span>, <span class="val">4</span>));
+e-&gt;<span class="fn">AddTriggerSphere</span>(<span class="val">2.5f</span>);
+e-&gt;<span class="fn">AddTriggerCapsule</span>(<span class="val">0.8f</span>, <span class="val">2.0f</span>);
+
+<span class="cm">// Callbacks — 'other' is the Entity that entered / exited</span>
+e-&gt;<span class="fn">SetOnTriggerEnter</span>([](<span class="ty">Entity</span>* other) {
+    <span class="cm">// Fire on first overlapping frame.</span>
+    <span class="cm">// 'other' pointer is guaranteed valid during this call.</span>
+});
+e-&gt;<span class="fn">SetOnTriggerExit</span>([](<span class="ty">Entity</span>* other) {
+    <span class="cm">// Fire on first non-overlapping frame after overlap.</span>
+});</pre>
+
+<div class="callout ok">
+  <h4>Collision layers — bit flags</h4>
+  <p>
+    Layer 1 = <code>0x01</code>, layer 2 = <code>0x02</code>, layer 3 = <code>0x04</code>, etc.
+    A body on layer <code>0x01</code> with mask <code>0xFF</code> collides with everything.
+    A body on layer <code>0x02</code> with mask <code>0x01</code> collides only with layer 1 bodies.
+    Camera collision avoidance raycasts against static layer 2 only.
+  </p>
+</div>
+
+<h4>Full 3D physics method table</h4>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Notes</th></tr>
+  <tr><td><code>AddRigidBody(mass)</code></td><td>mass: float kg</td><td><code>0.0f</code> = static, immovable</td></tr>
+  <tr><td><code>AddBoxCollider(size)</code></td><td>size: Vector3 (full dimensions)</td><td>Box origin at entity position</td></tr>
+  <tr><td><code>AddCapsuleCollider(r, h)</code></td><td>r: radius, h: total height</td><td>Capsule axis along Y</td></tr>
+  <tr><td><code>AddSphereCollider(r)</code></td><td>r: radius</td><td></td></tr>
+  <tr><td><code>AddMeshCollider(path)</code></td><td>path: model file</td><td>Concave; static bodies only</td></tr>
+  <tr><td><code>AddTriggerBox(size)</code></td><td>size: Vector3</td><td>No collision response</td></tr>
+  <tr><td><code>AddTriggerSphere(r)</code></td><td>r: radius</td><td></td></tr>
+  <tr><td><code>AddTriggerCapsule(r, h)</code></td><td>r, h</td><td></td></tr>
+  <tr><td><code>SetOnTriggerEnter(fn)</code></td><td>fn: void(Entity*)</td><td>First overlapping frame</td></tr>
+  <tr><td><code>SetOnTriggerExit(fn)</code></td><td>fn: void(Entity*)</td><td>First non-overlapping frame</td></tr>
+  <tr><td><code>ApplyImpulse(v)</code></td><td>v: Vector3</td><td>Instant ΔV in m/s (mass-weighted)</td></tr>
+  <tr><td><code>ApplyForce(v)</code></td><td>v: Vector3 N</td><td>Continuous force; accumulates per frame</td></tr>
+  <tr><td><code>SetLinearVelocity(v)</code></td><td>v: Vector3 m/s</td><td>Overrides velocity directly</td></tr>
+  <tr><td><code>GetLinearVelocity()</code></td><td>—</td><td>Returns Vector3 m/s</td></tr>
+  <tr><td><code>IsOnGround()</code></td><td>—</td><td>Returns bool; ray length 0.7 m</td></tr>
+  <tr><td><code>SetCollisionLayer(bits)</code></td><td>bits: int</td><td>Bit mask of which layer this is on</td></tr>
+  <tr><td><code>SetCollisionMask(bits)</code></td><td>bits: int</td><td>Bit mask of layers to collide with</td></tr>
+</table>
+
+<!-- ─── PHYSICS 2D ────────────────────────────────────────────────── -->
+<h3 id="entity-physics2d">Physics — 2D (Box2D)</h3>
+<pre>e-&gt;<span class="fn">AddRigidBody2D</span>(<span class="val">60.0f</span>);            <span class="cm">// dynamic; mass in kg</span>
+e-&gt;<span class="fn">AddRigidBody2D</span>(<span class="val">0.0f</span>);             <span class="cm">// static</span>
+e-&gt;<span class="fn">AddBoxCollider2D</span>(<span class="val">1.0f</span>, <span class="val">2.0f</span>);    <span class="cm">// width, height in world units</span>
+e-&gt;<span class="fn">AddCircleCollider2D</span>(<span class="val">0.5f</span>);       <span class="cm">// radius in world units</span>
+
+e-&gt;<span class="fn">SetLinearVelocity2D</span>(<span class="ty">Vector2</span>(<span class="val">5</span>, <span class="val">0</span>));
+<span class="ty">Vector2</span> v = e-&gt;<span class="fn">GetLinearVelocity2D</span>();
+e-&gt;<span class="fn">ApplyImpulse2D</span>(<span class="ty">Vector2</span>(<span class="val">0</span>, <span class="val">8</span>));
+
+<span class="ty">bool</span> grounded = e-&gt;<span class="fn">IsOnGround2D</span>();   <span class="cm">// downward ray 0.6 m</span></pre>
+
+<!-- ─── ANIMATION ─────────────────────────────────────────────────── -->
+<h3 id="entity-animation">Animation</h3>
+<pre>e-&gt;<span class="fn">AddAnimationController</span>();
+<span class="ty">AnimationController</span>* anim = e-&gt;<span class="fn">GetAnimationController</span>();
+<span class="cm">// Returns nullptr if AddAnimationController() has not been called yet.</span></pre>
+
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Description</th></tr>
+  <tr>
+    <td><code>Play(name)</code></td>
+    <td>name: string</td>
+    <td>Play on layer 0, looped, 0.2s cross-fade. Fades out all other clips on the same layer.</td>
+  </tr>
+  <tr>
+    <td><code>Play(name, layer, loop, fadeTime)</code></td>
+    <td>name, layer: int, loop: bool, fadeTime: float s</td>
+    <td>Full control over layer assignment and cross-fade duration. Use separate layers for upper/lower body blending.</td>
+  </tr>
+  <tr>
+    <td><code>PlayBlend(name, layer)</code></td>
+    <td>name, layer: int</td>
+    <td>Plays alongside other animations on the same layer without fading them out. Use for additive overlays (e.g., aiming while running).</td>
+  </tr>
+  <tr>
+    <td><code>Stop(name, fadeTime)</code></td>
+    <td>name, fadeTime: float s</td>
+    <td>Stops the named animation with optional cross-fade to the next playing clip.</td>
+  </tr>
+  <tr>
+    <td><code>StopAll()</code></td>
+    <td>—</td>
+    <td>Stops all playing animations immediately on all layers.</td>
+  </tr>
+  <tr>
+    <td><code>IsPlaying(name)</code></td>
+    <td>name: string</td>
+    <td>Returns <code>bool</code> — true if the clip is currently active (including cross-fading out).</td>
+  </tr>
+  <tr>
+    <td><code>SetWeight(name, weight)</code></td>
+    <td>name, weight: float 0–1</td>
+    <td>Sets the blend weight of a clip. 0.0 = invisible but still running. Use with <code>PlayBlend</code> for smooth transitions.</td>
+  </tr>
+  <tr>
+    <td><code>SetSpeed(name, speed)</code></td>
+    <td>name, speed: float</td>
+    <td>Sets playback speed multiplier. 1.0 = normal, 2.0 = double speed, 0.5 = half speed, negative values play backward.</td>
+  </tr>
+  <tr>
+    <td><code>GetTime(name)</code></td>
+    <td>name: string</td>
+    <td>Returns <code>float</code> — playback position in seconds. Useful for synchronising sound effects to animation events.</td>
+  </tr>
+</table>
+
+<!-- ─── NAVIGATION ────────────────────────────────────────────────── -->
+<h3 id="entity-nav">Navigation</h3>
+<pre><span class="cm">// First, bake nav-mesh in Start() after placing all static terrain:</span>
+<span class="fn">BuildNavMesh</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>, <span class="val">0.25f</span>);
+
+<span class="cm">// Query path from enemy to a target (returns empty vector if no path):</span>
+std::<span class="ty">vector</span>&lt;<span class="ty">Vector3</span>&gt; path = enemy-&gt;<span class="fn">FindPath</span>(player);
+std::<span class="ty">vector</span>&lt;<span class="ty">Vector3</span>&gt; path = enemy-&gt;<span class="fn">FindPath</span>(<span class="ty">Vector3</span>(<span class="val">10</span>, <span class="val">0</span>, <span class="val">5</span>));
+
+<span class="cm">// Auto-follow: call in Update(). Recomputes path when target drifts > 1 m.</span>
+<span class="cm">// Returns true while still moving, false when destination reached.</span>
+<span class="ty">bool</span> moving = enemy-&gt;<span class="fn">MoveToward</span>(player, <span class="val">3.5f</span>, dt);   <span class="cm">// 3.5 m/s</span>
+<span class="ty">bool</span> moving = enemy-&gt;<span class="fn">MoveToward</span>(<span class="ty">Vector3</span>(<span class="val">10</span>, <span class="val">0</span>, <span class="val">5</span>), <span class="val">3.5f</span>, dt);
+
+enemy-&gt;<span class="fn">StopMoving</span>();   <span class="cm">// clear cached path, zero horizontal velocity</span></pre>
+
+<div class="callout info">
+  <h4>When to call BuildNavMesh</h4>
+  <p>
+    Call <code>BuildNavMesh()</code> once at the end of <code>Start()</code>, after all static level
+    entities (floor, walls, platforms) have been placed. Dynamic entities (player, enemies, crates)
+    should not be present yet, or their colliders will be baked into the mesh and block navigation.
+    Calling <code>BuildNavMesh()</code> again rebuilds from scratch.
+  </p>
+</div>
+
+<!-- ─── SCRIPTING ─────────────────────────────────────────────────── -->
+<h3 id="entity-scripting">Scripting</h3>
+<pre>e-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/enemy.lua"</span>);</pre>
+<p>
+  Each entity can have one script. The script file is loaded from the resource cache.
+  If the file is not found, a warning is logged and no script is attached (the entity continues
+  to work normally). The script's <code>Start()</code> is called on the first frame after
+  <code>Start()</code> of the game has completed.
+</p>
+
+<!-- ─── HIERARCHY ─────────────────────────────────────────────────── -->
+<h3 id="entity-hierarchy">Hierarchy</h3>
+<pre><span class="ty">Entity</span>* child  = parent-&gt;<span class="fn">CreateChild</span>(<span class="st">"Weapon"</span>);
+<span class="ty">Entity</span>* parent = child-&gt;<span class="fn">GetParent</span>();   <span class="cm">// nullptr for root entities</span></pre>
+<p>
+  Child entities inherit their parent's transform (position, rotation, scale).
+  Moving the parent moves all children. This is used for weapon attachment, character
+  sub-parts, and complex hierarchical objects.
+</p>
+<p>
+  When the parent entity is destroyed via <code>DestroyEntity(parent)</code>, all children
+  are also destroyed and removed from the registry.
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="camera">Camera</h2>
+<pre><span class="ty">Camera</span>* cam = <span class="fn">CreateCamera</span>();</pre>
+
+<h3 id="camera-follow">Third-Person Follow</h3>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Description</th></tr>
+  <tr>
+    <td><code>Follow(entity, distance, height)</code></td>
+    <td>entity: Entity*, distance: float m, height: float m</td>
+    <td>Camera follows <code>entity</code> at <code>distance</code> metres behind and <code>height</code> metres above. Default height: <code>2.0f</code>.</td>
+  </tr>
+  <tr>
+    <td><code>LookAt(entity)</code></td>
+    <td>entity: Entity*</td>
+    <td>Camera continuously points at the entity. Use with <code>Follow</code>.</td>
+  </tr>
+  <tr>
+    <td><code>LookAt(Vector3 point)</code></td>
+    <td>point: Vector3</td>
+    <td>Camera continuously points at a fixed world-space point.</td>
+  </tr>
+  <tr>
+    <td><code>SetSmoothFollow(enabled, speed)</code></td>
+    <td>enabled: bool, speed: float (default 5.0)</td>
+    <td>Lerps camera position towards follow target each frame. Higher <code>speed</code> = snappier. ~8 feels responsive; ~3 feels floaty.</td>
+  </tr>
+  <tr>
+    <td><code>Detach()</code></td>
+    <td>—</td>
+    <td>Stops following/orbiting; releases mouse capture if in FPS mode. Camera stays at its current position.</td>
+  </tr>
+</table>
+
+<h3 id="camera-orbit">Orbit Mode</h3>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Description</th></tr>
+  <tr>
+    <td><code>SetOrbitMode(target, radius)</code></td>
+    <td>target: Entity*, radius: float m</td>
+    <td>Camera orbits <code>target</code> at <code>radius</code> metres. Hold right mouse button and drag to rotate.</td>
+  </tr>
+  <tr>
+    <td><code>SetOrbitAngles(yaw, pitch)</code></td>
+    <td>yaw: float°, pitch: float°</td>
+    <td>Initial yaw (horizontal) and pitch (vertical) angles in degrees.</td>
+  </tr>
+  <tr>
+    <td><code>SetOrbitSensitivity(s)</code></td>
+    <td>s: float degrees/pixel</td>
+    <td>Mouse drag sensitivity. Default: 0.3. Lower values are slower.</td>
+  </tr>
+  <tr>
+    <td><code>SetOrbitPitchLimits(minPitch, maxPitch)</code></td>
+    <td>minPitch, maxPitch: float°</td>
+    <td>Clamps vertical rotation. Example: <code>(-30, 75)</code> prevents the camera from flipping upside-down.</td>
+  </tr>
+</table>
+
+<h3 id="camera-fps">First-Person (FPS) Mode</h3>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Description</th></tr>
+  <tr>
+    <td><code>SetFPSMode(entity)</code></td>
+    <td>entity: Entity*</td>
+    <td>Attaches camera to the entity at head level. Mouse cursor captured; raw mouse delta used for look rotation.</td>
+  </tr>
+  <tr>
+    <td><code>SetFPSMode()</code></td>
+    <td>—</td>
+    <td>Free-floating FPS camera with no attached entity. Useful for editor fly-through mode.</td>
+  </tr>
+  <tr>
+    <td><code>SetFPSAngles(yaw, pitch)</code></td>
+    <td>yaw: float°, pitch: float°</td>
+    <td>Initial look direction. yaw=0 looks toward +Z; pitch=0 looks horizontally.</td>
+  </tr>
+  <tr>
+    <td><code>SetFPSSensitivity(s)</code></td>
+    <td>s: float degrees/pixel</td>
+    <td>Mouse look sensitivity. Default: 0.15. Typical range 0.05 – 0.3.</td>
+  </tr>
+  <tr>
+    <td><code>SetFPSHeadOffset(height)</code></td>
+    <td>height: float m</td>
+    <td>Vertical offset from entity origin. A 1.8 m tall character should use ~1.65 to put the camera near eye level.</td>
+  </tr>
+</table>
+
+<h3 id="camera-collision">Camera Collision Avoidance</h3>
+<pre>cam-&gt;<span class="fn">SetCollisionEnabled</span>(<span class="kw">true</span>);</pre>
+<p>
+  When enabled, the camera raycasts between the follow target and its intended position.
+  If a static collision object is in the way, the camera is pulled in to avoid clipping.
+  Only raycasts against static bodies on collision layer 2. Dynamic objects (enemies, crates)
+  do not block the camera.
+</p>
+
+<h3 id="camera-2d">2D / Orthographic Setup</h3>
+<pre>cam-&gt;<span class="fn">Setup2D</span>(<span class="val">100.0f</span>);   <span class="cm">// 100 pixels per world unit</span>
+<span class="cm">// Equivalent to:</span>
+cam-&gt;<span class="fn">SetOrthographic</span>(<span class="kw">true</span>);
+cam-&gt;<span class="fn">SetOrthoSize</span>(<span class="val">7.2f</span>);   <span class="cm">// 720 px / 100 ppu = 7.2 world units visible vertically</span></pre>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Description</th></tr>
+  <tr>
+    <td><code>Setup2D(ppu)</code></td>
+    <td>ppu: float pixels-per-unit</td>
+    <td>Shorthand: enables orthographic projection, sets Z position to -10, configures OrthoSize from screen height and ppu. Suitable for 2D games.</td>
+  </tr>
+  <tr>
+    <td><code>SetOrthographic(enabled)</code></td>
+    <td>enabled: bool</td>
+    <td>Switches between perspective (false) and orthographic (true) projection.</td>
+  </tr>
+  <tr>
+    <td><code>SetOrthoSize(size)</code></td>
+    <td>size: float world units</td>
+    <td>Height of the visible area in world units. Width is derived from the window aspect ratio.</td>
+  </tr>
+</table>
+
+<h3 id="camera-split">Split-Screen</h3>
+<pre>cam1-&gt;<span class="fn">SetViewport</span>(<span class="val">0</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.5f</span>, <span class="val">1.0f</span>);  <span class="cm">// index, x, y, w, h  (0–1 normalized)</span>
+cam2-&gt;<span class="fn">SetViewport</span>(<span class="val">1</span>, <span class="val">0.5f</span>, <span class="val">0.0f</span>, <span class="val">0.5f</span>, <span class="val">1.0f</span>);</pre>
+<p>
+  Viewport coordinates are in the range 0–1 (fraction of the window). The index parameter
+  (0, 1, 2, …) determines render order; higher indices draw on top.
+  All viewport cameras share the same scene.
+</p>
+
+<h3 id="camera-projection">Projection Parameters</h3>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Default</th><th>Description</th></tr>
+  <tr><td><code>SetFOV(degrees)</code></td><td>float°</td><td>45°</td><td>Vertical field of view in degrees. Typical: 60–90 for FPS, 45 for third-person.</td></tr>
+  <tr><td><code>SetNearClip(dist)</code></td><td>float m</td><td>0.1</td><td>Near clip plane. Objects closer than this are clipped. Use the smallest value that avoids z-fighting (0.1 m typical for indoor, 0.5 m for large outdoor).</td></tr>
+  <tr><td><code>SetFarClip(dist)</code></td><td>float m</td><td>1000.0</td><td>Far clip plane. Objects farther than this are not rendered. Set to the maximum visibility distance to reduce depth buffer precision issues.</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="network">NetworkManager</h2>
+<pre><span class="ty">NetworkManager</span>* net = <span class="fn">CreateNetworkManager</span>();</pre>
+
+<div class="callout info">
+  <h4>Message ID ranges</h4>
+  <p>
+    IDs <strong>0–99</strong> are reserved by Urho3D for internal scene replication and engine messages.
+    Use IDs <strong>100–32767</strong> for your game messages. Define them as constants:
+    <code>const int MSG_PLAYER_POS = 100;</code>
+  </p>
+</div>
+
+<h3>Server side</h3>
+<table>
+  <tr><th>Method</th><th>Description</th></tr>
+  <tr><td><code>StartServer(int port, int maxClients = 128)</code></td><td>Start listening on the given port. <code>maxClients</code> limits simultaneous connections.</td></tr>
+  <tr><td><code>StopServer()</code></td><td>Stop accepting connections; disconnect all clients.</td></tr>
+  <tr><td><code>IsServer()</code></td><td>Returns <code>bool</code> — true if server is running.</td></tr>
+  <tr><td><code>SetOnClientConnected(fn)</code></td><td><code>fn</code> signature: <code>void(int clientId)</code>. Called when a new client successfully connects.</td></tr>
+  <tr><td><code>SetOnClientDisconnected(fn)</code></td><td><code>fn</code> signature: <code>void(int clientId)</code>. Called when a client disconnects.</td></tr>
+  <tr><td><code>Broadcast(int msgId, vector&lt;uint8_t&gt; data)</code></td><td>Send to all connected clients.</td></tr>
+  <tr><td><code>SendToClient(int clientId, int msgId, vector&lt;uint8_t&gt; data)</code></td><td>Send to a specific client only.</td></tr>
+</table>
+
+<h3>Client side</h3>
+<table>
+  <tr><th>Method</th><th>Description</th></tr>
+  <tr><td><code>Connect(string host, int port)</code></td><td>Connect to a server. Non-blocking; result arrives via <code>SetOnServerConnected</code> callback.</td></tr>
+  <tr><td><code>Disconnect()</code></td><td>Disconnect from the server.</td></tr>
+  <tr><td><code>IsConnected()</code></td><td>Returns <code>bool</code>.</td></tr>
+  <tr><td><code>SetOnServerConnected(fn)</code></td><td><code>fn</code>: <code>void()</code>. Called when connection is established and ready to use.</td></tr>
+  <tr><td><code>SetOnServerDisconnected(fn)</code></td><td><code>fn</code>: <code>void()</code>. Called on disconnect or connection failure.</td></tr>
+  <tr><td><code>SendToServer(int msgId, vector&lt;uint8_t&gt; data)</code></td><td>Send a message to the server.</td></tr>
+</table>
+
+<h3>Both sides</h3>
+<pre>net-&gt;<span class="fn">SetOnMessage</span>([](<span class="ty">int</span> sender, <span class="ty">int</span> msgId,
+                    <span class="kw">const</span> std::<span class="ty">vector</span>&lt;<span class="ty">uint8_t</span>&gt;&amp; data) {
+    <span class="cm">// sender == 0  → came from server (on client)</span>
+    <span class="cm">// sender == N  → came from client N (on server)</span>
+    <span class="kw">if</span> (msgId == <span class="val">100</span>) {
+        <span class="cm">// unpack data …</span>
+    }
+});</pre>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="label">Label (UI)</h2>
+<pre><span class="ty">Label</span>* lbl = <span class="fn">CreateLabel</span>(<span class="st">"Score: 0"</span>);</pre>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Description</th></tr>
+  <tr><td><code>SetText(string t)</code></td><td>string</td><td>Update displayed text. Safe to call every frame (no expensive re-layout unless text actually changes).</td></tr>
+  <tr><td><code>SetPosition(int x, int y)</code></td><td>screen pixels</td><td>(0,0) is top-left corner of the window.</td></tr>
+  <tr><td><code>SetFontSize(int px)</code></td><td>pixels</td><td>Font size in screen pixels. Default: 14.</td></tr>
+  <tr><td><code>SetColor(Color c)</code></td><td>Color RGBA</td><td>Text color with alpha. <code>Color(1,1,1,0.5f)</code> = semi-transparent white.</td></tr>
+  <tr><td><code>SetVisible(bool v)</code></td><td>bool</td><td>Show or hide without destroying the label. Useful for toggling HUD elements.</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="math">Math Types</h2>
+<p>
+  All types are re-exported from Urho3D math as <code>Simple3D::</code> aliases.
+  They are ABI-identical — no conversion overhead when crossing the API boundary.
+</p>
+<table>
+  <tr><th>Type</th><th>Members</th><th>Key methods</th></tr>
+  <tr>
+    <td><code>Vector2</code></td>
+    <td><code>.x</code>, <code>.y</code></td>
+    <td><code>Length()</code>, <code>Normalized()</code>, <code>Dot(v)</code>, operators +, -, *, /</td>
+  </tr>
+  <tr>
+    <td><code>Vector3</code></td>
+    <td><code>.x</code>, <code>.y</code>, <code>.z</code></td>
+    <td><code>Length()</code>, <code>Normalized()</code>, <code>Dot(v)</code>, <code>Cross(v)</code>, <code>Distance(v)</code></td>
+  </tr>
+  <tr>
+    <td><code>Vector4</code></td>
+    <td><code>.x</code>, <code>.y</code>, <code>.z</code>, <code>.w</code></td>
+    <td><code>Length()</code>, <code>Normalized()</code></td>
+  </tr>
+  <tr>
+    <td><code>Color</code></td>
+    <td><code>.r</code>, <code>.g</code>, <code>.b</code>, <code>.a</code></td>
+    <td>Constants: <code>Color::WHITE</code>, <code>::BLACK</code>, <code>::RED</code>, <code>::GREEN</code>, <code>::BLUE</code>, <code>::YELLOW</code>, <code>::CYAN</code>, <code>::MAGENTA</code>, <code>::TRANSPARENT</code></td>
+  </tr>
+  <tr>
+    <td><code>Quaternion</code></td>
+    <td>.x, .y, .z, .w</td>
+    <td><code>Quaternion(yaw, pitch, roll)</code> — degrees. <code>Normalized()</code>, <code>Inverse()</code>, <code>operator*</code> (compose), <code>ToEulerAngles()</code></td>
+  </tr>
+  <tr>
+    <td><code>Matrix3</code></td>
+    <td>3×3</td>
+    <td>Rotation matrix, normal transform</td>
+  </tr>
+  <tr>
+    <td><code>Matrix3x4</code></td>
+    <td>3×4</td>
+    <td>Affine transform (most entity transforms)</td>
+  </tr>
+  <tr>
+    <td><code>Matrix4</code></td>
+    <td>4×4</td>
+    <td>Projection matrix, full perspective transform</td>
+  </tr>
+  <tr>
+    <td><code>BoundingBox</code></td>
+    <td><code>.min</code>, <code>.max</code> (Vector3)</td>
+    <td>Axis-aligned bounding box. <code>IsInside(pt)</code>, <code>Merge(box)</code></td>
+  </tr>
+  <tr>
+    <td><code>Rect</code></td>
+    <td><code>.min</code>, <code>.max</code> (Vector2)</td>
+    <td>Float rectangle (UV, screen region)</td>
+  </tr>
+  <tr>
+    <td><code>IntRect</code></td>
+    <td><code>.left</code>, <code>.top</code>, <code>.right</code>, <code>.bottom</code></td>
+    <td>Integer rectangle (pixel-exact regions)</td>
+  </tr>
+  <tr>
+    <td><code>IntVector2</code></td>
+    <td><code>.x</code>, <code>.y</code></td>
+    <td>Integer 2D point (mouse position, tile coord)</td>
+  </tr>
+  <tr>
+    <td><code>IntVector3</code></td>
+    <td><code>.x</code>, <code>.y</code>, <code>.z</code></td>
+    <td>Integer 3D point (voxel position)</td>
+  </tr>
+</table>
+
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d — part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

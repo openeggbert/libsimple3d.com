@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Features — simple-3d</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html" class="active">Features</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Sections</h3>
+  <ul>
+    <li><a href="#legend">Legend</a></li>
+    <li><a href="#core">Core &amp; Entity</a></li>
+    <li><a href="#rendering">3D Rendering</a></li>
+    <li><a href="#physics">Physics (3D)</a></li>
+    <li><a href="#physics2d">Physics (2D)</a></li>
+    <li><a href="#animation">Animation</a></li>
+    <li><a href="#audio">Audio</a></li>
+    <li><a href="#input">Input</a></li>
+    <li><a href="#lua">Lua Scripting</a></li>
+    <li><a href="#navigation">Navigation</a></li>
+    <li><a href="#networking">Networking</a></li>
+    <li><a href="#ui">UI</a></li>
+    <li><a href="#2d">2D Support</a></li>
+    <li><a href="#backends">Backend Comparison</a></li>
+    <li><a href="#platforms">Platforms</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+  </ul>
+</aside>
+
+<main class="content">
+<h1>Feature Reference</h1>
+<p class="section-intro">Complete breakdown of every feature in simple-3d — current status, configuration options, known limitations, and links to detailed documentation. Tasks #1–#16 are complete and not listed here; see git log for history.</p>
+
+<!-- LEGEND -->
+<h2 id="legend">Status Legend</h2>
+<div class="col2">
+  <div class="callout">
+    <h4><span class="status-done">✅</span> Done</h4>
+    <p>Implemented, tested, and in the stable public API. Safe to use in production game code.</p>
+  </div>
+  <div class="callout callout-warn">
+    <h4><span class="status-wip">🔄</span> In Progress</h4>
+    <p>Partially implemented. API exists but may have edge-case bugs or missing options. Check task notes before relying on it.</p>
+  </div>
+  <div class="callout callout-danger">
+    <h4><span class="status-plan">📋</span> Planned</h4>
+    <p>Designed and scheduled but not yet started. API may be drafted in headers (guarded with <code>#if 0</code>) for planning purposes only.</p>
+  </div>
+</div>
+
+<!-- CORE -->
+<h2 id="core">Core &amp; Entity</h2>
+<p>The foundation of every simple-3d game. All other systems depend on these primitives. See <a href="api.html#game">C++ API → Game</a> and <a href="api.html#entity">C++ API → Entity</a> for full method signatures.</p>
+<table>
+  <tr><th>Feature</th><th>Status</th><th>Details &amp; Notes</th></tr>
+  <tr>
+    <td>Game base class</td>
+    <td><span class="status-done">✅</span></td>
+    <td>Subclass <code>Simple3D::Game</code> and override <code>Start()</code>, <code>Update(float dt)</code>, <code>Stop()</code>. The engine calls these on the main thread. <code>dt</code> is clamped to 0.1 s so a debugger breakpoint will not cause a physics explosion.</td>
+  </tr>
+  <tr>
+    <td>Single-include header</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>#include &lt;Simple3D/Simple3D.h&gt;</code> pulls in every public type. Internal Urho3D headers are never exposed — your project's compile units see no engine symbols beyond <code>Simple3D::*</code>.</td>
+  </tr>
+  <tr>
+    <td>Entity creation</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>Entity* e = CreateEntity("name")</code> creates a named scene node and registers it. Names do not need to be unique, but <code>FindEntity()</code> returns the first match.</td>
+  </tr>
+  <tr>
+    <td>Entity registry</td>
+    <td><span class="status-done">✅</span></td>
+    <td>An internal <code>unordered_map&lt;Node*, Entity*&gt;</code> keeps every entity alive and reachable. Trigger callbacks receive a stable <code>Entity*</code> — never a raw Urho3D pointer. Child entities are registered automatically via <code>CreateChild()</code>.</td>
+  </tr>
+  <tr>
+    <td>Entity hierarchy</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>Entity* child = parent-&gt;CreateChild("wheel")</code>. Children inherit world-space transform from their parent. <code>GetParent()</code> resolves correctly via registry. <code>DestroyEntity(parent)</code> recursively unregisters the entire subtree.</td>
+  </tr>
+  <tr>
+    <td>Entity find</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>FindEntity("gem_1")</code> searches both root entities and children via the node registry. Returns <code>nullptr</code> if not found. Use a unique name prefix (e.g. <code>"gem_"</code>) for bulk lookups combined with <code>GetAllEntities()</code>.</td>
+  </tr>
+  <tr>
+    <td>Entity destroy</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>DestroyEntity(e)</code> removes the node from the scene and from the entity registry. Calling <code>DestroyEntity</code> on a pointer that has already been destroyed is safe — it no-ops.</td>
+  </tr>
+  <tr>
+    <td>Transform</td>
+    <td><span class="status-done">✅</span></td>
+    <td>Position: <code>SetPosition</code>/<code>GetPosition</code>. Rotation: <code>SetRotation</code>/<code>GetRotation</code> (Quaternion). Scale: <code>SetScale</code>. Direction shortcuts: <code>GetForward</code>, <code>GetRight</code>, <code>GetUp</code>. Convenience: <code>MoveRelative(v)</code> translates along local axes, <code>LookAt(target)</code>.</td>
+  </tr>
+  <tr>
+    <td>Math types</td>
+    <td><span class="status-done">✅</span></td>
+    <td>Full suite: <code>Vector2</code>, <code>Vector3</code>, <code>Vector4</code>, <code>Color</code>, <code>Quaternion</code>, <code>Matrix3</code>, <code>Matrix4</code>, <code>Matrix3x4</code>, <code>BoundingBox</code>, <code>Sphere</code>, <code>Ray</code>, <code>Plane</code>, <code>Rect</code>. All types are exposed in Lua (see <a href="lua-api.html#math">Lua API → Math</a>).</td>
+  </tr>
+  <tr>
+    <td>Window title &amp; clear color</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>SetWindowTitle("My Game")</code> and <code>SetClearColor(Color(0.1f, 0.1f, 0.12f))</code>. Both can be called at any time, not just from <code>Start()</code>.</td>
+  </tr>
+  <tr>
+    <td>Time access</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>GetTime()</code> returns seconds since engine start. <code>GetDeltaTime()</code> is the same value passed to <code>Update(dt)</code>. Both are thread-safe reads.</td>
+  </tr>
+  <tr>
+    <td>Scene creation helpers</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>CreateScene()</code>, <code>LoadSceneXML(path)</code>, <code>CreateSkybox(path)</code>, <code>CreateTerrain(heightmap, material)</code>, <code>CreateDirectionalLight</code>, <code>CreateFog</code>. All return the entity or void.</td>
+  </tr>
+  <tr>
+    <td>Quit</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>Quit()</code> shuts down the engine cleanly: calls <code>Stop()</code>, flushes audio, destroys all entities, closes the window.</td>
+  </tr>
+</table>
+
+<!-- RENDERING -->
+<h2 id="rendering">3D Rendering</h2>
+<p>Built on Urho3D's forward renderer. All render features are accessible without writing shader code. See <a href="api.html#camera">C++ API → Camera</a> for camera details.</p>
+<table>
+  <tr><th>Feature</th><th>Status</th><th>Details &amp; Notes</th></tr>
+  <tr>
+    <td>Static model</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddModel("Models/box.mdl", "Materials/Stone.xml")</code>. Accepted formats: <code>.mdl</code> (native Urho3D), <code>.obj</code>, <code>.fbx</code>. Convert external formats to <code>.mdl</code> with the Urho3D AssetImporter tool for best runtime performance.</td>
+  </tr>
+  <tr>
+    <td>Directional light</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddDirectionalLight(color, intensity)</code>. Simulates sunlight — affects the whole scene. Point the entity's rotation to control light direction. Supports shadow mapping (configure quality in engine XML).</td>
+  </tr>
+  <tr>
+    <td>Point light</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddPointLight(color, range)</code>. Range in world units; light falls off to zero at the boundary. Use sparingly on mobile — each per-pixel light has a draw-call cost.</td>
+  </tr>
+  <tr>
+    <td>Spot light</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddSpotLight(color, range, angle)</code>. Angle is the full cone angle in degrees (not half-angle). Spot light direction follows the entity's forward vector.</td>
+  </tr>
+  <tr>
+    <td>Camera — third-person follow</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>camera.SetFollowTarget(player, height, distance)</code>. Camera stays behind the player's last movement direction. Immediately snaps on first frame; use <code>SetFollowSpeed()</code> for lerp smoothing.</td>
+  </tr>
+  <tr>
+    <td>Camera — orbit</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>camera.SetOrbitTarget(entity)</code>. Right-mouse-drag orbits; scroll wheel changes distance. Configure pitch limits: <code>SetOrbitPitchLimits(minDeg, maxDeg)</code>. Sensitivity: <code>SetOrbitSensitivity(x, y)</code>.</td>
+  </tr>
+  <tr>
+    <td>Camera — FPS</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>camera.SetFPSTarget(entity, headOffset)</code>. Captures the mouse (SDL_SetRelativeMouseMode). Look sensitivity: <code>SetFPSSensitivity(x, y)</code>. Press <kbd>Escape</kbd> to detach: <code>camera.Detach()</code>.</td>
+  </tr>
+  <tr>
+    <td>Camera — smooth follow</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>SetFollowSpeed(lerpFactor)</code> — 1.0 = instant snap, 0.05 = very slow. Framerate-independent via <code>Lerp(current, target, 1 - pow(1 - speed, dt * 60))</code>.</td>
+  </tr>
+  <tr>
+    <td>Camera collision avoidance</td>
+    <td><span class="status-done">✅</span></td>
+    <td>A raycast is fired from the target entity toward the desired camera position. If it hits static geometry (collision layer 2), the camera is pulled in to avoid clipping. Enable: <code>camera.SetCollisionAvoidance(true)</code>.</td>
+  </tr>
+  <tr>
+    <td>Camera — orthographic</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>camera.Setup2D(pixelsPerUnit)</code> configures orthographic projection matched to sprite scale. <code>camera.SetOrthographic(true)</code> + <code>camera.SetOrthoSize(height)</code> for manual control. Used for 2D games and minimaps.</td>
+  </tr>
+  <tr>
+    <td>Split-screen</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>camera.SetViewport(index, x, y, w, h)</code> — coordinates are 0.0–1.0 normalized. Index 0 and 1 are the two viewport slots. Each viewport has its own <code>Camera</code> object. See <a href="examples.html#splitscreen">Examples → Split-Screen</a>.</td>
+  </tr>
+  <tr>
+    <td>FOV, near/far clip</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>camera.SetFOV(75.0f)</code> (degrees, vertical). <code>camera.SetNearClip(0.1f)</code>. <code>camera.SetFarClip(1000.0f)</code>. Setting near clip &lt; 0.01 causes z-fighting artifacts.</td>
+  </tr>
+  <tr>
+    <td>LookAt</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>camera.LookAt(entity)</code> or <code>camera.LookAt(Vector3)</code>. Rotates the camera node to face the target. Useful for cut-scenes or fixed-perspective rooms.</td>
+  </tr>
+  <tr>
+    <td>Skybox</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>CreateSkybox("Textures/Skybox/day.xml")</code> — loads a Urho3D Skybox XML. The default material uses 6 face textures (cubemap). Only one skybox is active at a time.</td>
+  </tr>
+  <tr>
+    <td>Fog</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>CreateFog(color, start, end)</code>. Linear fog between <code>start</code> and <code>end</code> world-unit distances. Setting start = 0 causes the clear color to merge with the fog color.</td>
+  </tr>
+  <tr>
+    <td>Particle effects</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #20. See <a href="#roadmap">Roadmap</a> for planned API. Will expose <code>Entity::AddParticleEmitter(xmlPath)</code> + built-in preset XMLs (Sparkle, Smoke, Explosion, Dust, Stars).</td>
+  </tr>
+</table>
+
+<!-- PHYSICS 3D -->
+<h2 id="physics">Physics — 3D (Bullet)</h2>
+<p>Powered by Bullet Physics (via Urho3D). Simulation runs at 60 Hz fixed step on the internal physics thread, independent of render framerate. See <a href="api.html#physics3d">C++ API → Entity → 3D Physics</a>.</p>
+<table>
+  <tr><th>Feature</th><th>Status</th><th>Details &amp; Notes</th></tr>
+  <tr>
+    <td>3D rigid body</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddRigidBody(mass)</code>. <code>mass = 0</code> → static body (immovable). Mass in kilograms. Uses <code>GetOrCreateComponent</code> internally, so calling multiple times is safe (returns existing body).</td>
+  </tr>
+  <tr>
+    <td>Box collider (3D)</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddBoxCollider(Vector3 size)</code>. Size is full extents (not half-extents). Centered on the entity origin unless offset is specified.</td>
+  </tr>
+  <tr>
+    <td>Capsule collider (3D)</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddCapsuleCollider(radius, height)</code>. Height is the total capsule height including the two hemisphere caps. The recommended shape for characters — smoother on edges than a box.</td>
+  </tr>
+  <tr>
+    <td>Sphere collider (3D)</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddSphereCollider(radius)</code>. Lowest-cost collision shape. Ideal for rolling objects and simple projectiles.</td>
+  </tr>
+  <tr>
+    <td>Mesh collider (3D)</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddMeshCollider("Models/level.mdl")</code>. Triangle mesh — accurate to the model. <strong>Static bodies only</strong> — Bullet does not support dynamic mesh colliders. For dynamic objects, approximate with primitives.</td>
+  </tr>
+  <tr>
+    <td>Trigger volumes</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddTriggerBox/Sphere/Capsule(size)</code> with <code>SetOnTriggerEnter(cb)</code> / <code>SetOnTriggerExit(cb)</code>. Callbacks receive <code>Entity* other</code> resolved via the entity registry. Triggers default to collision layer 4; actors must have mask bit 4 set to receive trigger events.</td>
+  </tr>
+  <tr>
+    <td>ApplyImpulse / ApplyForce</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>ApplyImpulse(Vector3)</code> — instantaneous velocity change (use for jumps). <code>ApplyForce(Vector3)</code> — continuous force applied each physics step (use for thrusters). Both require an <code>AddRigidBody(mass &gt; 0)</code> first.</td>
+  </tr>
+  <tr>
+    <td>SetLinearVelocity / GetLinearVelocity</td>
+    <td><span class="status-done">✅</span></td>
+    <td>Directly sets the velocity vector in world space. Useful for character controllers before Task #21 lands. Note: setting velocity every frame overrides friction — tune as needed.</td>
+  </tr>
+  <tr>
+    <td>SetAngularVelocity / GetAngularVelocity</td>
+    <td><span class="status-done">✅</span></td>
+    <td>Controls spin. <code>SetAngularFactor(Vector3(0,1,0))</code> locks rotation to Y-axis only — commonly used for upright characters.</td>
+  </tr>
+  <tr>
+    <td>IsOnGround()</td>
+    <td><span class="status-done">✅</span></td>
+    <td>Fires a short downward raycast (0.7 m) from the entity's position. Returns <code>true</code> if the ray hits anything on collision layer 2 (static geometry). False-negatives can occur on steep slopes (&gt;45°).</td>
+  </tr>
+  <tr>
+    <td>Collision layers / masks</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>SetCollisionLayer(int)</code> — bit flags for what group this body belongs to. <code>SetCollisionMask(int)</code> — which layers this body collides with. Convention: <code>1</code> = actors, <code>2</code> = static geometry, <code>4</code> = trigger volumes. Player mask = <code>2 | 4</code>.</td>
+  </tr>
+  <tr>
+    <td>Kinematic Character Controller</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #21. Replaces raw RigidBody for player characters. Will support step-up (0.4 m default), slope sliding (&gt;45°), and <code>IsOnGround()</code> from the KCC state rather than a raycast.</td>
+  </tr>
+  <tr>
+    <td>Physics constraints / joints</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #25. Planned types: Fixed, Hinge (with limits), Slider (moving platforms), BallSocket (chains). Motor support: <code>SetMotorEnabled</code>, <code>SetMotorSpeed</code>, <code>SetMotorMaxForce</code>.</td>
+  </tr>
+</table>
+
+<!-- PHYSICS 2D -->
+<h2 id="physics2d">Physics — 2D (Box2D)</h2>
+<p>Powered by Box2D (via Urho3D). The 2D physics world operates on the XY plane. Mix 3D rendering with 2D physics by using orthographic camera + 2D rigid bodies. See <a href="api.html#physics2d">C++ API → Entity → 2D Physics</a>.</p>
+<table>
+  <tr><th>Feature</th><th>Status</th><th>Details &amp; Notes</th></tr>
+  <tr>
+    <td>2D rigid body</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddRigidBody2D(BodyType2D::Dynamic)</code>. Body types: <code>Dynamic</code> (physics-driven), <code>Static</code> (immovable), <code>Kinematic</code> (script-driven, no gravity). Cannot mix 3D and 2D bodies on the same entity.</td>
+  </tr>
+  <tr>
+    <td>2D box collider</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddCollisionBox2D(width, height)</code>. Center offset: optional third parameter <code>Vector2 center</code>. Supports rotation via entity transform.</td>
+  </tr>
+  <tr>
+    <td>2D circle collider</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddCollisionCircle2D(radius)</code>. Lowest cost 2D shape — recommended for balls, characters, coins. Center follows entity position.</td>
+  </tr>
+  <tr>
+    <td>2D velocity / impulse</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>SetLinearVelocity2D(Vector2)</code> / <code>ApplyLinearImpulse2D(Vector2)</code>. Gravity is applied automatically to Dynamic bodies. Disable gravity per-body: <code>SetGravityScale2D(0.0f)</code>.</td>
+  </tr>
+  <tr>
+    <td>IsOnGround2D()</td>
+    <td><span class="status-done">✅</span></td>
+    <td>Downward raycast 0.6 m in 2D physics space. Returns true if the ray hits a Static or Kinematic body below. Adjust threshold with the optional <code>rayLength</code> parameter.</td>
+  </tr>
+  <tr>
+    <td>2D collision categories</td>
+    <td><span class="status-done">✅</span></td>
+    <td>Box2D category bits and mask bits via <code>SetCategoryBits2D</code> / <code>SetMaskBits2D</code>. Use 16-bit values (Box2D limitation). Same layer convention as 3D can be used for consistency.</td>
+  </tr>
+</table>
+
+<!-- ANIMATION -->
+<h2 id="animation">Animation</h2>
+<p>Urho3D AnimationController with simple-3d convenience wrappers. Animations are stored as <code>.ani</code> files or embedded in exported <code>.fbx</code>/<code>.mdl</code>. See <a href="api.html#animation">C++ API → Entity → Animation</a>.</p>
+<table>
+  <tr><th>Feature</th><th>Status</th><th>Details &amp; Notes</th></tr>
+  <tr>
+    <td>AnimationController</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddAnimationController()</code> attaches the controller component. Call once; subsequent calls return the existing component via <code>GetOrCreateComponent</code>. Returns <code>nullptr</code> before this call — guard access in Lua.</td>
+  </tr>
+  <tr>
+    <td>Play</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>Play(name, layer, looped, fadeTime)</code>. <code>layer</code> — animations on different layers blend additively. <code>fadeTime</code> seconds to cross-fade from any currently playing animation on that layer. 0 = instant cut.</td>
+  </tr>
+  <tr>
+    <td>PlayBlend (additive)</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>PlayBlend(name, layer, fadeTime)</code> — plays alongside any other animation on the same layer. Use for overlay animations (aiming, hit reactions) on top of a locomotion cycle.</td>
+  </tr>
+  <tr>
+    <td>Stop / StopAll</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>Stop(name)</code> stops a specific clip. <code>StopAll(fadeTime)</code> fades out every playing animation. Safe to call even if nothing is playing.</td>
+  </tr>
+  <tr>
+    <td>Blend weight</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>SetWeight(name, weight)</code> — 0.0 = invisible contribution, 1.0 = full. Interpolate manually each frame to build custom cross-fades. <code>GetWeight(name)</code> returns current weight.</td>
+  </tr>
+  <tr>
+    <td>Playback speed</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>SetSpeed(name, multiplier)</code>. 1.0 = normal, 2.0 = double speed, 0.5 = half speed, -1.0 = reverse. Negative speed plays the clip backward.</td>
+  </tr>
+  <tr>
+    <td>IsPlaying</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>IsPlaying(name)</code> — true if the clip is currently active (weight &gt; 0 and not stopped). Use to gate transitions: only call <code>Play("jump")</code> if <code>!IsPlaying("jump")</code>.</td>
+  </tr>
+  <tr>
+    <td>GetTime</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>GetTime(name)</code> — playback position in seconds. Use to synchronize sound effects to animation frames (e.g. footstep at 0.25 s and 0.75 s of the walk cycle).</td>
+  </tr>
+  <tr>
+    <td>Animation state machine</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #22. Declarative <code>AnimStateMachine</code> with states, transitions, and conditions (<code>SetBool</code>, <code>SetFloat</code>, <code>SetTrigger</code> — Unity Animator style). Will drive <code>AnimationController</code> internally. Planned blend time support per transition.</td>
+  </tr>
+</table>
+
+<!-- AUDIO -->
+<h2 id="audio">Audio</h2>
+<p>Urho3D audio system wraps OpenAL/SDL_mixer. Streaming for music, buffer-based for SFX. See <a href="api.html#audio">C++ API → Game → Audio</a>.</p>
+<table>
+  <tr><th>Feature</th><th>Status</th><th>Details &amp; Notes</th></tr>
+  <tr>
+    <td>Music streaming</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>PlayMusic("Music/theme.ogg", loop)</code>. OGG Vorbis recommended (smaller files); WAV is also accepted. Music streams from disk — not loaded into RAM. Only one music track at a time.</td>
+  </tr>
+  <tr>
+    <td>Stop music</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>StopMusic()</code>. Immediately halts streaming. To fade out, set <code>SetMasterVolume()</code> to 0 over several frames then call <code>StopMusic()</code>.</td>
+  </tr>
+  <tr>
+    <td>One-shot SFX</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>PlaySound("Sounds/jump.wav", volume)</code>. Volume 0.0–1.0. Sounds are cached after first load. Up to 32 simultaneous sound channels (Urho3D default).</td>
+  </tr>
+  <tr>
+    <td>Master volume</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>SetMasterVolume(0.0f–1.0f)</code>. Affects all audio channels including music. Persisting the player's volume preference should be saved manually (or via Task #19 SaveData).</td>
+  </tr>
+  <tr>
+    <td>Missing resource logging</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>PlayMusic()</code> and <code>PlaySound()</code> log an error to the console if the file is not found, instead of crashing. Check the log if audio is silent.</td>
+  </tr>
+  <tr>
+    <td>Spatial (3D positional) audio</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #23. Will expose <code>Entity::AddAudioSource()</code> returning <code>AudioSource*</code>. Features: <code>SetGain</code>, <code>SetRange(near, far)</code>, <code>SetPitch</code>, <code>PlayAmbient</code>. Requires <code>Game::SetAudioListener(Entity*)</code> to position the listener. Also needed by Speedy Blupi enemy and footstep audio.</td>
+  </tr>
+</table>
+
+<!-- INPUT -->
+<h2 id="input">Input</h2>
+<p>Polling-based input — call from <code>Update()</code>. No event queue to drain. See <a href="api.html#input">C++ API → Game → Input</a> and <a href="lua-api.html#input">Lua API → Input</a> for the full Key enum.</p>
+<table>
+  <tr><th>Feature</th><th>Status</th><th>Details &amp; Notes</th></tr>
+  <tr>
+    <td>Keyboard — held</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>IsKeyDown(Key::W)</code> — true every frame the key is physically held. Use for movement.</td>
+  </tr>
+  <tr>
+    <td>Keyboard — pressed (single frame)</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>IsKeyPressed(Key::Space)</code> — true only on the frame the key transitioned from up → down. Use for jump and toggle actions. Does not repeat.</td>
+  </tr>
+  <tr>
+    <td>Mouse position</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>GetMousePosition()</code> → <code>Vector2</code> in screen pixels (top-left origin). Not available in FPS mode while mouse is captured.</td>
+  </tr>
+  <tr>
+    <td>Mouse delta</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>GetMouseDelta()</code> → <code>Vector2</code> pixels moved since last frame. Always valid, including in FPS mouse-capture mode where absolute position is undefined.</td>
+  </tr>
+  <tr>
+    <td>Mouse buttons</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>IsMouseButtonDown(0)</code> — 0=left, 1=right, 2=middle. <code>IsMouseButtonPressed(0)</code> for single-frame click detection.</td>
+  </tr>
+  <tr>
+    <td>Touch (multi-touch)</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>GetTouchCount()</code>, <code>GetTouchPosition(i)</code>, <code>GetTouchDelta(i)</code>, <code>GetTouchPressure(i)</code>. Index 0 = first finger. Pressure is 0.0–1.0 (device-dependent; many return 1.0).</td>
+  </tr>
+  <tr>
+    <td>Gamepad / controller</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #24. Will expose <code>IsGamepadConnected</code>, <code>GetGamepadAxis(GamepadAxis)</code>, <code>IsGamepadButtonDown/Pressed(GamepadButton)</code>, rumble (<code>SetGamepadRumble</code>), and hot-plug callbacks. Targeting XInput (Windows) and SDL gamepad (Linux/Mac).</td>
+  </tr>
+</table>
+
+<!-- LUA -->
+<h2 id="lua">Lua Scripting</h2>
+<p>LuaJIT (Lua 5.1 compatible) via Urho3D's <code>LuaScriptInstance</code>. One script per entity. See <a href="lua-api.html">Lua API</a> for the full reference.</p>
+<table>
+  <tr><th>Feature</th><th>Status</th><th>Details &amp; Notes</th></tr>
+  <tr>
+    <td>Script attach per entity</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>entity-&gt;AddScript("Scripts/player.lua")</code>. The script file is loaded from the engine's resource search paths. Missing scripts log an error and skip without crashing.</td>
+  </tr>
+  <tr>
+    <td>Lifecycle callbacks</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>function Start()</code> — called once on attach. <code>function Update(dt)</code> — called every frame. <code>function Stop()</code> — called on detach/destroy. <code>function FixedUpdate(dt)</code> — called at physics step rate (60 Hz).</td>
+  </tr>
+  <tr>
+    <td>Urho3D Lua globals</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>self.node</code> — the entity's Urho3D Node. <code>input</code> — Urho3D Input (lowercase, not the C++ API). <code>cache</code> — ResourceCache. <code>scene</code> — the active Scene. <code>time</code> — Time subsystem. <code>audio</code> — Audio subsystem. <code>renderer</code> — Renderer.</td>
+  </tr>
+  <tr>
+    <td>Node extensions (simple-3d additions)</td>
+    <td><span class="status-done">✅</span></td>
+    <td>Registered on every Urho3D Node via the binding layer: <code>node:MoveRelative(v)</code>, <code>node:IsOnGround()</code>, <code>node:IsOnGround2D()</code>, <code>node:ApplyImpulse(v)</code>, <code>node:GetForward()</code>, <code>node:GetRight()</code>. These are not standard Urho3D methods.</td>
+  </tr>
+  <tr>
+    <td>AnimationController from Lua</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>local anim = self.node:GetComponent("AnimationController")</code>. Methods: <code>Play</code>, <code>Stop</code>, <code>StopAll</code>, <code>IsPlaying</code>, <code>SetWeight</code>, <code>SetSpeed</code>, <code>GetTime</code>, <code>SetTime</code>. Guard with <code>if anim then</code> — returns nil before <code>AddAnimationController()</code> is called from C++.</td>
+  </tr>
+  <tr>
+    <td>RigidBody from Lua</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>local rb = self.node:GetComponent("RigidBody")</code>. Full Urho3D RigidBody API is available: <code>ApplyImpulse</code>, <code>SetLinearVelocity</code>, <code>GetLinearVelocity</code>, <code>GetMass</code>. 2D equivalent: <code>"RigidBody2D"</code>.</td>
+  </tr>
+  <tr>
+    <td>Input from Lua</td>
+    <td><span class="status-done">✅</span></td>
+    <td>Use the capitalised global: <code>Input:IsKeyDown(KEY_W)</code>. Key constants are prefixed with <code>KEY_</code>. Note: Urho3D's lowercase <code>input</code> global uses a different API — prefer <code>Input:</code> (colon syntax) for consistency with simple-3d conventions.</td>
+  </tr>
+  <tr>
+    <td>PlaySound / PlayMusic from Lua</td>
+    <td><span class="status-wip">🔄</span></td>
+    <td>Part of custom bindings (Task #3, in progress). Currently accessible via Urho3D's <code>audio</code> global with verbose syntax. The simple-3d convenience binding (<code>PlaySound("file.wav")</code>) is not yet exposed.</td>
+  </tr>
+  <tr>
+    <td>FindEntity from Lua</td>
+    <td><span class="status-wip">🔄</span></td>
+    <td>Part of Task #3. Currently use <code>scene:GetChild("name", true)</code> to search the scene tree from Lua. The simple-3d <code>FindEntity</code> wrapper (which also searches the entity registry) is not yet bound to Lua.</td>
+  </tr>
+  <tr>
+    <td>MoveToward from Lua</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #3. Will expose the navigation <code>MoveToward(entity, target, speed)</code> binding so Lua AI scripts can path-find without C++ code.</td>
+  </tr>
+  <tr>
+    <td>Script communication</td>
+    <td><span class="status-done">✅</span></td>
+    <td>Scripts communicate via Urho3D's <code>SendEvent</code> / <code>SubscribeToEvent</code>. For simpler cases, read shared state from a global Lua table or use <code>scene:GetChild</code> to reach other entities and read variables from their script component.</td>
+  </tr>
+</table>
+
+<!-- NAVIGATION -->
+<h2 id="navigation">Navigation</h2>
+<p>Recast (nav-mesh generation) + Detour (pathfinding), both via Urho3D. The nav-mesh is baked at runtime from all static models in the scene. See <a href="api.html#nav">C++ API → Game → Navigation</a>.</p>
+<table>
+  <tr><th>Feature</th><th>Status</th><th>Details &amp; Notes</th></tr>
+  <tr>
+    <td>Nav-mesh bake</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>BuildNavMesh(agentRadius, agentHeight, cellSize)</code>. Scans all static geometry in the scene and bakes a walkable surface. Call once after loading the scene — baking is synchronous and may take 0.1–0.5 s for complex scenes. Do not call every frame.</td>
+  </tr>
+  <tr>
+    <td>FindPath(Entity*)</td>
+    <td><span class="status-done">✅</span></td>
+    <td>Returns a <code>vector&lt;Vector3&gt;</code> of waypoints from this entity to the target. Waypoints are in world space. The result is also cached internally for use by <code>MoveToward()</code>.</td>
+  </tr>
+  <tr>
+    <td>FindPath(Vector3)</td>
+    <td><span class="status-done">✅</span></td>
+    <td>Same as above but the target is a world position rather than an entity. Returns empty vector if either start or end is off the nav-mesh.</td>
+  </tr>
+  <tr>
+    <td>MoveToward</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>entity-&gt;MoveToward(target, speed)</code>. Follows the cached path toward the target at the given speed (units/s). Recomputes the path automatically if the entity drifts &gt; 1 m off the expected track. Returns true when the target is reached.</td>
+  </tr>
+  <tr>
+    <td>StopMoving</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>entity-&gt;StopMoving()</code>. Clears the cached path and zeroes the horizontal velocity of the associated rigid body. Call when switching from navigation to manual input.</td>
+  </tr>
+  <tr>
+    <td>Nav-mesh debug overlay</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Planned visual debugging tool — renders the baked nav-mesh polygons as a semi-transparent overlay in debug builds. Will be toggled via a CMake option or runtime key.</td>
+  </tr>
+</table>
+
+<!-- NETWORKING -->
+<h2 id="networking">Networking</h2>
+<p>ENet UDP library via Urho3D. Client/server model with automatic scene entity replication. Custom message IDs 100–32767 are reserved for game code. See <a href="api.html#networking">C++ API → NetworkManager</a> and <a href="examples.html#networking">Examples → Networking</a>.</p>
+<table>
+  <tr><th>Feature</th><th>Status</th><th>Details &amp; Notes</th></tr>
+  <tr>
+    <td>Start server</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>network.StartServer(port, maxClients)</code>. Port 27015 is a common choice. <code>maxClients</code> limits simultaneous connections. The server also runs a local game instance — no headless mode currently.</td>
+  </tr>
+  <tr>
+    <td>Client connect</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>network.Connect("192.168.1.10", 27015)</code>. Connection is asynchronous; <code>OnServerConnected()</code> fires on success. If the server is unreachable, <code>OnServerDisconnected()</code> fires after a timeout.</td>
+  </tr>
+  <tr>
+    <td>Scene entity replication</td>
+    <td><span class="status-done">✅</span></td>
+    <td>Automatic via Urho3D's built-in network replication. Entities created by the server are automatically cloned on all clients. Mark an entity for replication: <code>entity-&gt;SetReplicated(true)</code>.</td>
+  </tr>
+  <tr>
+    <td>Custom messages</td>
+    <td><span class="status-done">✅</span></td>
+    <td>Send raw byte payloads with a game-defined ID (100–32767). Pack structs into <code>vector&lt;uint8_t&gt;</code> via <code>memcpy</code>. Receive via <code>OnMessage(Connection* sender, int msgId, const vector&lt;uint8_t&gt;&amp; data)</code>. IDs 0–99 are reserved by Urho3D.</td>
+  </tr>
+  <tr>
+    <td>Broadcast to all clients</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>network.Broadcast(msgId, data)</code>. Sends to every connected client from the server. Not available on the client side — clients send to the server only.</td>
+  </tr>
+  <tr>
+    <td>Send to specific client</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>network.SendToClient(connection, msgId, data)</code>. Use the <code>Connection*</code> received in <code>OnClientConnected</code>. Store connections in a list to address specific players.</td>
+  </tr>
+  <tr>
+    <td>Send to server</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>network.SendToServer(msgId, data)</code>. Client-side call; routed to the server's <code>OnMessage</code>. The <code>sender</code> in <code>OnMessage</code> identifies which client.</td>
+  </tr>
+  <tr>
+    <td>Connection callbacks</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>OnClientConnected(Connection*)</code>, <code>OnClientDisconnected(Connection*)</code> — server side. <code>OnServerConnected()</code>, <code>OnServerDisconnected()</code> — client side. Override in your <code>Game</code> subclass.</td>
+  </tr>
+  <tr>
+    <td>Message callback</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>OnMessage(Connection* sender, int msgId, vector&lt;uint8_t&gt; data)</code> — override in <code>Game</code>. Both server and client receive messages here. Dispatch on <code>msgId</code> to handle different message types.</td>
+  </tr>
+</table>
+
+<!-- UI -->
+<h2 id="ui">UI</h2>
+<p>Currently limited to text labels. Full widget system is planned for Task #17. See <a href="api.html#label">C++ API → Label</a>.</p>
+<table>
+  <tr><th>Feature</th><th>Status</th><th>Details &amp; Notes</th></tr>
+  <tr>
+    <td>Label (text element)</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>Label* l = CreateLabel()</code>. Methods: <code>SetText(str)</code>, <code>SetPosition(x, y)</code> (screen pixels), <code>SetFontSize(px)</code>, <code>SetColor(Color)</code>, <code>SetVisible(bool)</code>. Position (0,0) = top-left. Can be used for HUD counters, debug overlays, subtitles.</td>
+  </tr>
+  <tr>
+    <td>UI::Button</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #17. Planned: <code>SetText</code>, <code>SetSize</code>, <code>SetPosition</code>, <code>SetOnClick(callback)</code>. Required for start screen and pause menu in Speedy Blupi.</td>
+  </tr>
+  <tr>
+    <td>UI::Image</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #17. Screen-space texture; <code>SetTexture(path)</code>, <code>SetRect</code>, <code>SetColor</code>. For life icons, health bar backgrounds, etc.</td>
+  </tr>
+  <tr>
+    <td>UI::Panel</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #17. Container for grouping UI elements. Transparent or opaque background. Used for pause overlay: show/hide the whole panel group at once.</td>
+  </tr>
+  <tr>
+    <td>UI::ProgressBar</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #17. Horizontal/vertical bar. <code>SetValue(0..1)</code>, <code>SetColor</code>. For health, mana, loading screens.</td>
+  </tr>
+  <tr>
+    <td>UI::Slider</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #17. Draggable float value. <code>SetRange(min, max)</code>, <code>SetOnChange(callback)</code>. For options menus (volume, sensitivity).</td>
+  </tr>
+  <tr>
+    <td>Anchor system</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #17. <code>SetAnchor(Anchor::TopLeft / Center / BottomRight / …)</code> + pixel offset. Allows UI elements to adapt to different window sizes without manual recalculation.</td>
+  </tr>
+  <tr>
+    <td>Z-order stacking</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #17. <code>SetZOrder(int)</code> — higher values render on top. Necessary for modal dialogs over HUD.</td>
+  </tr>
+  <tr>
+    <td>Scene transitions (fade)</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #18. <code>Game::FadeOut(duration, callback)</code> / <code>FadeIn(duration)</code>. Used between level loads. Implemented as a full-screen overlay panel with animated opacity.</td>
+  </tr>
+  <tr>
+    <td>Save / Load UI state</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>Task #19. <code>SaveData</code> key-value store for persisting game progress. JSON format. Platform paths: Linux <code>~/.local/share/&lt;app&gt;/</code>, Windows <code>%APPDATA%\&lt;app&gt;\</code>.</td>
+  </tr>
+</table>
+
+<!-- 2D -->
+<h2 id="2d">2D Support</h2>
+<p>2D rendering via Urho3D's sprite/Spriter2D/TileMap subsystems. Use in combination with the orthographic camera and Box2D physics. See <a href="api.html#rendering2d">C++ API → Entity → 2D Rendering</a>.</p>
+<table>
+  <tr><th>Feature</th><th>Status</th><th>Details &amp; Notes</th></tr>
+  <tr>
+    <td>Static sprite</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddSprite2D("Sprites/coin.png")</code>. PNG or JPG. The sprite is rendered at the entity's world position. Scale via <code>SetScale(Vector3)</code>. Log-error on missing file, no crash.</td>
+  </tr>
+  <tr>
+    <td>Animated sprite (Spriter / SCML)</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>AddAnimatedSprite2D("Sprites/player.scml")</code>. Spriter is an external 2D character animation tool that exports <code>.scml</code> files. Spritesheet must be alongside the <code>.scml</code>.</td>
+  </tr>
+  <tr>
+    <td>PlayAnimation2D</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>PlayAnimation2D("run", loop)</code>. Animation name matches the entity name defined in Spriter. Call once to start; the engine loops until a different animation is set.</td>
+  </tr>
+  <tr>
+    <td>SetFlipX2D / SetFlipY2D</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>SetFlipX2D(true)</code> mirrors the sprite horizontally. Used for left/right character facing without separate left-facing sprite sheets.</td>
+  </tr>
+  <tr>
+    <td>Tile map (.tmx)</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>LoadTileMap("Maps/world1.tmx")</code>. Tiled map editor TMX format. Supports orthogonal tile layers. Returns an Entity* holding the TileMap2D component. Object layers are not auto-parsed — read them from the Tiled XML manually if needed.</td>
+  </tr>
+  <tr>
+    <td>Orthographic camera helper</td>
+    <td><span class="status-done">✅</span></td>
+    <td><code>camera.Setup2D(pixelsPerUnit)</code>. Sets orthographic projection scaled so that 1 world unit = <code>pixelsPerUnit</code> pixels. Commonly 100 PPU for sprite games. Converts pixel sizes to world sizes for physics setup.</td>
+  </tr>
+</table>
+
+<!-- BACKENDS -->
+<h2 id="backends">Backend Comparison</h2>
+<p>simple-3d supports two engine backends selectable at CMake configure time via <code>-DSIMPLE3D_ENGINE=U3D</code> or <code>-DSIMPLE3D_ENGINE=NOVA3D</code>. The public API is identical regardless of backend choice.</p>
+<div class="callout">
+  <h4>What is the difference?</h4>
+  <p><strong>U3D</strong> is the community-maintained upstream fork of Urho3D at <code>u3d-community/U3D</code>. <strong>NOVA3D</strong> is Robert Vokac's fork that adds an XNA-style C++ runtime layer, allowing the same game to target both desktop and (future) Android without code changes.</p>
+</div>
+<table class="compare-table">
+  <tr><th>Capability</th><th>U3D backend</th><th>NOVA3D backend</th></tr>
+  <tr><td>Linux (x86_64)</td><td><span class="status-done">✅</span></td><td><span class="status-done">✅</span></td></tr>
+  <tr><td>Windows (MSVC)</td><td><span class="status-done">✅</span></td><td><span class="status-plan">📋</span> planned</td></tr>
+  <tr><td>Windows (MinGW cross-compile)</td><td><span class="status-done">✅</span> toolchain provided</td><td><span class="status-plan">📋</span></td></tr>
+  <tr><td>macOS</td><td><span class="status-wip">🔄</span> untested</td><td><span class="status-plan">📋</span></td></tr>
+  <tr><td>Android</td><td><span class="status-plan">📋</span></td><td><span class="status-plan">📋</span> primary target</td></tr>
+  <tr><td>Web / Emscripten</td><td><span class="status-plan">📋</span></td><td><span class="status-plan">📋</span></td></tr>
+  <tr><td>LuaJIT scripting</td><td><span class="status-done">✅</span></td><td><span class="status-done">✅</span></td></tr>
+  <tr><td>Bullet physics</td><td><span class="status-done">✅</span></td><td><span class="status-done">✅</span></td></tr>
+  <tr><td>Box2D physics</td><td><span class="status-done">✅</span></td><td><span class="status-done">✅</span></td></tr>
+  <tr><td>ENet networking</td><td><span class="status-done">✅</span></td><td><span class="status-wip">🔄</span></td></tr>
+  <tr><td>Recast/Detour navigation</td><td><span class="status-done">✅</span></td><td><span class="status-done">✅</span></td></tr>
+  <tr><td>XNA-style content pipeline</td><td><span class="status-plan">📋</span></td><td><span class="status-done">✅</span> core feature</td></tr>
+  <tr><td>Toolchain file included</td><td><span class="status-done">✅</span> MinGW</td><td><span class="status-wip">🔄</span></td></tr>
+</table>
+
+<!-- PLATFORMS -->
+<h2 id="platforms">Platforms</h2>
+<p>Target platform selection is determined by CMake toolchain files and the active engine backend. Cross-compilation uses MinGW or Android NDK.</p>
+<table>
+  <tr><th>Platform</th><th>Status</th><th>Backend</th><th>Notes</th></tr>
+  <tr>
+    <td>Linux (x86_64)</td>
+    <td><span class="status-done">✅</span></td>
+    <td>U3D or NOVA3D</td>
+    <td>Primary development platform. SDL2 window, OpenGL renderer. Install packages: <code>libsdl2-dev libgl1-mesa-dev libopenal-dev</code>.</td>
+  </tr>
+  <tr>
+    <td>Windows (native MSVC)</td>
+    <td><span class="status-done">✅</span></td>
+    <td>U3D</td>
+    <td>Visual Studio 2022 or later. Set <code>U3D_HOME</code> to the built U3D directory. DX11 renderer path available.</td>
+  </tr>
+  <tr>
+    <td>Windows (MinGW cross-compile)</td>
+    <td><span class="status-done">✅</span></td>
+    <td>U3D</td>
+    <td>Build from Linux: <code>cmake -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/MinGW.cmake …</code>. Toolchain file provided. Produces a standalone Windows <code>.exe</code> + DLLs.</td>
+  </tr>
+  <tr>
+    <td>macOS</td>
+    <td><span class="status-wip">🔄</span></td>
+    <td>U3D</td>
+    <td>Build path exists in CMakeLists.txt but has not been tested end-to-end. Homebrew dependencies: <code>sdl2 openal-soft lua</code>. Community testing welcome.</td>
+  </tr>
+  <tr>
+    <td>Android</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>NOVA3D</td>
+    <td>Task #8. Requires Android NDK + NOVA3D backend. Touch input is already abstracted. The primary motivation for the NOVA3D fork is Android support for Speedy Blupi mobile.</td>
+  </tr>
+  <tr>
+    <td>Web / Emscripten</td>
+    <td><span class="status-plan">📋</span></td>
+    <td>TBD</td>
+    <td>Task #9. Emscripten build. Browser canvas output. LuaJIT requires Emscripten-compatible build (possible via the LLVM backend). No ETA.</td>
+  </tr>
+</table>
+
+<!-- ROADMAP -->
+<h2 id="roadmap">Roadmap</h2>
+<p>Tasks are ordered by priority for the <strong>Speedy Blupi 3D remake</strong> prototype. All tasks after Task #17A are blocked until the acceptance test passes (build + manual run of <code>samples/blupi_proto</code>).</p>
+
+<div class="callout callout-warn">
+  <h4>Current status: Task #17A — Stabilization (in progress)</h4>
+  <p>All code changes for stabilization are written. The blocker is a manual build-and-run verification of <code>samples/blupi_proto</code>. Once that passes, all other tasks unblock in the order below.</p>
+</div>
+
+<table>
+  <tr><th>Task</th><th>Title</th><th>Priority</th><th>Full Description &amp; Planned API</th></tr>
+  <tr>
+    <td><strong>#21</strong></td>
+    <td>Character Controller</td>
+    <td>🔥 High</td>
+    <td>Bullet KinematicCharacterController replacing raw RigidBody for player movement. Solves slope sliding and step climbing. API: <code>Entity::AddCharacterController(radius, height)</code>, <code>CharacterController::Move(vel, dt)</code>, <code>Jump(speed)</code>, <code>SetMaxSlope(deg)</code>, <code>SetStepHeight(m)</code>. <code>Entity::IsOnGround()</code> delegates to KCC state when present.</td>
+  </tr>
+  <tr>
+    <td><strong>#24</strong></td>
+    <td>Gamepad Input</td>
+    <td>🔥 High</td>
+    <td>SDL gamepad (Linux/Mac) and XInput (Windows). <code>IsGamepadConnected(index)</code>, <code>GetGamepadAxis(GamepadAxis, index)</code>, <code>IsGamepadButtonDown/Pressed(btn, index)</code>. Enums: <code>GamepadAxis::{LeftX,LeftY,RightX,RightY,LTrigger,RTrigger}</code>, <code>GamepadButton::{A,B,X,Y,LB,RB,Start,Select,DPadUp/Down/Left/Right}</code>. Rumble: <code>SetGamepadRumble(lowFreq, highFreq, durationSec)</code>. Hot-plug: <code>SetOnGamepadConnected/Disconnected</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>#17</strong></td>
+    <td>Full UI System</td>
+    <td>🔥 High</td>
+    <td>Required for start screen, pause menu, lives display, score. New types under <code>Simple3D::UI::</code>: <code>Button</code>, <code>Image</code>, <code>Panel</code>, <code>ProgressBar</code>, <code>Slider</code>. Anchor system: <code>SetAnchor(Anchor::TopLeft / Center / BottomRight …)</code>. Z-order stacking. Factory methods on <code>Game</code>: <code>CreateButton</code>, <code>CreateImage</code>, <code>CreatePanel</code>, etc.</td>
+  </tr>
+  <tr>
+    <td><strong>#18</strong></td>
+    <td>Scene Management</td>
+    <td>🔥 High</td>
+    <td>Level transitions for Speedy Blupi's ~30 levels. API: <code>Game::LoadScene(path)</code>, <code>UnloadScene()</code>, <code>SetPersistentEntity(Entity*)</code>, <code>FadeOut(duration, callback)</code>, <code>FadeIn(duration)</code>, <code>GetCurrentScene()</code>, <code>SetLevelList(…)</code>, <code>LoadNextLevel()</code>, <code>LoadLevel(index)</code>. Camera and audio survive transitions; all other entities are destroyed.</td>
+  </tr>
+  <tr>
+    <td><strong>#19</strong></td>
+    <td>Save / Load</td>
+    <td>High</td>
+    <td>Persistent game state (score, level index, settings). <code>Simple3D::SaveData</code> key-value store; types: <code>int</code>, <code>float</code>, <code>bool</code>, <code>std::string</code>. <code>Set(key, val)</code>, <code>Get&lt;T&gt;(key, default)</code>, <code>Save(slot)</code>, <code>Load(slot)</code>, <code>Delete(slot)</code>, <code>Exists(slot)</code>. JSON format. Platform paths: Linux <code>~/.local/share/&lt;app&gt;/</code>, Windows <code>%APPDATA%\&lt;app&gt;\</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>#23</strong></td>
+    <td>Spatial Audio</td>
+    <td>Medium</td>
+    <td>3D positional sound for enemy and footstep audio. <code>Entity::AddAudioSource()</code> → <code>AudioSource*</code>. Methods: <code>Play(path)</code>, <code>Stop()</code>, <code>SetLooped(bool)</code>, <code>IsPlaying()</code>, <code>SetGain(0..1)</code>, <code>SetRange(near, far)</code>, <code>SetPitch(mult)</code>, <code>PlayAmbient(path)</code>. Listener: <code>Game::SetAudioListener(entity)</code> (typically camera or player entity).</td>
+  </tr>
+  <tr>
+    <td><strong>#20</strong></td>
+    <td>Particle Effects</td>
+    <td>Medium</td>
+    <td>Visual feedback for jumps, collect events, explosions. <code>Entity::AddParticleEmitter(xmlPath)</code> → <code>ParticleEmitter*</code>. Methods: <code>Play()</code>, <code>Stop()</code>, <code>Burst(count)</code>, <code>IsEmitting()</code>, <code>SetEmitting(bool)</code>. Built-in presets: <code>Particles/Sparkle.xml</code>, <code>Particles/Smoke.xml</code>, <code>Particles/Explosion.xml</code>, <code>Particles/Dust.xml</code>, <code>Particles/Stars.xml</code>. Billboard helper: <code>Entity::AddBillboard(texturePath)</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>#22</strong></td>
+    <td>Animation State Machine</td>
+    <td>Medium</td>
+    <td>Declarative character animation to replace manual if-else chains. <code>Simple3D::AnimStateMachine</code>: <code>AddState(name, animPath, loop)</code>, <code>AddTransition(from, to, cond, blendTime=0.2)</code>. Conditions: <code>SetBool(key, val)</code>, <code>SetFloat(key, val)</code>, <code>SetTrigger(key)</code>. <code>Update(dt)</code> from <code>Game::Update</code>. <code>GetCurrentState()</code>. Drives the entity's <code>AnimationController</code> internally.</td>
+  </tr>
+  <tr>
+    <td><strong>#26</strong></td>
+    <td>Enemy AI FSM</td>
+    <td>Medium</td>
+    <td>Finite state machine for patrol → alert → chase → attack enemies. <code>Simple3D::BehaviorFSM</code>: <code>AddState(name, onEnter, onUpdate, onExit)</code>, <code>AddTransition(from, to, conditionFn)</code>, <code>Update(dt)</code>, <code>SetState(name)</code>. Built-in NavMesh-backed states: <code>AddPatrolState(waypoints, speed)</code>, <code>AddChaseState(target, speed, stopDist)</code>. Factory: <code>Entity::AddBehaviorFSM()</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>#25</strong></td>
+    <td>Physics Constraints</td>
+    <td>Low</td>
+    <td>Moving platforms, hinged doors, levers, chains. <code>Game::CreateConstraint(type, entityA, entityB)</code>. Types: <code>ConstraintType::{Fixed, Hinge, Slider, BallSocket}</code>. Hinge: <code>SetHingeAxis(v)</code>, <code>SetHingeLimits(minDeg, maxDeg)</code>. Slider: <code>SetSliderAxis(v)</code>, <code>SetSliderLimits(min, max)</code>. Motor: <code>SetMotorEnabled(bool)</code>, <code>SetMotorSpeed(f)</code>, <code>SetMotorMaxForce(f)</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>#8</strong></td>
+    <td>Android</td>
+    <td>Low (future)</td>
+    <td>NOVA3D backend + Android NDK. Touch input is already abstracted. The CMake integration will mirror the desktop build. Primary motivation: Speedy Blupi mobile port. No ETA until NOVA3D backend stabilizes on desktop.</td>
+  </tr>
+  <tr>
+    <td><strong>#9</strong></td>
+    <td>Web / Emscripten</td>
+    <td>Low (future)</td>
+    <td>Browser build via Emscripten. Output: WebAssembly + canvas. LuaJIT requires the Emscripten LLVM path (supported). ENet networking in a browser context needs WebSocket bridging (non-trivial). No ETA.</td>
+  </tr>
+</table>
+
+</main>
+</div>
+
+<footer style="text-align:center;padding:2rem;color:var(--text-muted);font-size:0.85rem;border-top:1px solid var(--border)">
+  simple-3d &copy; 2024 Robert Vokac — MIT License &nbsp;|&nbsp;
+  <a href="https://github.com/openeggbert/simple-3d" style="color:var(--accent)">GitHub</a>
+</footer>
+</body>
+</html>
