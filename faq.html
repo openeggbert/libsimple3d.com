@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FAQ — simple-3d</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html" class="active">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Categories</h3>
+  <ul>
+    <li><a href="#general">General</a></li>
+    <li><a href="#building">Building &amp; Setup</a></li>
+    <li><a href="#api-usage">API Usage</a></li>
+    <li><a href="#lua">Lua</a></li>
+    <li><a href="#assets">Assets</a></li>
+  </ul>
+  <h3>Documentation</h3>
+  <ul>
+    <li><a href="getting-started.html">Getting Started</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="api.html">C++ API Reference</a></li>
+    <li><a href="lua-api.html">Lua API Reference</a></li>
+    <li><a href="examples.html">Examples</a></li>
+    <li><a href="features.html">Feature Status</a></li>
+  </ul>
+</aside>
+
+<main class="content">
+
+<h1>Frequently Asked Questions</h1>
+<p>
+  Answers to common questions about simple-3d. If your question is not covered here,
+  open an issue on the <a href="https://github.com/openeggbert/simple-3d">GitHub repository</a>.
+</p>
+
+<!-- ─── GENERAL ───────────────────────────────────────────────── -->
+<h2 id="general">General</h2>
+
+<dl>
+
+  <dt>What is simple-3d?</dt>
+  <dd>
+    <p>
+      simple-3d is a high-level C++23 game framework built as a clean, engine-agnostic wrapper
+      around an Urho3D fork. It exposes a minimal, game-first API so you can write game logic
+      without touching any engine internals.
+    </p>
+    <p>
+      You subclass <code>Game</code>, override <code>Start()</code> and <code>Update(float dt)</code>,
+      call methods like <code>entity-&gt;AddRigidBody(1.0f)</code> or
+      <code>camera-&gt;Follow(player, 6.0f)</code>, and ship. The underlying Urho3D types
+      (<code>Urho3D::Node</code>, <code>Urho3D::Scene</code>, etc.) are never visible in public
+      headers — they live behind PIMPL classes.
+    </p>
+  </dd>
+
+  <dt>Why use simple-3d instead of raw Urho3D?</dt>
+  <dd>
+    <p>
+      Urho3D is a powerful engine but its API exposes a lot of engine-level concepts: subsystems,
+      component registration, context objects, string hashes, and so on. simple-3d hides all of
+      that behind a game-oriented surface.
+    </p>
+    <p>
+      Practically: creating a physics object in raw Urho3D means calling
+      <code>GetOrCreateComponent&lt;RigidBody&gt;</code>, <code>GetOrCreateComponent&lt;CollisionShape&gt;</code>,
+      setting shape type, setting mass, registering with the world, and configuring collision masks.
+      In simple-3d that is two lines:
+    </p>
+    <pre>entity-&gt;<span class="fn">AddRigidBody</span>(<span class="val">1.0f</span>);
+entity-&gt;<span class="fn">AddCapsuleCollider</span>(<span class="val">0.4f</span>, <span class="val">1.75f</span>);</pre>
+    <p>
+      Additionally, because the API is stable and engine types never appear in public headers,
+      you can switch from the U3D backend to NOVA3D with a single CMake flag and zero changes to
+      your game code.
+    </p>
+  </dd>
+
+  <dt>What is the difference between the U3D and NOVA3D backends?</dt>
+  <dd>
+    <p>
+      Both backends implement the same public simple-3d API. The difference is the underlying
+      engine build they link against:
+    </p>
+    <ul>
+      <li>
+        <strong>U3D</strong> (default) — links against the
+        <a href="https://github.com/u3d-community/U3D">u3d-community/U3D</a> Urho3D community
+        fork. Targets Linux, Windows, and macOS desktop. Stable Bullet physics, LuaJIT scripting,
+        Recast/Detour navigation, ENet networking.
+      </li>
+      <li>
+        <strong>NOVA3D</strong> — links against Robert Vokac's Urho3D fork, which adds an
+        XNA C++ runtime underneath for rendering and audio. The primary target for Android and
+        experimental hardware. Identical public API surface; identical game source compiles
+        against either backend without changes.
+      </li>
+    </ul>
+  </dd>
+
+  <dt>Can I use simple-3d without Lua?</dt>
+  <dd>
+    <p>
+      Yes. Lua scripting is entirely optional. You can write all game logic in C++ and never call
+      <code>entity-&gt;AddScript()</code>. LuaJIT is still linked as part of the Urho3D backend,
+      but no Lua state is created unless you attach at least one script to an entity.
+    </p>
+  </dd>
+
+  <dt>Is simple-3d production-ready?</dt>
+  <dd>
+    <p>
+      The core modules (Entity, Camera, Physics 3D/2D, Animation, Navigation, Networking, Audio,
+      2D sprites, Tile maps, Labels) are complete and covered by 78 unit tests. The Lua binding
+      layer is in progress and some planned modules (full UI system, scene management, spatial
+      audio, Android port) are not yet implemented.
+    </p>
+    <p>
+      For small-to-medium games and prototypes using the existing modules, simple-3d is stable.
+      For large productions that depend on the planned features, consider waiting for those
+      milestones or contributing them.
+    </p>
+  </dd>
+
+  <dt>What license does simple-3d use?</dt>
+  <dd>
+    <p>
+      simple-3d is open source. See the
+      <a href="https://github.com/openeggbert/simple-3d/blob/main/LICENSE">LICENSE</a> file in
+      the repository for the full text. The underlying Urho3D fork (U3D) is distributed under
+      the MIT license.
+    </p>
+  </dd>
+
+</dl>
+
+<!-- ─── BUILDING & SETUP ──────────────────────────────────────── -->
+<h2 id="building">Building &amp; Setup</h2>
+
+<dl>
+
+  <dt>How do I switch from the U3D backend to NOVA3D?</dt>
+  <dd>
+    <p>
+      Pass <code>-DSIMPLE3D_ENGINE=NOVA3D</code> and <code>-DNOVA3D_HOME</code> to CMake instead
+      of the U3D equivalents. No changes to game source are required.
+    </p>
+    <pre><span class="cm"># U3D (default)</span>
+cmake -S . -B build \
+  -DSIMPLE3D_ENGINE=U3D \
+  -DU3D_HOME=/path/to/u3d/build
+
+<span class="cm"># NOVA3D</span>
+cmake -S . -B build \
+  -DSIMPLE3D_ENGINE=NOVA3D \
+  -DNOVA3D_HOME=/path/to/nova3d/build</pre>
+  </dd>
+
+  <dt>How do I run the unit tests, and how many should pass?</dt>
+  <dd>
+    <p>
+      Enable tests at configure time with <code>-DSIMPLE3D_BUILD_TESTS=ON</code>, then build and
+      run with CTest:
+    </p>
+    <pre>cmake -S . -B build -DSIMPLE3D_BUILD_TESTS=ON -DU3D_HOME=/path/to/u3d/build
+cmake --build build -j$(nproc)
+cd build &amp;&amp; ctest --output-on-failure</pre>
+    <p>
+      All <strong>78 tests</strong> should pass. If any fail, check that the U3D (or NOVA3D)
+      build was compiled with the same compiler and C++ standard as simple-3d itself.
+    </p>
+  </dd>
+
+  <dt>I get "Could not find U3DConfig.cmake" — how do I fix it?</dt>
+  <dd>
+    <p>
+      CMake cannot locate the Urho3D/U3D installation. Set <code>-DU3D_HOME</code> to the root
+      of your U3D build output directory (the directory that contains
+      <code>lib/cmake/U3D/U3DConfig.cmake</code>):
+    </p>
+    <pre>cmake -S . -B build -DU3D_HOME=/absolute/path/to/u3d/build</pre>
+    <p>
+      Make sure you built U3D first and that the path is absolute, not relative. If you installed
+      U3D to a system prefix, you can also set
+      <code>-DCMAKE_PREFIX_PATH=/usr/local</code> instead.
+    </p>
+  </dd>
+
+  <dt>I get "std::expected not declared" — what compiler do I need?</dt>
+  <dd>
+    <p>
+      simple-3d uses C++23 features including <code>std::expected</code>. You need a recent
+      compiler:
+    </p>
+    <ul>
+      <li>GCC 13 or newer</li>
+      <li>Clang 16 or newer</li>
+      <li>MSVC 19.36 (Visual Studio 2022 17.6) or newer</li>
+    </ul>
+    <p>
+      Verify your version with <code>g++ --version</code> or <code>clang++ --version</code>.
+      On Ubuntu 22.04 you may need to install a newer toolchain from the
+      <a href="https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test">ubuntu-toolchain-r PPA</a>
+      or use the LLVM apt repository.
+    </p>
+  </dd>
+
+  <dt>LuaJIT is not found during the build — how do I install it?</dt>
+  <dd>
+    <p>
+      LuaJIT is required by the Urho3D backend. Install the development package for your
+      distribution:
+    </p>
+    <pre><span class="cm"># Debian / Ubuntu</span>
+sudo apt install libluajit-5.1-dev
+
+<span class="cm"># Fedora / RHEL</span>
+sudo dnf install luajit-devel
+
+<span class="cm"># Arch Linux</span>
+sudo pacman -S luajit
+
+<span class="cm"># macOS (Homebrew)</span>
+brew install luajit</pre>
+    <p>
+      After installing, re-run the CMake configure step. If CMake still cannot find it, set
+      <code>-DLUAJIT_INCLUDE_DIR</code> and <code>-DLUAJIT_LIBRARY</code> explicitly.
+    </p>
+  </dd>
+
+</dl>
+
+<!-- ─── API USAGE ─────────────────────────────────────────────── -->
+<h2 id="api-usage">API Usage</h2>
+
+<dl>
+
+  <dt>Can I mix 2D and 3D in the same scene?</dt>
+  <dd>
+    <p>
+      Yes. simple-3d runs Bullet (3D) and Box2D (2D) physics worlds simultaneously in the same
+      scene. You can have 3D rigid bodies and 2D rigid bodies on different entities in the same
+      scene without any conflict. The two worlds operate independently and do not interact with
+      each other; it is your responsibility to use the correct API calls for each entity.
+    </p>
+  </dd>
+
+  <dt>Why can't I call engine API methods from my Game constructor?</dt>
+  <dd>
+    <p>
+      The engine is not fully initialized until the framework calls <code>Start()</code>. The
+      constructor runs before the window is created, the scene graph is set up, or any subsystem
+      is ready. Calling methods like <code>CreateEntity()</code> or <code>PlayMusic()</code> from
+      the constructor results in undefined behavior or a crash.
+    </p>
+    <p>
+      Always perform all initialization — entity creation, camera setup, audio start, script
+      loading — inside <code>Start()</code> or later.
+    </p>
+  </dd>
+
+  <dt>How do I safely destroy an entity from inside a physics callback?</dt>
+  <dd>
+    <p>
+      Destroying an entity while the physics simulation is iterating over its contact list is
+      unsafe. simple-3d provides a deferred mechanism: call <code>DestroyEntity(entity)</code>
+      from within any collision callback (e.g. <code>OnCollisionEnter</code>,
+      <code>OnTriggerEnter</code>). The destruction is queued and executed at the start of the
+      next frame, after the physics step completes. You do not need to guard the call or defer it
+      manually.
+    </p>
+  </dd>
+
+  <dt>What are the built-in collision layers and what do they mean?</dt>
+  <dd>
+    <p>
+      simple-3d defines three default collision layer constants used when adding rigid bodies and
+      colliders:
+    </p>
+    <table>
+      <tr><th>Name</th><th>Bit value</th><th>Used for</th></tr>
+      <tr><td><code>CollisionLayer::Actor</code></td><td>1</td><td>Player characters, enemies — dynamic bodies that move</td></tr>
+      <tr><td><code>CollisionLayer::StaticGeometry</code></td><td>2</td><td>Ground, walls, platforms — zero-mass static bodies</td></tr>
+      <tr><td><code>CollisionLayer::Trigger</code></td><td>4</td><td>Invisible trigger volumes — no physical response, events only</td></tr>
+    </table>
+    <p>
+      You can combine layers with bitwise OR when calling <code>AddRigidBody</code> or
+      <code>SetCollisionLayer</code>. Custom layers can use higher bit values.
+    </p>
+  </dd>
+
+  <dt>How do I persist data between scene loads?</dt>
+  <dd>
+    <p>
+      Two mechanisms are available:
+    </p>
+    <ul>
+      <li>
+        <strong><code>SetPersistentEntity(entity)</code></strong> — marks an entity so it is not
+        destroyed when <code>LoadScene()</code> is called. Useful for a player entity or a game
+        manager that must survive across levels.
+      </li>
+      <li>
+        <strong><code>SaveData</code> / <code>LoadData</code></strong> — a key-value store for
+        primitive values (scores, flags, settings) that persists independently of the scene graph.
+        Data is not tied to any entity and survives both scene loads and game restarts when written
+        to disk.
+      </li>
+    </ul>
+  </dd>
+
+  <dt>How do I support both gamepad and keyboard with the same input action?</dt>
+  <dd>
+    <p>
+      Use the input action binding API to map a logical action to multiple physical inputs.
+      <code>BindAction</code> lets you assign a named action to a keyboard key, mouse button, or
+      gamepad button — whichever fires first triggers the action. For analogue movement use
+      <code>BindAxis2D</code> to map both keyboard WASD and a gamepad stick to the same axis:
+    </p>
+    <pre><span class="cm">// In Start()</span>
+<span class="fn">BindAction</span>(<span class="st">"Jump"</span>, <span class="ty">Key</span>::Space);
+<span class="fn">BindAction</span>(<span class="st">"Jump"</span>, <span class="ty">GamepadButton</span>::South);
+
+<span class="fn">BindAxis2D</span>(<span class="st">"Move"</span>, <span class="ty">Key</span>::W, <span class="ty">Key</span>::S, <span class="ty">Key</span>::A, <span class="ty">Key</span>::D);
+<span class="fn">BindAxis2D</span>(<span class="st">"Move"</span>, <span class="ty">GamepadAxis</span>::LeftStick);
+
+<span class="cm">// In Update(dt)</span>
+<span class="kw">if</span> (<span class="fn">IsActionPressed</span>(<span class="st">"Jump"</span>)) { <span class="cm">/* ... */</span> }
+<span class="ty">Vector2</span> move = <span class="fn">GetAxis2D</span>(<span class="st">"Move"</span>);</pre>
+  </dd>
+
+</dl>
+
+<!-- ─── LUA ───────────────────────────────────────────────────── -->
+<h2 id="lua">Lua</h2>
+
+<dl>
+
+  <dt>How do I access the entity that owns the current Lua script?</dt>
+  <dd>
+    <p>
+      Inside a Lua script attached with <code>entity-&gt;AddScript()</code>, the owning entity
+      is available as <code>self.node</code>. By convention, simple-3d scripts alias it to a
+      local called <code>entity</code> at the top of <code>Start()</code> for readability:
+    </p>
+    <pre><span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node   <span class="lua-cm">-- simple-3d convention</span>
+    <span class="lua-cm">-- now use entity:SetPosition(), entity:ApplyImpulse(), etc.</span>
+<span class="lua-kw">end</span></pre>
+    <p>
+      Both <code>self.node</code> and <code>entity</code> refer to the same object; using the
+      alias is purely a style choice.
+    </p>
+  </dd>
+
+  <dt>Can I call C++ API methods from Lua?</dt>
+  <dd>
+    <p>
+      Yes. All major simple-3d systems are exposed to Lua. From a script you can call entity
+      methods (<code>entity:MoveRelative</code>, <code>entity:ApplyImpulse</code>,
+      <code>entity:IsOnGround</code>, etc.), access input via the global <code>Input</code> table,
+      play audio with <code>PlaySound</code> and <code>PlayMusic</code>, and query the animation
+      controller via <code>entity:GetAnimationController()</code>. See the
+      <a href="lua-api.html">Lua API reference</a> for the full list of bindings.
+    </p>
+  </dd>
+
+  <dt>How do I check whether a Lua script has syntax errors before running?</dt>
+  <dd>
+    <p>
+      Use the <code>luac</code> compiler in check-only mode. It parses the script without
+      executing it and prints any syntax errors with line numbers:
+    </p>
+    <pre>luac -p Scripts/player.lua</pre>
+    <p>
+      No output means the script is syntactically valid. This is useful in a CI pipeline or as a
+      pre-run check. Note that <code>luac -p</code> catches syntax errors only — runtime errors
+      (calling a nil value, wrong argument types) are still reported at execution time.
+    </p>
+  </dd>
+
+  <dt>What happens if Lua code calls a method on an entity that has already been destroyed?</dt>
+  <dd>
+    <p>
+      simple-3d wraps all entity references exposed to Lua with a liveness guard. If a Lua
+      script calls a method (e.g. <code>entity:SetPosition(0,0,0)</code>) on an entity that has
+      been destroyed, the call is a safe no-op — it does nothing and does not throw a Lua error.
+      This prevents crashes that would otherwise occur if, for example, a script holds a
+      reference to an entity that was destroyed by a different script or by a collision callback.
+    </p>
+  </dd>
+
+</dl>
+
+<!-- ─── ASSETS ─────────────────────────────────────────────────── -->
+<h2 id="assets">Assets</h2>
+
+<dl>
+
+  <dt>What 3D model formats does simple-3d support?</dt>
+  <dd>
+    <p>
+      simple-3d (via the Urho3D backend) supports loading <strong>OBJ</strong>, <strong>FBX</strong>,
+      <strong>GLTF</strong>, and <strong>MDL</strong> model files. <strong>MDL is the preferred
+      format</strong> for runtime use: it is Urho3D's native binary format, loads faster than
+      text-based formats, and stores skeleton and animation data in a compact layout. OBJ, FBX,
+      and GLTF are typically used as interchange formats and converted to MDL before shipping.
+    </p>
+  </dd>
+
+  <dt>How do I convert an FBX file to MDL?</dt>
+  <dd>
+    <p>
+      Use the <code>AssetImporter</code> command-line tool that ships with Urho3D/U3D:
+    </p>
+    <pre>AssetImporter model character.fbx Models/Character.mdl
+AssetImporter anim  character.fbx Animations/Run.ani</pre>
+    <p>
+      Run <code>AssetImporter --help</code> for the full list of flags (scale factor, axis
+      orientation, LOD generation, etc.). The tool is built alongside the engine and is located
+      in <code>&lt;U3D_BUILD&gt;/bin/tool/AssetImporter</code>.
+    </p>
+  </dd>
+
+  <dt>Where should I place asset files so the game can find them?</dt>
+  <dd>
+    <p>
+      Place all assets in a directory named <code>Data/</code> located next to the game
+      executable. simple-3d registers this directory as a resource path on startup. The path
+      you pass to API calls is relative to <code>Data/</code>; for example:
+    </p>
+    <pre>entity-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Character.mdl"</span>);   <span class="cm">// loads Data/Models/Character.mdl</span>
+<span class="fn">PlayMusic</span>(<span class="st">"Music/theme.ogg"</span>);              <span class="cm">// loads Data/Music/theme.ogg</span></pre>
+    <p>
+      You can register additional resource paths with <code>AddResourcePath(path)</code> from
+      inside <code>Start()</code> if you want to load assets from other locations.
+    </p>
+  </dd>
+
+  <dt>What audio formats are supported, and when should I use each?</dt>
+  <dd>
+    <p>
+      simple-3d supports two audio formats:
+    </p>
+    <ul>
+      <li>
+        <strong>OGG Vorbis</strong> — use for background music and long ambient tracks.
+        OGG files are decoded and streamed from disk at runtime, so they use very little memory
+        regardless of duration. Pass the path to <code>PlayMusic()</code>.
+      </li>
+      <li>
+        <strong>WAV</strong> — use for short sound effects (footsteps, gunshots, UI clicks).
+        WAV files are decoded and loaded entirely into memory, which gives low-latency playback
+        without buffering delays. Pass the path to <code>PlaySound()</code>.
+      </li>
+    </ul>
+  </dd>
+
+  <dt>What tile map format is supported?</dt>
+  <dd>
+    <p>
+      simple-3d supports the <a href="https://www.mapeditor.org/">Tiled</a> <code>.tmx</code>
+      XML format. Both orthographic and isometric map orientations are supported. Load a tile map
+      with:
+    </p>
+    <pre><span class="fn">LoadTileMap</span>(<span class="st">"Maps/level1.tmx"</span>);</pre>
+    <p>
+      The tile set images referenced by the TMX file must also be present in the <code>Data/</code>
+      directory at the relative paths defined inside the TMX file.
+    </p>
+  </dd>
+
+  <dt>What animated sprite format is supported?</dt>
+  <dd>
+    <p>
+      simple-3d supports <a href="https://brashmonkey.com/">Spriter</a> <code>.scml</code> files
+      for 2D skeletal / bone-based sprite animation. Load an animated sprite on an entity with:
+    </p>
+    <pre>entity-&gt;<span class="fn">AddAnimatedSprite2D</span>(<span class="st">"Sprites/hero.scml"</span>);</pre>
+    <p>
+      The <code>.scml</code> file and all referenced image assets must be present under
+      <code>Data/</code>. Spriter Pro and Spriter Free both export compatible <code>.scml</code>
+      files. Frame-by-frame sprite sheet animation (atlas-based) is also supported separately
+      via <code>AddSprite2D</code> with manual frame control.
+    </p>
+  </dd>
+
+</dl>
+
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d — part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

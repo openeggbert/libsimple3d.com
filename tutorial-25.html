@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 25: AI Behavior FSM — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li class="active"><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 25</div>
+
+<h1><span class="tutorial-part">Part 25 of 30</span>AI Behavior FSM</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>entity-&gt;AddBehaviorFSM()</code> &mdash;
+    <code>fsm-&gt;AddState(name, onEnter, onUpdate, onExit)</code> &mdash;
+    <code>fsm-&gt;AddPatrolState(name, waypoints, speed)</code> &mdash;
+    <code>fsm-&gt;AddChaseState(name, target, speed, stopDist)</code> &mdash;
+    <code>fsm-&gt;AddTransition(from, to, conditionFn)</code> &mdash;
+    <code>fsm-&gt;SetState(name)</code> &mdash;
+    <code>fsm-&gt;GetCurrentState()</code> &mdash;
+    <code>fsm-&gt;IsInState(name)</code> &mdash;
+    <code>fsm-&gt;Update(dt)</code> &mdash;
+    <code>entity-&gt;GetBehaviorFSM()</code> &mdash;
+    four-state Idle/Patrol/Chase/Attack enemy cycle with manual stun override.
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ──────────────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>What a finite-state machine (FSM) is and why it is the standard tool for NPC and enemy AI.</li>
+  <li>How to attach a <code>BehaviorFSM</code> to any entity with <code>AddBehaviorFSM()</code> and tick it each frame.</li>
+  <li>How to define custom states with arbitrary enter, update, and exit callbacks using <code>AddState()</code>.</li>
+  <li>How to add a NavMesh-backed patrol route using <code>AddPatrolState()</code> so an enemy cycles automatically between waypoints.</li>
+  <li>How to add a NavMesh-backed chase behaviour using <code>AddChaseState()</code> so an enemy follows the player along a computed path.</li>
+  <li>How to wire condition-based transitions between states with <code>AddTransition()</code> so the FSM switches automatically when a distance or timer threshold is crossed.</li>
+  <li>How to query and display the current state with <code>GetCurrentState()</code> and <code>IsInState()</code>.</li>
+  <li>How to override the FSM from outside code with <code>SetState()</code> to handle hit-stun, death, and other interrupt events.</li>
+  <li>How to build a complete four-state Idle/Patrol/Chase/Attack enemy cycle that is readable and easy to extend.</li>
+  <li>How to retrieve an existing FSM from an entity using <code>GetBehaviorFSM()</code>.</li>
+</ul>
+
+<!-- ─── BACKGROUND ───────────────────────────────────────────────────────── -->
+<h2>Background: what is a BehaviorFSM?</h2>
+
+<p>
+  A <em>finite-state machine</em> is a model in which an entity is always in exactly
+  one named state, and transitions between states are driven by explicit conditions.
+  For game AI, this maps perfectly onto enemy behaviour: an enemy is either patrolling,
+  chasing, attacking, or stunned &mdash; never two at once, and always with a clear
+  rule governing when it switches.
+</p>
+
+<p>
+  <code>Simple3D::BehaviorFSM</code> is a lightweight FSM built on top of an entity.
+  It integrates directly with the engine's NavMesh layer (introduced in Part 14) so
+  you can get patrol routes and path-following for free with a single call, or write
+  completely custom <code>onEnter</code> / <code>onUpdate(dt)</code> / <code>onExit</code>
+  callbacks for any state that needs bespoke logic.
+</p>
+
+<div class="grid2">
+  <div class="card card-green">
+    <h3>Built-in nav states</h3>
+    <p>
+      <code>AddPatrolState()</code> and <code>AddChaseState()</code> wrap the NavMesh
+      movement API from Part 14. The FSM internally calls
+      <code>entity-&gt;MoveToward()</code> and <code>entity-&gt;StopMoving()</code>
+      at the right moments. You get NavMesh path-finding with zero extra boilerplate.
+    </p>
+  </div>
+  <div class="card card-blue">
+    <h3>Custom callback states</h3>
+    <p>
+      <code>AddState()</code> accepts three lambdas: one called on entry, one called
+      every frame with <code>dt</code>, and one called on exit. Pass <code>{}</code>
+      for any callback you do not need. This handles everything that the built-in
+      states cannot: playing animations, running timers, spawning projectiles, and so on.
+    </p>
+  </div>
+</div>
+
+<p>
+  Transitions are evaluated in the order they were registered. Each frame,
+  <code>fsm-&gt;Update(dt)</code> checks all transitions from the current state and
+  fires the first one whose condition returns <code>true</code>. This makes ordering
+  matter: put the most urgent transitions first.
+</p>
+
+<!-- ─── NAVMESH REQUIREMENT ───────────────────────────────────────────────── -->
+<h2>NavMesh prerequisite</h2>
+
+<p>
+  <code>AddPatrolState()</code> and <code>AddChaseState()</code> both rely on the
+  engine's NavMesh to plan paths. You must call <code>BuildNavMesh()</code> in
+  <code>Start()</code> <em>after</em> placing all static level geometry (floors,
+  walls, obstacles), but <em>before</em> calling any <code>AddPatrolState</code> or
+  <code>AddChaseState</code>. Custom states created with <code>AddState()</code> do
+  not require the NavMesh.
+</p>
+
+<pre><span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+{
+    <span class="cm">// 1. Build static geometry first.</span>
+    <span class="ty">Entity</span>* floor = <span class="fn">CreateEntity</span>(<span class="st">"Floor"</span>);
+    floor-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+    floor-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">40.0f</span>, <span class="val">0.2f</span>, <span class="val">40.0f</span>));
+    floor-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>); <span class="cm">// static</span>
+    floor-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+    <span class="cm">// 2. Bake the NavMesh — agents 0.4 m radius, 1.8 m height.</span>
+    <span class="fn">BuildNavMesh</span>(<span class="val">0.4f</span>, <span class="val">1.8f</span>);
+
+    <span class="cm">// 3. Now safe to create enemies with patrol and chase states.</span>
+    <span class="fn">SpawnEnemy</span>();
+}</pre>
+
+<!-- ─── COMPLETE EXAMPLE ──────────────────────────────────────────────────── -->
+<h2>Complete working example</h2>
+
+<p>
+  The example below implements a full enemy with four states:
+</p>
+<ol>
+  <li><strong>Idle</strong> &mdash; the enemy stands still and scans. It transitions to
+      patrol when the alert timer expires.</li>
+  <li><strong>Patrol</strong> &mdash; the enemy walks a NavMesh-backed waypoint loop.
+      It switches to chase when the player comes within detection range.</li>
+  <li><strong>Chase</strong> &mdash; the enemy runs toward the player along a NavMesh
+      path. It switches to attack when close enough, or falls back to patrol when
+      the player escapes far enough.</li>
+  <li><strong>Attack</strong> &mdash; the enemy stops moving and swings. Once the attack
+      animation finishes (detected by a timer) it re-evaluates whether to chase or
+      return to patrol.</li>
+</ol>
+<p>
+  A fifth state, <strong>Stunned</strong>, can be triggered externally at any time by
+  calling <code>fsm-&gt;SetState("stunned")</code>. This demonstrates the manual
+  override pattern for hit-reactions and interrupts. A HUD label always shows the
+  current FSM state so you can see transitions in real time.
+</p>
+
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="cm">// ────────────────────────────────────────────────────────────────────────────
+// AIBehaviorGame — demonstrates the full BehaviorFSM API.
+// Controls: WASD = move player, Space = jump, E = punch enemy (triggers stun).
+// ────────────────────────────────────────────────────────────────────────────</span>
+<span class="kw">class</span> <span class="ty">AIBehaviorGame</span> : <span class="kw">public</span> <span class="ty">Game</span>
+{
+<span class="kw">public</span>:
+    <span class="cm">// ── Scene objects ────────────────────────────────────────────────────────</span>
+    <span class="ty">Entity</span>*       player_    = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*       enemy_     = <span class="kw">nullptr</span>;
+    <span class="ty">Camera</span>*       cam_       = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── AI state ─────────────────────────────────────────────────────────────</span>
+    <span class="ty">BehaviorFSM</span>*  fsm_       = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── FSM timer variables — captured by FSM callbacks ──────────────────────
+    // idleTimer_:   how long the enemy has been standing still
+    // attackTimer_: how long the current attack has been running
+    // stunTimer_:   how long the enemy has been stunned</span>
+    <span class="ty">float</span> idleTimer_   = <span class="val">0.0f</span>;
+    <span class="ty">float</span> attackTimer_ = <span class="val">0.0f</span>;
+    <span class="ty">float</span> stunTimer_   = <span class="val">0.0f</span>;
+
+    <span class="cm">// ── AI tuning constants ───────────────────────────────────────────────────</span>
+    <span class="kw">static constexpr</span> <span class="ty">float</span> DETECT_RANGE  = <span class="val">10.0f</span>; <span class="cm">// patrol → chase threshold (m)</span>
+    <span class="kw">static constexpr</span> <span class="ty">float</span> LOSE_RANGE    = <span class="val">15.0f</span>; <span class="cm">// chase → patrol threshold (m)</span>
+    <span class="kw">static constexpr</span> <span class="ty">float</span> ATTACK_RANGE  =  <span class="val">2.0f</span>; <span class="cm">// chase → attack threshold (m)</span>
+    <span class="kw">static constexpr</span> <span class="ty">float</span> IDLE_DURATION =  <span class="val">2.0f</span>; <span class="cm">// seconds before patrol resumes</span>
+    <span class="kw">static constexpr</span> <span class="ty">float</span> ATTACK_DURATION= <span class="val">1.2f</span>; <span class="cm">// seconds per attack swing</span>
+    <span class="kw">static constexpr</span> <span class="ty">float</span> STUN_DURATION =  <span class="val">1.5f</span>; <span class="cm">// seconds the enemy is stunned</span>
+
+    <span class="cm">// ── HUD ───────────────────────────────────────────────────────────────────</span>
+    <span class="ty">Label</span>*        stateLabel_  = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*        hintLabel_   = <span class="kw">nullptr</span>;
+    <span class="ty">UI::Panel</span>*    hudPanel_    = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────────────
+    // Helper — distance between two entities
+    // ────────────────────────────────────────────────────────────────────────</span>
+    <span class="ty">float</span> <span class="fn">DistToPlayer</span>() <span class="kw">const</span>
+    {
+        <span class="kw">return</span> (enemy_-&gt;<span class="fn">GetPosition</span>() - player_-&gt;<span class="fn">GetPosition</span>()).<span class="fn">Length</span>();
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────────────
+    // Start() — build world, player, enemy + FSM.
+    // ────────────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="fn">SetAppName</span>(<span class="st">"AIBehaviorDemo"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.15f</span>, <span class="val">0.18f</span>, <span class="val">0.22f</span>, <span class="val">1.0f</span>));
+
+        <span class="cm">// ── Lighting ──────────────────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.95f</span>, <span class="val">0.85f</span>), <span class="val">1.2f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45.0f</span>, <span class="val">35.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── Floor ─────────────────────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* floor = <span class="fn">CreateEntity</span>(<span class="st">"Floor"</span>);
+        floor-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        floor-&gt;<span class="fn">SetScale</span>(<span class="val">40.0f</span>);
+        floor-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">40.0f</span>, <span class="val">0.5f</span>, <span class="val">40.0f</span>));
+        floor-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        floor-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+        <span class="cm">// ── Obstacles (break up patrol path) ──────────────────────────────────</span>
+        <span class="kw">auto</span> <span class="fn">MakeWall</span> = [<span class="kw">this</span>](<span class="ty">Vector3</span> pos, <span class="ty">Vector3</span> size) {
+            <span class="ty">Entity</span>* w = <span class="fn">CreateEntity</span>(<span class="st">"Wall"</span>);
+            w-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+            w-&gt;<span class="fn">SetPosition</span>(pos);
+            w-&gt;<span class="fn">SetScale</span>(size.x_, size.y_, size.z_);
+            w-&gt;<span class="fn">AddBoxCollider</span>(size);
+            w-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+            w-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+        };
+        <span class="fn">MakeWall</span>(<span class="ty">Vector3</span>( <span class="val">5.0f</span>, <span class="val">1.0f</span>,  <span class="val">0.0f</span>), <span class="ty">Vector3</span>(<span class="val">1.5f</span>, <span class="val">2.0f</span>, <span class="val">6.0f</span>));
+        <span class="fn">MakeWall</span>(<span class="ty">Vector3</span>(-<span class="val">5.0f</span>, <span class="val">1.0f</span>,  <span class="val">3.0f</span>), <span class="ty">Vector3</span>(<span class="val">1.5f</span>, <span class="val">2.0f</span>, <span class="val">4.0f</span>));
+        <span class="fn">MakeWall</span>(<span class="ty">Vector3</span>( <span class="val">0.0f</span>, <span class="val">1.0f</span>, -<span class="val">7.0f</span>), <span class="ty">Vector3</span>(<span class="val">6.0f</span>, <span class="val">2.0f</span>, <span class="val">1.5f</span>));
+
+        <span class="cm">// ── NavMesh ───────────────────────────────────────────────────────────
+        // Must be called AFTER static geometry is placed, BEFORE FSM patrol/chase
+        // states are created. Agent radius 0.4 m, height 1.8 m, cell size 0.25 m.</span>
+        <span class="fn">BuildNavMesh</span>(<span class="val">0.4f</span>, <span class="val">1.8f</span>, <span class="val">0.25f</span>);
+
+        <span class="cm">// ── Player ────────────────────────────────────────────────────────────</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        player_-&gt;<span class="fn">SetScale</span>(<span class="val">0.7f</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">10.0f</span>);
+
+        <span class="ty">CharacterController</span>* cc = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.6f</span>);
+        cc-&gt;<span class="fn">SetGravity</span>(<span class="val">22.0f</span>);
+        player_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+        player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>
+        }));
+
+        <span class="cm">// ── Enemy ─────────────────────────────────────────────────────────────</span>
+        enemy_ = <span class="fn">CreateEntity</span>(<span class="st">"Enemy"</span>);
+        enemy_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        enemy_-&gt;<span class="fn">SetScale</span>(<span class="val">0.8f</span>);
+        enemy_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>);
+        enemy_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">60.0f</span>);
+        enemy_-&gt;<span class="fn">AddCapsuleCollider</span>(<span class="val">0.4f</span>, <span class="val">1.6f</span>);
+        enemy_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+        enemy_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>
+        }));
+
+        <span class="cm">// ── Build the FSM ─────────────────────────────────────────────────────
+        // AddBehaviorFSM() attaches the component and returns a raw pointer.
+        // The FSM is owned by the entity; do not delete it manually.</span>
+        fsm_ = enemy_-&gt;<span class="fn">AddBehaviorFSM</span>();
+
+        <span class="fn">SetupFSM</span>();
+
+        <span class="cm">// ── Camera ────────────────────────────────────────────────────────────</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">Follow</span>(player_, <span class="val">9.0f</span>, <span class="val">4.0f</span>);
+        cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">5.0f</span>);
+        cam_-&gt;<span class="fn">SetCollisionEnabled</span>(<span class="kw">true</span>);
+
+        <span class="cm">// ── HUD ───────────────────────────────────────────────────────────────</span>
+        hudPanel_ = <span class="fn">CreatePanel</span>();
+        hudPanel_-&gt;<span class="fn">SetSize</span>(<span class="val">280</span>, <span class="val">72</span>);
+        hudPanel_-&gt;<span class="fn">SetAnchor</span>(<span class="ty">UI::Anchor</span>::<span class="val">TopLeft</span>);
+        hudPanel_-&gt;<span class="fn">SetPosition</span>(<span class="val">8</span>, <span class="val">8</span>);
+        hudPanel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.60f</span>));
+
+        stateLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Enemy state: idle"</span>);
+        stateLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">8</span>);
+        stateLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">16</span>);
+        stateLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.5f</span>, <span class="val">1.0f</span>, <span class="val">0.5f</span>, <span class="val">1.0f</span>));
+        hudPanel_-&gt;<span class="fn">AddChild</span>(stateLabel_);
+
+        hintLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"WASD=move  Space=jump  E=stun enemy"</span>);
+        hintLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">40</span>);
+        hintLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">12</span>);
+        hintLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.7f</span>, <span class="val">0.7f</span>, <span class="val">0.7f</span>, <span class="val">1.0f</span>));
+        hudPanel_-&gt;<span class="fn">AddChild</span>(hintLabel_);
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────────────
+    // SetupFSM() — defines all five states and their transitions.
+    // Called once from Start() after the NavMesh is ready.
+    //
+    // State priority map (first match in transition list wins each frame):
+    //
+    //   idle ──────────────────────────────── (timer) ──────────────► patrol
+    //   patrol ─────────────────────────── (dist < 10) ──────────────► chase
+    //   chase ──────────────────────────── (dist < 2) ───────────────► attack
+    //   chase ──────────────────────────── (dist > 15) ──────────────► patrol
+    //   attack ─────────────────────────── (dist > 2.5 || timer done) ► chase
+    //   * ──── SetState("stunned") (manual override at any time) ────► stunned
+    //   stunned ─────────────────────────── (timer) ─────────────────► patrol
+    // ────────────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">SetupFSM</span>()
+    {
+        <span class="cm">// ── STATE: idle ───────────────────────────────────────────────────────
+        // Enemy stands still and resets its alert timer.
+        // First registered state = default starting state.</span>
+        fsm_-&gt;<span class="fn">AddState</span>(<span class="st">"idle"</span>,
+            <span class="cm">/*onEnter*/</span> [<span class="kw">this</span>]{
+                enemy_-&gt;<span class="fn">StopMoving</span>();
+                idleTimer_ = <span class="val">0.0f</span>;
+                <span class="cm">// TODO: trigger idle animation: anim-&gt;Play("idle")</span>
+            },
+            <span class="cm">/*onUpdate*/</span> [<span class="kw">this</span>](<span class="ty">float</span> dt){
+                idleTimer_ += dt;
+            },
+            <span class="cm">/*onExit*/</span> {}  <span class="cm">// no cleanup needed on exit</span>
+        );
+
+        <span class="cm">// ── STATE: patrol ─────────────────────────────────────────────────────
+        // AddPatrolState() creates a built-in NavMesh patrol loop.
+        // The enemy walks each waypoint in order and repeats from the start.
+        // Speed is in metres per second.</span>
+        fsm_-&gt;<span class="fn">AddPatrolState</span>(<span class="st">"patrol"</span>, {
+            <span class="ty">Vector3</span>(-<span class="val">8.0f</span>, <span class="val">0.0f</span>,  <span class="val">0.0f</span>),
+            <span class="ty">Vector3</span>(-<span class="val">8.0f</span>, <span class="val">0.0f</span>, -<span class="val">6.0f</span>),
+            <span class="ty">Vector3</span>( <span class="val">0.0f</span>, <span class="val">0.0f</span>, -<span class="val">6.0f</span>),
+            <span class="ty">Vector3</span>( <span class="val">8.0f</span>, <span class="val">0.0f</span>, -<span class="val">6.0f</span>),
+            <span class="ty">Vector3</span>( <span class="val">8.0f</span>, <span class="val">0.0f</span>,  <span class="val">6.0f</span>),
+            <span class="ty">Vector3</span>( <span class="val">0.0f</span>, <span class="val">0.0f</span>,  <span class="val">6.0f</span>),
+        }, <span class="val">2.5f</span>);
+
+        <span class="cm">// ── STATE: chase ──────────────────────────────────────────────────────
+        // AddChaseState() creates a built-in NavMesh chase behaviour.
+        // The enemy moves toward 'player_' at 4.5 m/s and stops
+        // when within 1.8 m (stopDist).</span>
+        fsm_-&gt;<span class="fn">AddChaseState</span>(<span class="st">"chase"</span>, player_, <span class="val">4.5f</span>, <span class="val">1.8f</span>);
+
+        <span class="cm">// ── STATE: attack ─────────────────────────────────────────────────────
+        // Custom state: enemy stops, plays attack animation, waits for swing to end.</span>
+        fsm_-&gt;<span class="fn">AddState</span>(<span class="st">"attack"</span>,
+            <span class="cm">/*onEnter*/</span> [<span class="kw">this</span>]{
+                enemy_-&gt;<span class="fn">StopMoving</span>();
+                attackTimer_ = <span class="val">0.0f</span>;
+                <span class="cm">// TODO: trigger attack animation: anim-&gt;Play("attack")</span>
+                <span class="cm">// TODO: enable hitbox, deal damage to player</span>
+            },
+            <span class="cm">/*onUpdate*/</span> [<span class="kw">this</span>](<span class="ty">float</span> dt){
+                attackTimer_ += dt;
+            },
+            <span class="cm">/*onExit*/</span> [<span class="kw">this</span>]{
+                <span class="cm">// TODO: disable hitbox</span>
+            }
+        );
+
+        <span class="cm">// ── STATE: stunned ────────────────────────────────────────────────────
+        // Manual-override state: triggered by SetState("stunned") from outside,
+        // e.g. when the player punches the enemy. Uses a timer to auto-recover.</span>
+        fsm_-&gt;<span class="fn">AddState</span>(<span class="st">"stunned"</span>,
+            <span class="cm">/*onEnter*/</span> [<span class="kw">this</span>]{
+                enemy_-&gt;<span class="fn">StopMoving</span>();
+                stunTimer_ = <span class="val">0.0f</span>;
+                <span class="cm">// TODO: play hit-stun animation, flash material red, etc.</span>
+            },
+            <span class="cm">/*onUpdate*/</span> [<span class="kw">this</span>](<span class="ty">float</span> dt){
+                stunTimer_ += dt;
+                <span class="cm">// The stun state self-transitions via SetState() rather than
+                // AddTransition() — this is valid and fires immediately.</span>
+                <span class="kw">if</span> (stunTimer_ &gt;= STUN_DURATION)
+                    fsm_-&gt;<span class="fn">SetState</span>(<span class="st">"patrol"</span>);
+            },
+            <span class="cm">/*onExit*/</span> {}
+        );
+
+        <span class="cm">// ── TRANSITIONS ───────────────────────────────────────────────────────
+        // Evaluation order: first match wins.  More urgent rules first.
+
+        // idle → patrol: after the enemy has stood still long enough.</span>
+        fsm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"idle"</span>, <span class="st">"patrol"</span>,
+            [<span class="kw">this</span>]{ <span class="kw">return</span> idleTimer_ &gt;= IDLE_DURATION; });
+
+        <span class="cm">// patrol → chase: player stepped into detection range.</span>
+        fsm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"patrol"</span>, <span class="st">"chase"</span>,
+            [<span class="kw">this</span>]{ <span class="kw">return</span> <span class="fn">DistToPlayer</span>() &lt; DETECT_RANGE; });
+
+        <span class="cm">// chase → attack: player is within melee reach.
+        // Register BEFORE chase → patrol so a close player triggers attack, not retreat.</span>
+        fsm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"chase"</span>, <span class="st">"attack"</span>,
+            [<span class="kw">this</span>]{ <span class="kw">return</span> <span class="fn">DistToPlayer</span>() &lt;= ATTACK_RANGE; });
+
+        <span class="cm">// chase → patrol: player got away.</span>
+        fsm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"chase"</span>, <span class="st">"patrol"</span>,
+            [<span class="kw">this</span>]{ <span class="kw">return</span> <span class="fn">DistToPlayer</span>() &gt; LOSE_RANGE; });
+
+        <span class="cm">// attack → chase: swing animation finished AND player still somewhat close.</span>
+        fsm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"attack"</span>, <span class="st">"chase"</span>,
+            [<span class="kw">this</span>]{
+                <span class="kw">return</span> attackTimer_ &gt;= ATTACK_DURATION
+                    &amp;&amp; <span class="fn">DistToPlayer</span>() &lt;= LOSE_RANGE;
+            });
+
+        <span class="cm">// attack → patrol: swing finished AND player got away.</span>
+        fsm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"attack"</span>, <span class="st">"patrol"</span>,
+            [<span class="kw">this</span>]{
+                <span class="kw">return</span> attackTimer_ &gt;= ATTACK_DURATION
+                    &amp;&amp; <span class="fn">DistToPlayer</span>() &gt; LOSE_RANGE;
+            });
+
+        <span class="cm">// NOTE: "stunned" has NO AddTransition rules — it self-transitions via
+        // SetState() inside its own onUpdate callback.</span>
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────────────
+    // Update() — player movement, stun input, FSM tick, HUD refresh.
+    // ────────────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="fn">HandlePlayerMovement</span>(dt);
+
+        <span class="cm">// E key: manually override the FSM to "stunned" from outside.
+        // This is the pattern for external events (damage, cutscenes, etc.).</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">E</span>))
+        {
+            <span class="kw">if</span> (!fsm_-&gt;<span class="fn">IsInState</span>(<span class="st">"stunned"</span>))
+                fsm_-&gt;<span class="fn">SetState</span>(<span class="st">"stunned"</span>);
+        }
+
+        <span class="cm">// Tick the FSM — must be called once every frame.
+        // Evaluates all transitions from the current state and calls
+        // onUpdate(dt) for whichever state is currently active.</span>
+        fsm_-&gt;<span class="fn">Update</span>(dt);
+
+        <span class="cm">// Refresh HUD — GetCurrentState() returns the active state name.</span>
+        <span class="ty">std::string</span> cur = fsm_-&gt;<span class="fn">GetCurrentState</span>();
+        stateLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Enemy state: "</span> + cur);
+
+        <span class="cm">// Tint the label per state for quick visual feedback.</span>
+        <span class="kw">if</span>      (cur == <span class="st">"patrol"</span>)  stateLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.4f</span>, <span class="val">0.8f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>));
+        <span class="kw">else if</span> (cur == <span class="st">"chase"</span>)   stateLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.8f</span>, <span class="val">0.2f</span>, <span class="val">1.0f</span>));
+        <span class="kw">else if</span> (cur == <span class="st">"attack"</span>)  stateLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.3f</span>, <span class="val">0.3f</span>, <span class="val">1.0f</span>));
+        <span class="kw">else if</span> (cur == <span class="st">"stunned"</span>) stateLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.8f</span>, <span class="val">0.4f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>));
+        <span class="kw">else</span>                        stateLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.5f</span>, <span class="val">1.0f</span>, <span class="val">0.5f</span>, <span class="val">1.0f</span>));
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Escape</span>))
+            <span class="fn">Quit</span>();
+    }
+
+    <span class="kw">void</span> <span class="fn">HandlePlayerMovement</span>(<span class="ty">float</span> dt)
+    {
+        <span class="ty">CharacterController</span>* cc = player_-&gt;<span class="fn">GetComponent</span>&lt;<span class="ty">CharacterController</span>&gt;();
+        <span class="kw">if</span> (!cc) <span class="kw">return</span>;
+
+        <span class="ty">float</span> mx = <span class="val">0.0f</span>, mz = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">A</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Left</span>))  mx -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">D</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Right</span>)) mx += <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">W</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Up</span>))    mz -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">S</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Down</span>))  mz += <span class="val">1.0f</span>;
+
+        cc-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(mx, <span class="val">0.0f</span>, mz) * <span class="val">5.5f</span>, dt);
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Space</span>))
+            cc-&gt;<span class="fn">TryJump</span>(<span class="val">11.0f</span>);
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">AIBehaviorGame</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ─────────────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<!-- AddBehaviorFSM -->
+<h3>entity-&gt;AddBehaviorFSM()</h3>
+<p>
+  <code>AddBehaviorFSM()</code> attaches a <code>BehaviorFSM</code> component to the
+  entity and returns a raw pointer to it. The FSM is owned by the entity — you must
+  never <code>delete</code> the pointer yourself. The component is automatically
+  destroyed when the entity is destroyed. Calling <code>AddBehaviorFSM()</code> a
+  second time on the same entity is safe and returns the existing component without
+  creating a duplicate.
+</p>
+<p>
+  If you need to retrieve an FSM that was added earlier (for example in a different
+  function or from a script), use <code>entity-&gt;GetBehaviorFSM()</code>, which returns
+  <code>nullptr</code> if no FSM has been added.
+</p>
+
+<pre><span class="cm">// Attach a new FSM and keep the pointer for configuration.</span>
+<span class="ty">BehaviorFSM</span>* fsm = enemy_-&gt;<span class="fn">AddBehaviorFSM</span>();
+
+<span class="cm">// Later, from a different function, retrieve it safely.</span>
+<span class="ty">BehaviorFSM</span>* fsm = enemy_-&gt;<span class="fn">GetBehaviorFSM</span>(); <span class="cm">// nullptr if not added</span>
+<span class="kw">if</span> (fsm)
+    fsm-&gt;<span class="fn">SetState</span>(<span class="st">"stunned"</span>);</pre>
+
+<!-- AddState -->
+<h3>fsm-&gt;AddState(name, onEnter, onUpdate, onExit)</h3>
+<p>
+  <code>AddState()</code> registers a custom state identified by a string name. It
+  accepts three callbacks:
+</p>
+<ul>
+  <li><strong>onEnter</strong> &mdash; a <code>std::function&lt;void()&gt;</code> called
+      exactly once when the FSM transitions <em>into</em> this state. Use it to stop
+      movement, start an animation, reset a timer, or enable a hitbox.</li>
+  <li><strong>onUpdate</strong> &mdash; a <code>std::function&lt;void(float dt)&gt;</code>
+      called every frame while this state is active. The <code>dt</code> argument is
+      the frame delta in seconds, identical to the value passed to
+      <code>Game::Update(dt)</code>.</li>
+  <li><strong>onExit</strong> &mdash; a <code>std::function&lt;void()&gt;</code> called
+      exactly once when the FSM transitions <em>out of</em> this state. Use it to
+      clean up: disable hitboxes, stop sounds, restore material colours.</li>
+</ul>
+<p>
+  Any callback you do not need can be replaced with an empty braced initialiser
+  <code>{}</code>. The first <code>AddState()</code> call (or <code>AddPatrolState</code>
+  / <code>AddChaseState</code> call) sets the default starting state. The FSM begins in
+  this state without calling <code>onEnter</code> &mdash; it is already "in" that state
+  from the start.
+</p>
+
+<pre><span class="cm">// Minimal idle state — stop moving on entry, nothing on update or exit.</span>
+fsm_-&gt;<span class="fn">AddState</span>(<span class="st">"idle"</span>,
+    [<span class="kw">this</span>]{ enemy_-&gt;<span class="fn">StopMoving</span>(); },  <span class="cm">// onEnter</span>
+    {},                                   <span class="cm">// onUpdate — not needed</span>
+    {}                                    <span class="cm">// onExit — not needed</span>
+);
+
+<span class="cm">// Attack state with all three callbacks used.</span>
+fsm_-&gt;<span class="fn">AddState</span>(<span class="st">"attack"</span>,
+    [<span class="kw">this</span>]{
+        enemy_-&gt;<span class="fn">StopMoving</span>();
+        attackTimer_ = <span class="val">0.0f</span>;
+        <span class="cm">// enable damage hitbox here</span>
+    },
+    [<span class="kw">this</span>](<span class="ty">float</span> dt){
+        attackTimer_ += dt;
+    },
+    [<span class="kw">this</span>]{
+        <span class="cm">// disable damage hitbox here</span>
+    }
+);</pre>
+
+<!-- AddPatrolState -->
+<h3>fsm-&gt;AddPatrolState(name, waypoints, speed)</h3>
+<p>
+  <code>AddPatrolState()</code> is a convenience constructor for a state that walks
+  a list of world-space waypoints in order, looping back to the first when the last
+  is reached. Under the hood it calls <code>entity-&gt;MoveToward(waypoint, speed, dt)</code>
+  each frame and advances to the next waypoint when the entity is within stopping
+  distance of the current one. The NavMesh is used to route around obstacles
+  automatically; <code>BuildNavMesh()</code> must have been called before this state
+  is ever entered.
+</p>
+<p>
+  The waypoint list is a <code>std::initializer_list&lt;Vector3&gt;</code> or any
+  <code>std::vector&lt;Vector3&gt;</code>. The speed is in metres per second and defaults
+  to <code>3.0f</code> if omitted.
+</p>
+
+<pre><span class="cm">// Three-waypoint patrol rectangle at speed 2 m/s.</span>
+fsm_-&gt;<span class="fn">AddPatrolState</span>(<span class="st">"patrol"</span>, {
+    <span class="ty">Vector3</span>(-<span class="val">8.0f</span>, <span class="val">0.0f</span>,  <span class="val">0.0f</span>),
+    <span class="ty">Vector3</span>( <span class="val">8.0f</span>, <span class="val">0.0f</span>,  <span class="val">0.0f</span>),
+    <span class="ty">Vector3</span>( <span class="val">8.0f</span>, <span class="val">0.0f</span>, -<span class="val">8.0f</span>),
+}, <span class="val">2.0f</span>);
+
+<span class="cm">// Dynamic waypoint list built at runtime (e.g. read from scene file).</span>
+<span class="ty">std::vector</span>&lt;<span class="ty">Vector3</span>&gt; pts;
+pts.<span class="fn">push_back</span>(<span class="ty">Vector3</span>( <span class="val">0</span>, <span class="val">0</span>,  <span class="val">5</span>));
+pts.<span class="fn">push_back</span>(<span class="ty">Vector3</span>( <span class="val">0</span>, <span class="val">0</span>, -<span class="val">5</span>));
+fsm_-&gt;<span class="fn">AddPatrolState</span>(<span class="st">"patrol"</span>, pts, <span class="val">3.0f</span>);</pre>
+
+<!-- AddChaseState -->
+<h3>fsm-&gt;AddChaseState(name, target, speed, stopDist)</h3>
+<p>
+  <code>AddChaseState()</code> creates a state that continuously moves the entity toward
+  a <em>target</em> (an <code>Entity*</code>) along a NavMesh path. Each frame the FSM
+  recomputes the path if the target has moved significantly, so the enemy correctly
+  navigates around walls and obstacles rather than walking through them. The entity
+  stops and does not overshoot when it comes within <code>stopDist</code> metres of the
+  target. The default speed is <code>4.0f</code> m/s and the default stop distance is
+  <code>1.5f</code> m.
+</p>
+
+<pre><span class="cm">// Chase the player at 4.5 m/s; stop once within 1.8 m (melee range).</span>
+fsm_-&gt;<span class="fn">AddChaseState</span>(<span class="st">"chase"</span>, player_, <span class="val">4.5f</span>, <span class="val">1.8f</span>);
+
+<span class="cm">// Slow, persistent chaser that gets very close.</span>
+fsm_-&gt;<span class="fn">AddChaseState</span>(<span class="st">"chase"</span>, player_, <span class="val">2.0f</span>, <span class="val">0.5f</span>);</pre>
+
+<!-- AddTransition -->
+<h3>fsm-&gt;AddTransition(from, to, conditionFn)</h3>
+<p>
+  <code>AddTransition()</code> registers a condition-based edge in the state graph.
+  Each call to <code>fsm-&gt;Update(dt)</code> evaluates all transitions registered
+  from the current state, in the order they were added. The first condition that
+  returns <code>true</code> fires: the FSM calls <code>onExit</code> for the current
+  state, sets the new current state, and calls <code>onEnter</code> for the new state.
+  Only one transition can fire per <code>Update</code> call.
+</p>
+<p>
+  The condition is a <code>std::function&lt;bool()&gt;</code>. Lambda captures let you
+  read game state directly. Keep condition lambdas cheap: they run every frame on every
+  enemy.
+</p>
+
+<pre><span class="cm">// The condition captures local variables by reference — very common pattern.</span>
+<span class="ty">float</span> alertTimer = <span class="val">0.0f</span>;
+
+fsm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"idle"</span>, <span class="st">"patrol"</span>,
+    [&amp;alertTimer]{ <span class="kw">return</span> alertTimer &gt;= <span class="val">2.0f</span>; });
+
+<span class="cm">// Distance-based transition — captures 'this' for helper access.</span>
+fsm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"patrol"</span>, <span class="st">"chase"</span>,
+    [<span class="kw">this</span>]{ <span class="kw">return</span> <span class="fn">DistToPlayer</span>() &lt; <span class="val">10.0f</span>; });
+
+<span class="cm">// Compound condition — both requirements must be true.
+// Because first-match wins, register more specific rules before general ones.</span>
+fsm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"attack"</span>, <span class="st">"chase"</span>,
+    [<span class="kw">this</span>]{
+        <span class="kw">return</span> attackTimer_ &gt;= ATTACK_DURATION
+            &amp;&amp; <span class="fn">DistToPlayer</span>() &lt;= LOSE_RANGE;
+    });</pre>
+
+<!-- SetState -->
+<h3>fsm-&gt;SetState(name)</h3>
+<p>
+  <code>SetState()</code> performs an immediate, unconditional state change regardless
+  of any registered transitions. It calls <code>onExit</code> on the current state and
+  <code>onEnter</code> on the named state, then sets the new state as current. It can
+  be called from anywhere: from inside an <code>onUpdate</code> callback (as in the
+  stunned timer example), from a trigger callback, or from
+  <code>Game::Update()</code>.
+</p>
+<p>
+  <code>SetState()</code> is the correct tool for <em>interrupt events</em> &mdash;
+  things that should override whatever the AI is currently doing:
+  being hit, a scripted event, a cutscene start, or a death. Never use it to
+  replace a transition that could be expressed as a condition, since
+  <code>SetState()</code> bypasses all ordering rules.
+</p>
+
+<pre><span class="cm">// From Game::Update() — player punches enemy with E key.</span>
+<span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">E</span>) &amp;&amp; !fsm_-&gt;<span class="fn">IsInState</span>(<span class="st">"stunned"</span>))
+    fsm_-&gt;<span class="fn">SetState</span>(<span class="st">"stunned"</span>);
+
+<span class="cm">// From a trigger callback — an explosion sends all nearby enemies to "flee".</span>
+explosion-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>](<span class="ty">Entity</span>* other) {
+    <span class="ty">BehaviorFSM</span>* otherFsm = other-&gt;<span class="fn">GetBehaviorFSM</span>();
+    <span class="kw">if</span> (otherFsm)
+        otherFsm-&gt;<span class="fn">SetState</span>(<span class="st">"flee"</span>);
+});
+
+<span class="cm">// Self-transition from inside onUpdate — stun timer recovery.</span>
+fsm_-&gt;<span class="fn">AddState</span>(<span class="st">"stunned"</span>,
+    [<span class="kw">this</span>]{ stunTimer_ = <span class="val">0.0f</span>; enemy_-&gt;<span class="fn">StopMoving</span>(); },
+    [<span class="kw">this</span>](<span class="ty">float</span> dt){
+        stunTimer_ += dt;
+        <span class="kw">if</span> (stunTimer_ &gt;= <span class="val">1.5f</span>)
+            fsm_-&gt;<span class="fn">SetState</span>(<span class="st">"patrol"</span>);
+    },
+    {}
+);</pre>
+
+<!-- GetCurrentState / IsInState -->
+<h3>fsm-&gt;GetCurrentState() and fsm-&gt;IsInState(name)</h3>
+<p>
+  <code>GetCurrentState()</code> returns a <code>std::string</code> naming the state
+  that is currently active. It returns an empty string only if no states have been
+  added yet. <code>IsInState(name)</code> is a convenience shorthand that returns
+  <code>true</code> when <code>GetCurrentState() == name</code>; it is more readable
+  than a string comparison and slightly cheaper because it avoids constructing a
+  temporary string object.
+</p>
+<p>
+  Both methods are safe to call at any point in <code>Update()</code>, before or after
+  <code>fsm-&gt;Update(dt)</code>.
+</p>
+
+<pre><span class="cm">// Display the state name in a HUD label each frame.</span>
+stateLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"AI: "</span> + fsm_-&gt;<span class="fn">GetCurrentState</span>());
+
+<span class="cm">// Guard an action to only run in a specific state.</span>
+<span class="kw">if</span> (fsm_-&gt;<span class="fn">IsInState</span>(<span class="st">"attack"</span>))
+    <span class="fn">CheckMeleeDamage</span>();
+
+<span class="cm">// Prevent double-stun from multiple overlapping triggers.</span>
+<span class="kw">if</span> (!fsm_-&gt;<span class="fn">IsInState</span>(<span class="st">"stunned"</span>))
+    fsm_-&gt;<span class="fn">SetState</span>(<span class="st">"stunned"</span>);</pre>
+
+<!-- fsm->Update(dt) -->
+<h3>fsm-&gt;Update(dt)</h3>
+<p>
+  <code>fsm-&gt;Update(dt)</code> is the engine that drives the FSM every frame. It
+  performs three things in order:
+</p>
+<ol>
+  <li>Calls the current state's <code>onUpdate(dt)</code> callback (if one was set).</li>
+  <li>Evaluates all transitions registered from the current state in order.
+      If a condition returns <code>true</code>, it fires that transition and stops
+      evaluating.</li>
+  <li>For built-in patrol and chase states, handles NavMesh movement internally.</li>
+</ol>
+<p>
+  You must call <code>fsm-&gt;Update(dt)</code> exactly once per frame in
+  <code>Game::Update()</code>, passing the same <code>dt</code> that
+  <code>Game::Update()</code> received. Failing to call it means the FSM never
+  transitions and no movement occurs.
+</p>
+
+<pre><span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+{
+    <span class="cm">// ... other per-frame logic ...</span>
+
+    <span class="cm">// Always call Update(dt) once per frame — no earlier, no later.</span>
+    fsm_-&gt;<span class="fn">Update</span>(dt);
+}</pre>
+
+<!-- ─── MULTI-ENEMY PATTERN ───────────────────────────────────────────────── -->
+<h2>Managing multiple enemies</h2>
+
+<p>
+  When you have many enemies each with their own FSM, the recommended pattern is to
+  store them in a container alongside their pointers and call
+  <code>GetBehaviorFSM()</code> to update each one, rather than storing raw FSM
+  pointers separately:
+</p>
+
+<pre><span class="kw">class</span> <span class="ty">EnemyWaveGame</span> : <span class="kw">public</span> <span class="ty">Game</span>
+{
+    <span class="ty">std::vector</span>&lt;<span class="ty">Entity</span>*&gt; enemies_;
+
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="fn">BuildNavMesh</span>();
+
+        <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i &lt; <span class="val">5</span>; ++i)
+        {
+            <span class="ty">Entity</span>* e = <span class="fn">CreateEntity</span>(<span class="st">"Enemy"</span>);
+            e-&gt;<span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(i * <span class="val">4.0f</span> - <span class="val">8.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>));
+            e-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+
+            <span class="ty">BehaviorFSM</span>* fsm = e-&gt;<span class="fn">AddBehaviorFSM</span>();
+
+            <span class="cm">// Each enemy gets its own FSM, configured identically.</span>
+            fsm-&gt;<span class="fn">AddPatrolState</span>(<span class="st">"patrol"</span>, {
+                e-&gt;<span class="fn">GetPosition</span>() + <span class="ty">Vector3</span>( <span class="val">5</span>, <span class="val">0</span>, <span class="val">0</span>),
+                e-&gt;<span class="fn">GetPosition</span>() + <span class="ty">Vector3</span>(-<span class="val">5</span>, <span class="val">0</span>, <span class="val">0</span>),
+            }, <span class="val">2.0f</span>);
+            fsm-&gt;<span class="fn">AddChaseState</span>(<span class="st">"chase"</span>, player_, <span class="val">4.0f</span>, <span class="val">1.5f</span>);
+
+            fsm-&gt;<span class="fn">AddTransition</span>(<span class="st">"patrol"</span>, <span class="st">"chase"</span>,
+                [e, <span class="kw">this</span>]{ <span class="kw">return</span> (e-&gt;<span class="fn">GetPosition</span>() - player_-&gt;<span class="fn">GetPosition</span>()).<span class="fn">Length</span>() &lt; <span class="val">8.0f</span>; });
+            fsm-&gt;<span class="fn">AddTransition</span>(<span class="st">"chase"</span>, <span class="st">"patrol"</span>,
+                [e, <span class="kw">this</span>]{ <span class="kw">return</span> (e-&gt;<span class="fn">GetPosition</span>() - player_-&gt;<span class="fn">GetPosition</span>()).<span class="fn">Length</span>() &gt; <span class="val">14.0f</span>; });
+
+            enemies_.<span class="fn">push_back</span>(e);
+        }
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="kw">for</span> (<span class="ty">Entity</span>* e : enemies_)
+        {
+            <span class="ty">BehaviorFSM</span>* fsm = e-&gt;<span class="fn">GetBehaviorFSM</span>();
+            <span class="kw">if</span> (fsm) fsm-&gt;<span class="fn">Update</span>(dt);
+        }
+    }
+};</pre>
+
+<!-- ─── ALERT STATE PATTERN ───────────────────────────────────────────────── -->
+<h2>Four-state alert cycle (patrol &rarr; alert &rarr; chase &rarr; attack)</h2>
+
+<p>
+  A common refinement is to add an <em>alert</em> state between patrol and chase:
+  the enemy pauses, plays a "!" reaction, then begins the chase. This makes the AI
+  feel less mechanical and gives the player a brief warning.
+</p>
+
+<pre><span class="ty">float</span> alertTimer_ = <span class="val">0.0f</span>;
+
+<span class="cm">// After patrol and before chase.</span>
+fsm_-&gt;<span class="fn">AddState</span>(<span class="st">"alert"</span>,
+    [<span class="kw">this</span>]{ enemy_-&gt;<span class="fn">StopMoving</span>(); alertTimer_ = <span class="val">0.0f</span>; },
+    [<span class="kw">this</span>](<span class="ty">float</span> dt){ alertTimer_ += dt; },
+    [<span class="kw">this</span>]{ alertTimer_ = <span class="val">0.0f</span>; }
+);
+
+<span class="cm">// patrol → alert when player first enters detection range.</span>
+fsm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"patrol"</span>, <span class="st">"alert"</span>,
+    [<span class="kw">this</span>]{ <span class="kw">return</span> <span class="fn">DistToPlayer</span>() &lt; <span class="val">10.0f</span>; });
+
+<span class="cm">// alert → chase after brief pause OR if player runs very close.</span>
+fsm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"alert"</span>, <span class="st">"chase"</span>,
+    [<span class="kw">this</span>]{ <span class="kw">return</span> alertTimer_ &gt; <span class="val">0.8f</span> || <span class="fn">DistToPlayer</span>() &lt; <span class="val">4.0f</span>; });
+
+<span class="cm">// alert → patrol if player left immediately without triggering chase.</span>
+fsm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"alert"</span>, <span class="st">"patrol"</span>,
+    [<span class="kw">this</span>]{ <span class="kw">return</span> alertTimer_ &gt; <span class="val">3.0f</span> &amp;&amp; <span class="fn">DistToPlayer</span>() &gt; <span class="val">10.0f</span>; });</pre>
+
+<!-- ─── LUA EQUIVALENT ─────────────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+
+<p>
+  The <code>BehaviorFSM</code> API is fully available from Lua scripts. Because Lua
+  callbacks are closures, you can capture local variables exactly as you would with
+  C++ lambdas. Note that <code>BuildNavMesh()</code> must still be called from C++
+  (or from Lua's global <code>game</code> object) before entering any patrol or chase
+  state.
+</p>
+
+<pre><span class="lua-cm">-- Scripts/enemy_ai.lua
+-- Attach this script to the enemy entity.
+-- The global `game` and `self.node` (the entity) are available automatically.</span>
+
+<span class="lua-kw">local</span> fsm          = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> player        = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> idleTimer     = <span class="lua-num">0</span>
+<span class="lua-kw">local</span> attackTimer   = <span class="lua-num">0</span>
+<span class="lua-kw">local</span> stunTimer     = <span class="lua-num">0</span>
+
+<span class="lua-kw">local</span> DETECT_RANGE  = <span class="lua-num">10.0</span>
+<span class="lua-kw">local</span> LOSE_RANGE    = <span class="lua-num">15.0</span>
+<span class="lua-kw">local</span> ATTACK_RANGE  =  <span class="lua-num">2.0</span>
+<span class="lua-kw">local</span> ATTACK_DUR    =  <span class="lua-num">1.2</span>
+<span class="lua-kw">local</span> STUN_DUR      =  <span class="lua-num">1.5</span>
+<span class="lua-kw">local</span> IDLE_DUR      =  <span class="lua-num">2.0</span>
+
+<span class="lua-kw">local function</span> <span class="lua-fn">dist</span>()
+    <span class="lua-kw">return</span> (self.node:<span class="lua-fn">GetPosition</span>() - player:<span class="lua-fn">GetPosition</span>()):<span class="lua-fn">Length</span>()
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    player = game:<span class="lua-fn">FindEntity</span>(<span class="lua-str">"Player"</span>)
+
+    <span class="lua-cm">-- Attach and configure the FSM.</span>
+    fsm = self.node:<span class="lua-fn">AddBehaviorFSM</span>()
+
+    <span class="lua-cm">-- Idle state — first registered, so it is the default.</span>
+    fsm:<span class="lua-fn">AddState</span>(<span class="lua-str">"idle"</span>,
+        <span class="lua-kw">function</span>()                  <span class="lua-cm">-- onEnter</span>
+            self.node:<span class="lua-fn">StopMoving</span>()
+            idleTimer = <span class="lua-num">0</span>
+        <span class="lua-kw">end</span>,
+        <span class="lua-kw">function</span>(dt) idleTimer = idleTimer + dt <span class="lua-kw">end</span>,  <span class="lua-cm">-- onUpdate</span>
+        <span class="lua-kw">nil</span>                         <span class="lua-cm">-- onExit — nil is the Lua equivalent of {}</span>
+    )
+
+    <span class="lua-cm">-- Built-in patrol: NavMesh waypoint loop.</span>
+    fsm:<span class="lua-fn">AddPatrolState</span>(<span class="lua-str">"patrol"</span>, {
+        Vector3(<span class="lua-num">-8</span>, <span class="lua-num">0</span>,  <span class="lua-num">0</span>),
+        Vector3( <span class="lua-num">8</span>, <span class="lua-num">0</span>,  <span class="lua-num">0</span>),
+        Vector3( <span class="lua-num">8</span>, <span class="lua-num">0</span>, <span class="lua-num">-8</span>),
+    }, <span class="lua-num">2.5</span>)
+
+    <span class="lua-cm">-- Built-in chase: NavMesh target follow.</span>
+    fsm:<span class="lua-fn">AddChaseState</span>(<span class="lua-str">"chase"</span>, player, <span class="lua-num">4.5</span>, <span class="lua-num">1.8</span>)
+
+    <span class="lua-cm">-- Custom attack state.</span>
+    fsm:<span class="lua-fn">AddState</span>(<span class="lua-str">"attack"</span>,
+        <span class="lua-kw">function</span>()
+            self.node:<span class="lua-fn">StopMoving</span>()
+            attackTimer = <span class="lua-num">0</span>
+        <span class="lua-kw">end</span>,
+        <span class="lua-kw">function</span>(dt) attackTimer = attackTimer + dt <span class="lua-kw">end</span>,
+        <span class="lua-kw">nil</span>
+    )
+
+    <span class="lua-cm">-- Custom stunned state with self-transition.</span>
+    fsm:<span class="lua-fn">AddState</span>(<span class="lua-str">"stunned"</span>,
+        <span class="lua-kw">function</span>()
+            self.node:<span class="lua-fn">StopMoving</span>()
+            stunTimer = <span class="lua-num">0</span>
+        <span class="lua-kw">end</span>,
+        <span class="lua-kw">function</span>(dt)
+            stunTimer = stunTimer + dt
+            <span class="lua-kw">if</span> stunTimer &gt;= STUN_DUR <span class="lua-kw">then</span>
+                fsm:<span class="lua-fn">SetState</span>(<span class="lua-str">"patrol"</span>)
+            <span class="lua-kw">end</span>
+        <span class="lua-kw">end</span>,
+        <span class="lua-kw">nil</span>
+    )
+
+    <span class="lua-cm">-- Transitions (first-match wins each frame).</span>
+    fsm:<span class="lua-fn">AddTransition</span>(<span class="lua-str">"idle"</span>, <span class="lua-str">"patrol"</span>,
+        <span class="lua-kw">function</span>() <span class="lua-kw">return</span> idleTimer &gt;= IDLE_DUR <span class="lua-kw">end</span>)
+
+    fsm:<span class="lua-fn">AddTransition</span>(<span class="lua-str">"patrol"</span>, <span class="lua-str">"chase"</span>,
+        <span class="lua-kw">function</span>() <span class="lua-kw">return</span> <span class="lua-fn">dist</span>() &lt; DETECT_RANGE <span class="lua-kw">end</span>)
+
+    fsm:<span class="lua-fn">AddTransition</span>(<span class="lua-str">"chase"</span>, <span class="lua-str">"attack"</span>,
+        <span class="lua-kw">function</span>() <span class="lua-kw">return</span> <span class="lua-fn">dist</span>() &lt;= ATTACK_RANGE <span class="lua-kw">end</span>)
+
+    fsm:<span class="lua-fn">AddTransition</span>(<span class="lua-str">"chase"</span>, <span class="lua-str">"patrol"</span>,
+        <span class="lua-kw">function</span>() <span class="lua-kw">return</span> <span class="lua-fn">dist</span>() &gt; LOSE_RANGE <span class="lua-kw">end</span>)
+
+    fsm:<span class="lua-fn">AddTransition</span>(<span class="lua-str">"attack"</span>, <span class="lua-str">"chase"</span>,
+        <span class="lua-kw">function</span>()
+            <span class="lua-kw">return</span> attackTimer &gt;= ATTACK_DUR <span class="lua-kw">and</span> <span class="lua-fn">dist</span>() &lt;= LOSE_RANGE
+        <span class="lua-kw">end</span>)
+
+    fsm:<span class="lua-fn">AddTransition</span>(<span class="lua-str">"attack"</span>, <span class="lua-str">"patrol"</span>,
+        <span class="lua-kw">function</span>()
+            <span class="lua-kw">return</span> attackTimer &gt;= ATTACK_DUR <span class="lua-kw">and</span> <span class="lua-fn">dist</span>() &gt; LOSE_RANGE
+        <span class="lua-kw">end</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-cm">-- Tick the FSM — required every frame.</span>
+    fsm:<span class="lua-fn">Update</span>(dt)
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- Called externally (e.g. from a trigger or game script) to stun the enemy.</span>
+<span class="lua-kw">function</span> <span class="lua-fn">OnStun</span>()
+    <span class="lua-kw">if</span> <span class="lua-kw">not</span> fsm:<span class="lua-fn">IsInState</span>(<span class="lua-str">"stunned"</span>) <span class="lua-kw">then</span>
+        fsm:<span class="lua-fn">SetState</span>(<span class="lua-str">"stunned"</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── QUICK REFERENCE TABLE ─────────────────────────────────────────────── -->
+<h2>Quick reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Returns</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>entity-&gt;AddBehaviorFSM()</code></td>
+      <td><code>BehaviorFSM*</code></td>
+      <td>Attaches the FSM component; idempotent (returns existing if called twice).</td>
+    </tr>
+    <tr>
+      <td><code>entity-&gt;GetBehaviorFSM()</code></td>
+      <td><code>BehaviorFSM*</code></td>
+      <td>Retrieves the component; <code>nullptr</code> if not yet added.</td>
+    </tr>
+    <tr>
+      <td><code>fsm-&gt;AddState(name, onEnter, onUpdate, onExit)</code></td>
+      <td>&mdash;</td>
+      <td>Custom state with three callbacks; first call sets the default state. Pass <code>{}</code> or <code>nil</code> for unused callbacks.</td>
+    </tr>
+    <tr>
+      <td><code>fsm-&gt;AddPatrolState(name, waypoints, speed=3)</code></td>
+      <td>&mdash;</td>
+      <td>Built-in NavMesh waypoint loop. Requires <code>BuildNavMesh()</code> to have been called first.</td>
+    </tr>
+    <tr>
+      <td><code>fsm-&gt;AddChaseState(name, target, speed=4, stopDist=1.5)</code></td>
+      <td>&mdash;</td>
+      <td>Built-in NavMesh target follow. Recomputes path automatically when target moves. Requires <code>BuildNavMesh()</code>.</td>
+    </tr>
+    <tr>
+      <td><code>fsm-&gt;AddTransition(from, to, conditionFn)</code></td>
+      <td>&mdash;</td>
+      <td><code>std::function&lt;bool()&gt;</code> condition. Transitions are evaluated in registration order; first match fires per frame.</td>
+    </tr>
+    <tr>
+      <td><code>fsm-&gt;SetState(name)</code></td>
+      <td>&mdash;</td>
+      <td>Immediate override: calls <code>onExit</code> then <code>onEnter</code>. Bypasses all transition conditions.</td>
+    </tr>
+    <tr>
+      <td><code>fsm-&gt;Update(dt)</code></td>
+      <td>&mdash;</td>
+      <td>Ticks the FSM: calls current state <code>onUpdate(dt)</code>, then evaluates transitions. Call once per frame.</td>
+    </tr>
+    <tr>
+      <td><code>fsm-&gt;GetCurrentState()</code></td>
+      <td><code>std::string</code></td>
+      <td>Name of the active state. Empty string if no states have been registered.</td>
+    </tr>
+    <tr>
+      <td><code>fsm-&gt;IsInState(name)</code></td>
+      <td><code>bool</code></td>
+      <td>Shorthand for <code>GetCurrentState() == name</code>. Prefer this in conditions for clarity.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ─── COMMON MISTAKES ───────────────────────────────────────────────────── -->
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Forgetting to call BuildNavMesh() before AddPatrolState / AddChaseState.</strong>
+      These two built-in states route movement through the NavMesh. If the NavMesh has
+      not been baked yet when the patrol or chase state is first <em>entered</em>, the
+      enemy will stand still. Call <code>BuildNavMesh()</code> in <code>Start()</code>
+      after all static level geometry exists, but before any patrol or chase state is
+      registered.
+    </li>
+    <li>
+      <strong>Forgetting to call fsm-&gt;Update(dt) every frame.</strong>
+      If you omit the <code>Update</code> call, the FSM never evaluates transitions and
+      never calls <code>onUpdate</code>. The enemy will stay frozen in its initial state.
+      Put <code>fsm-&gt;Update(dt)</code> at a consistent point in <code>Game::Update()</code>
+      and never skip it.
+    </li>
+    <li>
+      <strong>Registering transitions in the wrong order.</strong>
+      Transitions are checked in the order they were registered, and the first match
+      fires. If you register <code>chase &rarr; patrol</code> before
+      <code>chase &rarr; attack</code>, an enemy that is close enough to attack will
+      retreat instead, because the patrol condition fires first. Always register more
+      specific (higher-priority) transitions before broader ones.
+    </li>
+    <li>
+      <strong>Using SetState() where AddTransition() would be better.</strong>
+      <code>SetState()</code> bypasses the FSM's transition graph, making it harder to
+      follow the logic when debugging. Reserve it for external interrupts (damage,
+      cutscene triggers, death). Distance thresholds, timer expirations, and animation
+      events should all go through <code>AddTransition()</code> conditions.
+    </li>
+    <li>
+      <strong>Calling SetState() inside onEnter or onExit of the same state.</strong>
+      Calling <code>SetState("X")</code> from within state X's own <code>onEnter</code>
+      creates an infinite enter/exit loop. If you need to skip immediately to another
+      state upon entry, use a zero-duration transition instead, or set a flag and
+      handle it in the next <code>Update</code>.
+    </li>
+    <li>
+      <strong>Capturing entity pointers in transition lambdas after the entity is destroyed.</strong>
+      If an enemy entity is destroyed while its FSM is still being updated, any lambda
+      that captures <code>enemy_</code> or <code>this</code> will dereference a dangling
+      pointer. Always call <code>enemy-&gt;SetActive(false)</code> or
+      <code>DestroyEntity(enemy)</code> only after the FSM update loop has finished, and
+      null out the pointer immediately after.
+    </li>
+    <li>
+      <strong>Registering a state with the same name twice.</strong>
+      Registering two states with the same name (e.g. calling <code>AddState("patrol", ...)</code>
+      and then <code>AddPatrolState("patrol", ...)</code>) results in undefined behaviour.
+      Every state name in a given FSM must be unique.
+    </li>
+    <li>
+      <strong>Expecting the first state's onEnter to be called at startup.</strong>
+      The FSM starts already "in" the first registered state. Its <code>onEnter</code>
+      callback is <em>not</em> called at setup time &mdash; only on transitions. If you
+      need initialisation logic for the starting state, put it in <code>Start()</code>
+      directly rather than relying on <code>onEnter</code>.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ──────────────────────────────────────────────────── -->
+<h2>What you learned</h2>
+
+<p>
+  In this part you built a fully functional AI enemy using simple-3d's
+  <code>BehaviorFSM</code> system:
+</p>
+<ul>
+  <li>
+    <strong>Attaching and retrieving the component:</strong>
+    <code>entity-&gt;AddBehaviorFSM()</code> attaches a new FSM and returns its
+    pointer; <code>entity-&gt;GetBehaviorFSM()</code> retrieves an existing one safely.
+  </li>
+  <li>
+    <strong>Custom states:</strong>
+    <code>fsm-&gt;AddState(name, onEnter, onUpdate, onExit)</code> registers any
+    bespoke behaviour with three optional callbacks. The first registered state becomes
+    the default.
+  </li>
+  <li>
+    <strong>Built-in patrol:</strong>
+    <code>fsm-&gt;AddPatrolState(name, waypoints, speed)</code> creates a NavMesh-backed
+    waypoint loop automatically, routing around obstacles.
+  </li>
+  <li>
+    <strong>Built-in chase:</strong>
+    <code>fsm-&gt;AddChaseState(name, target, speed, stopDist)</code> makes the enemy
+    follow a moving target along the NavMesh, stopping within melee range.
+  </li>
+  <li>
+    <strong>Condition transitions:</strong>
+    <code>fsm-&gt;AddTransition(from, to, fn)</code> wires the graph edges. Transitions
+    are checked in registration order; the first matching condition fires. Putting
+    high-priority rules first is critical for correct behaviour.
+  </li>
+  <li>
+    <strong>Manual overrides:</strong>
+    <code>fsm-&gt;SetState(name)</code> performs an unconditional state change for
+    external events like damage or scripted triggers, bypassing all transition rules.
+  </li>
+  <li>
+    <strong>Querying state:</strong>
+    <code>fsm-&gt;GetCurrentState()</code> returns the active state name;
+    <code>fsm-&gt;IsInState(name)</code> is a concise boolean check.
+  </li>
+  <li>
+    <strong>Ticking the FSM:</strong>
+    <code>fsm-&gt;Update(dt)</code> must be called exactly once per frame to drive
+    transitions and run the active state's update callback.
+  </li>
+  <li>
+    <strong>Four-state cycle:</strong>
+    You assembled an Idle &rarr; Patrol &rarr; Chase &rarr; Attack loop with a
+    Stunned interrupt, demonstrating how to layer states and combine built-in nav
+    states with custom callback states in a single coherent FSM.
+  </li>
+</ul>
+
+<p>
+  Next up: <a href="tutorial-26.html">Part 26: Ray Picking</a> &mdash;
+  casting physics rays through the mouse cursor to select entities, pick world
+  positions, and implement point-and-click interactions.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-24.html">&#8592; Part 24: Collision Triggers</a>
+  <a href="tutorial-26.html">Part 26: Ray Picking &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

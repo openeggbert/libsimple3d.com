@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 12: 2D Mode — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li class="active"><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 12</div>
+
+<h1><span class="tutorial-part">Part 12 of 30</span>2D Mode</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>cam-&gt;SetOrthographic(true)</code> &mdash;
+    <code>cam-&gt;SetOrthoSize(height)</code> &mdash;
+    <code>cam-&gt;Setup2D(ppu)</code> &mdash;
+    <code>entity-&gt;AddSprite2D(texPath)</code> &mdash;
+    <code>entity-&gt;AddAnimatedSprite2D(scmlPath)</code> &mdash;
+    <code>entity-&gt;PlayAnimation2D(name)</code> &mdash;
+    <code>entity-&gt;SetFlipX2D(bool)</code> &mdash;
+    <code>LoadTileMap(tmxPath)</code> &mdash;
+    2D coordinate system vs 3D
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ─────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How simple-3d's 2D mode works: orthographic projection on top of the same scene graph used for 3D.</li>
+  <li>How to switch the camera to orthographic projection with <code>SetOrthographic(true)</code> and control the zoom level with <code>SetOrthoSize()</code>.</li>
+  <li>Why the 2D coordinate system lives in the <strong>XY plane</strong> at Z&nbsp;=&nbsp;0, and why the camera sits at Z&nbsp;=&nbsp;&minus;10.</li>
+  <li>How to render a single static image on an entity using <code>AddSprite2D()</code>.</li>
+  <li>How to mirror a sprite horizontally with <code>SetFlipX2D()</code> so a character faces left or right without needing separate art.</li>
+  <li>How to load a Spriter <code>.scml</code> animation with <code>AddAnimatedSprite2D()</code> and switch clips with <code>PlayAnimation2D()</code>.</li>
+  <li>How to load a Tiled tile map (<code>.tmx</code> file) with a single <code>LoadTileMap()</code> call.</li>
+  <li>How to follow a 2D entity with the camera while keeping the Z axis fixed.</li>
+  <li>The equivalent Lua API for all 2D rendering calls.</li>
+</ul>
+
+<!-- ─── OVERVIEW ──────────────────────────────────────────────────── -->
+<h2>Overview: how 2D mode works</h2>
+<p>
+  simple-3d does not have a separate engine mode for 2D games. Instead, 2D games are
+  built using the same scene graph, entity system, and rendering pipeline as 3D games, but
+  with two important differences:
+</p>
+<ol>
+  <li>
+    The camera is switched to <strong>orthographic projection</strong>. In perspective
+    projection (the 3D default) objects shrink as they move away from the camera. In
+    orthographic projection all objects are drawn at the same size regardless of distance.
+    This is the projection used by every classic 2D game.
+  </li>
+  <li>
+    Entities live on the <strong>XY plane at Z&nbsp;=&nbsp;0</strong>. X is the horizontal
+    axis (positive = right), Y is the vertical axis (positive = up). Z is used only for
+    depth ordering — entities with a higher Z value are rendered behind entities with a lower
+    Z value (because the camera looks toward positive Z from its position at Z&nbsp;=&nbsp;&minus;10).
+  </li>
+</ol>
+<p>
+  Everything else — entity creation, input, physics (via Box2D), audio, UI labels — works
+  identically to the 3D tutorials you have already completed.
+</p>
+
+<!-- ─── COORDINATE SYSTEM ──────────────────────────────────────────── -->
+<h2>The 2D coordinate system</h2>
+<p>
+  Understanding the coordinate system is critical before writing any 2D code. Here is how
+  the three world axes are used in 2D mode:
+</p>
+<table>
+  <tr>
+    <th>Axis</th>
+    <th>Direction</th>
+    <th>2D meaning</th>
+  </tr>
+  <tr>
+    <td><strong>X</strong></td>
+    <td>Positive = right</td>
+    <td>Horizontal position in the world. A coin at X&nbsp;=&nbsp;5 is 5 world units to the right of the origin.</td>
+  </tr>
+  <tr>
+    <td><strong>Y</strong></td>
+    <td>Positive = up</td>
+    <td>Vertical position. A platform at Y&nbsp;=&nbsp;&minus;3 is 3 world units below the centre.</td>
+  </tr>
+  <tr>
+    <td><strong>Z</strong></td>
+    <td>Positive = away from camera</td>
+    <td>Depth / draw order only. All game entities sit at Z&nbsp;=&nbsp;0. The camera sits at Z&nbsp;=&nbsp;&minus;10.</td>
+  </tr>
+</table>
+<div class="callout info">
+  <h4>Camera position in 2D</h4>
+  <p>
+    Always place the 2D camera at Z&nbsp;=&nbsp;&minus;10 (or any sufficiently negative value).
+    It looks toward positive Z, so entities at Z&nbsp;=&nbsp;0 are in front of it.
+    Setting Z to 0 or a positive value puts the camera inside or behind the scene and you
+    will see nothing. The near clip plane is typically set to 0.1 and the far clip to 100
+    so that Z&nbsp;=&nbsp;0 entities are well within the visible range.
+  </p>
+</div>
+<p>
+  The same rule applies to all 2D API methods: <code>AddRigidBody2D</code>,
+  <code>AddBoxCollider2D</code>, <code>GetLinearVelocity2D</code>, and
+  <code>IsOnGround2D</code> all operate in this XY plane and ignore Z entirely (2D physics
+  is covered in depth in Part 13). When you set an entity's position in 2D code, always
+  leave Z at <code>0.0f</code>.
+</p>
+
+<!-- ─── ORTHOGRAPHIC CAMERA ───────────────────────────────────────── -->
+<h2>Orthographic camera setup</h2>
+<p>
+  A regular simple-3d camera uses perspective projection. To switch to 2D you need to enable
+  orthographic projection and set the visible height in world units:
+</p>
+<pre><span class="ty">Camera</span>* cam = <span class="fn">CreateCamera</span>();
+
+<span class="cm">// Enable orthographic projection (disables perspective foreshortening).</span>
+cam-&gt;<span class="fn">SetOrthographic</span>(<span class="kw">true</span>);
+
+<span class="cm">// Set how many world units are visible from the bottom to the top of the screen.
+// At 12.0f the visible window is 12 units tall.
+// The width is derived automatically from the window aspect ratio.</span>
+cam-&gt;<span class="fn">SetOrthoSize</span>(<span class="val">12.0f</span>);
+
+<span class="cm">// Clip range: 0.1 near, 100 far. Z=0 entities are well within range.</span>
+cam-&gt;<span class="fn">SetNearClip</span>(<span class="val">0.1f</span>);
+cam-&gt;<span class="fn">SetFarClip</span>(<span class="val">100.0f</span>);
+
+<span class="cm">// Place the camera at Z=-10 looking toward positive Z.</span>
+cam-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, -<span class="val">10.0f</span>);</pre>
+
+<p>
+  For pixel-art games there is a convenience method that combines all of the above into a
+  single call:
+</p>
+<pre><span class="cm">// 100 pixels = 1 world unit.
+// Internally calls SetOrthographic(true), SetOrthoSize(...), and positions the camera.</span>
+cam-&gt;<span class="fn">Setup2D</span>(<span class="val">100.0f</span>);</pre>
+<p>
+  <code>Setup2D(ppu)</code> takes a pixels-per-unit value. With a window height of
+  720&nbsp;px and 100&nbsp;ppu, the visible height is <code>720 / 100 = 7.2</code> world
+  units. This lets you think in pixels when laying out sprites while still using floating-point
+  world coordinates in code.
+</p>
+
+<!-- ─── ORTHOSIZE EXPLAINED ───────────────────────────────────────── -->
+<h3>How SetOrthoSize controls zoom</h3>
+<p>
+  <code>SetOrthoSize(height)</code> sets the number of world units visible from the bottom
+  edge to the top edge of the screen. The width is computed automatically from the window
+  aspect ratio. For example:
+</p>
+<table>
+  <tr>
+    <th>OrthoSize</th>
+    <th>Visible height</th>
+    <th>Visible width (16:9)</th>
+    <th>Effect</th>
+  </tr>
+  <tr>
+    <td><code>6.0f</code></td>
+    <td>6 world units</td>
+    <td>10.67 world units</td>
+    <td>Zoomed in — each world unit is large on screen</td>
+  </tr>
+  <tr>
+    <td><code>12.0f</code></td>
+    <td>12 world units</td>
+    <td>21.33 world units</td>
+    <td>Normal — good starting point for most side-scrollers</td>
+  </tr>
+  <tr>
+    <td><code>24.0f</code></td>
+    <td>24 world units</td>
+    <td>42.67 world units</td>
+    <td>Zoomed out — shows more of the level at once</td>
+  </tr>
+</table>
+<p>
+  You can change the zoom level at runtime by calling <code>SetOrthoSize()</code> again
+  in <code>Update()</code>. This is the basis of zoom-in/zoom-out effects.
+</p>
+
+<!-- ─── STATIC SPRITES ────────────────────────────────────────────── -->
+<h2>Static sprites: AddSprite2D</h2>
+<p>
+  <code>AddSprite2D(texturePath)</code> attaches a <code>StaticSprite2D</code> component
+  to the entity. The sprite displays the given texture centred on the entity's position.
+  The texture path is relative to a <code>Data/</code> directory, exactly like model and
+  sound paths.
+</p>
+<pre><span class="cm">// Create a coin at position (4, 2, 0) in the world.</span>
+<span class="ty">Entity</span>* coin = <span class="fn">CreateEntity</span>(<span class="st">"Coin"</span>);
+coin-&gt;<span class="fn">SetPosition</span>(<span class="val">4.0f</span>, <span class="val">2.0f</span>, <span class="val">0.0f</span>);   <span class="cm">// Z = 0 for all 2D entities</span>
+coin-&gt;<span class="fn">AddSprite2D</span>(<span class="st">"Sprites/coin.png"</span>);</pre>
+<p>
+  The sprite is rendered in the XY plane facing the camera. Because the camera is
+  orthographic and positioned at Z&nbsp;=&nbsp;&minus;10, the sprite appears as a flat
+  2D image with no perspective distortion.
+</p>
+<p>
+  Sprite size in world units is determined by the texture's pixel dimensions divided by
+  the pixels-per-unit configured in <code>Setup2D()</code>, or by the entity's scale.
+  For example, a 64&times;64 texture with 100&nbsp;ppu is 0.64&times;0.64 world units.
+  Call <code>entity-&gt;SetScale(2.0f)</code> to double the displayed size without
+  changing the texture.
+</p>
+
+<!-- ─── FLIP ──────────────────────────────────────────────────────── -->
+<h2>Mirroring sprites: SetFlipX2D</h2>
+<p>
+  When a character walks left and right, you normally need to mirror the sprite rather
+  than supplying two separate sets of artwork. <code>SetFlipX2D(true)</code> flips the
+  sprite horizontally so it faces left; <code>SetFlipX2D(false)</code> restores the
+  default facing.
+</p>
+<pre><span class="cm">// Player walks right — show sprite facing right (default).</span>
+player-&gt;<span class="fn">SetFlipX2D</span>(<span class="kw">false</span>);
+
+<span class="cm">// Player walks left — mirror the sprite horizontally.</span>
+player-&gt;<span class="fn">SetFlipX2D</span>(<span class="kw">true</span>);</pre>
+<p>
+  Call this once per movement direction change, not every frame. The typical pattern is
+  to track the last movement direction and only update the flip flag when it changes:
+</p>
+<pre><span class="kw">float</span> mx = <span class="val">0.0f</span>;
+<span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">A</span>)) mx = -<span class="val">1.0f</span>;
+<span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">D</span>)) mx =  <span class="val">1.0f</span>;
+
+<span class="cm">// Only flip when direction is non-zero so idle does not reset facing.</span>
+<span class="kw">if</span> (mx &lt; <span class="val">0.0f</span>) player_-&gt;<span class="fn">SetFlipX2D</span>(<span class="kw">true</span>);
+<span class="kw">if</span> (mx &gt; <span class="val">0.0f</span>) player_-&gt;<span class="fn">SetFlipX2D</span>(<span class="kw">false</span>);</pre>
+
+<!-- ─── ANIMATED SPRITES ───────────────────────────────────────────── -->
+<h2>Animated sprites: AddAnimatedSprite2D and PlayAnimation2D</h2>
+<p>
+  simple-3d supports animated 2D sprites using the <strong>Spriter</strong> format
+  (<code>.scml</code> files). Spriter is a free bone-and-sprite animation tool that exports
+  a self-contained <code>.scml</code> file referencing individual sprite sheet images. The
+  <code>.scml</code> file and all referenced texture files must be placed in your
+  <code>Data/</code> directory.
+</p>
+<p>
+  Adding an animated sprite is a two-step process:
+</p>
+<ol>
+  <li>Call <code>AddAnimatedSprite2D(scmlPath)</code> to load the Spriter animation and
+  attach an <code>AnimatedSprite2D</code> component to the entity.</li>
+  <li>Call <code>PlayAnimation2D(name)</code> to start a named animation clip. The clip
+  name must match a name defined inside the <code>.scml</code> file.</li>
+</ol>
+<pre><span class="cm">// Step 1: Load the Spriter file and attach it to the entity.</span>
+player-&gt;<span class="fn">AddAnimatedSprite2D</span>(<span class="st">"Sprites/hero.scml"</span>);
+
+<span class="cm">// Step 2: Start the "idle" clip (looped by default).</span>
+player-&gt;<span class="fn">PlayAnimation2D</span>(<span class="st">"idle"</span>);</pre>
+
+<p>
+  <code>PlayAnimation2D</code> accepts two optional parameters: a loop flag (default
+  <code>true</code>) and a speed multiplier (default <code>1.0f</code>):
+</p>
+<pre><span class="cm">// Looped run animation at normal speed (default).</span>
+player-&gt;<span class="fn">PlayAnimation2D</span>(<span class="st">"run"</span>);
+
+<span class="cm">// One-shot jump animation at 1.5x speed — does not loop.</span>
+player-&gt;<span class="fn">PlayAnimation2D</span>(<span class="st">"jump"</span>, <span class="kw">false</span>, <span class="val">1.5f</span>);
+
+<span class="cm">// Looped walk animation at half speed.</span>
+player-&gt;<span class="fn">PlayAnimation2D</span>(<span class="st">"walk"</span>, <span class="kw">true</span>, <span class="val">0.5f</span>);</pre>
+
+<p>
+  Switch clips at any time by calling <code>PlayAnimation2D</code> again. The new clip
+  starts from the beginning immediately. To switch clips smoothly (for example, from
+  <code>"run"</code> to <code>"idle"</code> when the player stops), call it in your
+  <code>Update()</code> method whenever the game state changes:
+</p>
+<pre><span class="kw">bool</span> moving = (mx != <span class="val">0.0f</span>);
+<span class="kw">if</span> (moving != wasMoving_) {
+    player_-&gt;<span class="fn">PlayAnimation2D</span>(moving ? <span class="st">"run"</span> : <span class="st">"idle"</span>);
+    wasMoving_ = moving;
+}</pre>
+
+<!-- ─── TILE MAP ───────────────────────────────────────────────────── -->
+<h2>Tile maps: LoadTileMap</h2>
+<p>
+  Tile maps let you design levels visually in <a href="https://www.mapeditor.org/">Tiled</a>,
+  a free open-source level editor, and load them directly into simple-3d. Tiled exports
+  levels as <code>.tmx</code> files (XML-based). simple-3d uses Urho3D's built-in
+  <code>TileMap2D</code> component to render and parse them.
+</p>
+<pre><span class="cm">// Load a Tiled .tmx file. The path is relative to Data/.
+// Returns an Entity* that owns the TileMap2D component.</span>
+<span class="ty">Entity</span>* map = <span class="fn">LoadTileMap</span>(<span class="st">"Maps/level1.tmx"</span>);</pre>
+<p>
+  <code>LoadTileMap()</code> does several things automatically:
+</p>
+<ul>
+  <li>Creates an entity with a <code>TileMap2D</code> component and renders all tile layers.</li>
+  <li>Reads any Tiled <em>object layers</em> that have collision shapes defined and
+  creates static <code>RigidBody2D</code> and <code>CollisionShape2D</code> components
+  for them. This means your level's physics boundaries are set up for free just by marking
+  objects in Tiled.</li>
+  <li>Sets the map entity's position to the world origin. To shift the level, call
+  <code>map-&gt;SetPosition()</code> after the load.</li>
+</ul>
+<div class="callout info">
+  <h4>Tiled workflow</h4>
+  <p>
+    In Tiled, create a tile layer for your visual tiles and a separate object layer for
+    collision. Draw rectangles or polygons on the object layer where you want solid ground
+    and walls. simple-3d reads these as Box2D static bodies automatically when you call
+    <code>LoadTileMap()</code>. No additional code is needed to set up tile collision.
+  </p>
+</div>
+<p>
+  The <code>PhysicsWorld2D</code> component is added to the scene automatically when
+  <code>Game::Run()</code> starts, so tile map collision works out of the box. You do not
+  need to create or configure the physics world manually for 2D scenes.
+</p>
+
+<!-- ─── COMPLETE EXAMPLE ──────────────────────────────────────────── -->
+<h2>Complete example</h2>
+<p>
+  The program below builds a complete 2D side-scroller prototype. It demonstrates:
+</p>
+<ul>
+  <li>Orthographic camera with a custom OrthoSize</li>
+  <li>A static background sprite</li>
+  <li>A Tiled tile map for the level layout</li>
+  <li>A player entity with an animated Spriter sprite</li>
+  <li>Left/right movement with sprite flipping</li>
+  <li>Camera following the player (X axis only, Y pinned)</li>
+  <li>Animation switching between <code>"idle"</code> and <code>"run"</code></li>
+</ul>
+<p>
+  For the example to run you need three asset files placed in your <code>Data/</code>
+  directory: <code>Sprites/background.png</code>, <code>Sprites/hero.scml</code> (with
+  its referenced textures), and <code>Maps/level1.tmx</code>.
+</p>
+
+<pre><span class="cm">// Game2DDemo.cpp — Part 12 of the simple-3d tutorial series</span>
+<span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">Game2DDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+
+    <span class="cm">// ── Scene objects ─────────────────────────────────────────────────</span>
+    <span class="ty">Camera</span>* cam_     = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>* player_  = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>* bg_      = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*  hud_     = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── State ─────────────────────────────────────────────────────────</span>
+    <span class="kw">bool</span>  wasMoving_ = <span class="kw">false</span>;
+    <span class="kw">float</span> playerX_   = <span class="val">0.0f</span>;
+
+    <span class="kw">static constexpr float</span> MOVE_SPEED  = <span class="val">5.0f</span>;   <span class="cm">// world units per second</span>
+    <span class="kw">static constexpr float</span> ORTHO_SIZE  = <span class="val">12.0f</span>;  <span class="cm">// visible world units (height)</span>
+    <span class="kw">static constexpr float</span> CAM_Z       = -<span class="val">10.0f</span>; <span class="cm">// camera must be behind the XY plane</span>
+
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Part 12 — 2D Mode"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.53f</span>, <span class="val">0.81f</span>, <span class="val">0.98f</span>));   <span class="cm">// sky blue</span>
+
+        <span class="cm">// ── 1. Orthographic camera ───────────────────────────────────────
+        // SetOrthographic(true) switches off perspective foreshortening.
+        // SetOrthoSize(12) means the screen shows 12 world units vertically.
+        // Camera Z = -10 so it looks toward the XY plane at Z = 0.</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">SetOrthographic</span>(<span class="kw">true</span>);
+        cam_-&gt;<span class="fn">SetOrthoSize</span>(<span class="nm">ORTHO_SIZE</span>);
+        cam_-&gt;<span class="fn">SetNearClip</span>(<span class="val">0.1f</span>);
+        cam_-&gt;<span class="fn">SetFarClip</span>(<span class="val">100.0f</span>);
+        cam_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="nm">CAM_Z</span>);
+
+        <span class="cm">// ── 2. Background sprite ─────────────────────────────────────────
+        // A large static sprite placed behind everything else.
+        // We push it slightly further away (Z = 1) so it renders behind
+        // the player and tile map, which sit at Z = 0.</span>
+        bg_ = <span class="fn">CreateEntity</span>(<span class="st">"Background"</span>);
+        bg_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">1.0f</span>);   <span class="cm">// Z > 0 = drawn behind Z=0 objects</span>
+        bg_-&gt;<span class="fn">SetScale</span>(<span class="val">24.0f</span>);                    <span class="cm">// stretch to fill the view</span>
+        bg_-&gt;<span class="fn">AddSprite2D</span>(<span class="st">"Sprites/background.png"</span>);
+
+        <span class="cm">// ── 3. Tile map ───────────────────────────────────────────────────
+        // LoadTileMap() reads a Tiled .tmx file, renders all tile layers,
+        // and automatically creates Box2D static colliders from object layers.
+        // The entity is created and owned by the engine.</span>
+        <span class="ty">Entity</span>* map = <span class="fn">LoadTileMap</span>(<span class="st">"Maps/level1.tmx"</span>);
+        <span class="cm">// Shift the map down so the ground centre is at Y = -4.</span>
+        map-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, -<span class="val">4.0f</span>, <span class="val">0.0f</span>);
+
+        <span class="cm">// ── 4. Player entity ──────────────────────────────────────────────
+        // Place the player near the centre of the visible area.
+        // All 2D entities must be at Z = 0 (or close to it).</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);
+
+        <span class="cm">// AddAnimatedSprite2D loads a Spriter .scml file.
+        // The .scml and all referenced texture files must be in Data/.</span>
+        player_-&gt;<span class="fn">AddAnimatedSprite2D</span>(<span class="st">"Sprites/hero.scml"</span>);
+
+        <span class="cm">// Start with the idle animation (looped, normal speed).</span>
+        player_-&gt;<span class="fn">PlayAnimation2D</span>(<span class="st">"idle"</span>);
+
+        <span class="cm">// ── 5. A coin using a static sprite ───────────────────────────────</span>
+        <span class="ty">Entity</span>* coin = <span class="fn">CreateEntity</span>(<span class="st">"Coin"</span>);
+        coin-&gt;<span class="fn">SetPosition</span>(<span class="val">4.0f</span>, <span class="val">1.5f</span>, <span class="val">0.0f</span>);
+        coin-&gt;<span class="fn">AddSprite2D</span>(<span class="st">"Sprites/coin.png"</span>);
+
+        <span class="cm">// ── 6. HUD ────────────────────────────────────────────────────────</span>
+        hud_ = <span class="fn">CreateLabel</span>(<span class="st">"A/D or Arrows = move  |  ESC = quit"</span>);
+        hud_-&gt;<span class="fn">SetPosition</span>(<span class="val">12</span>, <span class="val">12</span>);
+        hud_-&gt;<span class="fn">SetFontSize</span>(<span class="val">16</span>);
+        hud_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::<span class="nm">WHITE</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="kw">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="nm">Escape</span>)) <span class="fn">Quit</span>();
+
+        <span class="cm">// ── Read horizontal input ──────────────────────────────────────────</span>
+        <span class="kw">float</span> mx = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">A</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Left</span>))  mx = -<span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">D</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Right</span>)) mx =  <span class="val">1.0f</span>;
+
+        <span class="cm">// ── Move player (direct position update — physics in Part 13) ──────
+        // In 2D the player moves along X only.
+        // Y is handled by Box2D gravity once we add a RigidBody2D.</span>
+        playerX_ += mx * <span class="nm">MOVE_SPEED</span> * dt;
+        player_-&gt;<span class="fn">SetPosition</span>(playerX_, <span class="val">0.0f</span>, <span class="val">0.0f</span>);
+
+        <span class="cm">// ── Flip sprite to face movement direction ─────────────────────────
+        // SetFlipX2D(true) mirrors the sprite horizontally (faces left).
+        // Only update when direction is non-zero so idle keeps the last facing.</span>
+        <span class="kw">if</span> (mx &lt; <span class="val">0.0f</span>) player_-&gt;<span class="fn">SetFlipX2D</span>(<span class="kw">true</span>);
+        <span class="kw">if</span> (mx &gt; <span class="val">0.0f</span>) player_-&gt;<span class="fn">SetFlipX2D</span>(<span class="kw">false</span>);
+
+        <span class="cm">// ── Switch animation clip on state change ──────────────────────────
+        // PlayAnimation2D restarts the named clip from frame 0.
+        // We only call it when the moving state changes to avoid restarting
+        // the animation every frame.</span>
+        <span class="kw">bool</span> moving = (mx != <span class="val">0.0f</span>);
+        <span class="kw">if</span> (moving != wasMoving_) {
+            player_-&gt;<span class="fn">PlayAnimation2D</span>(moving ? <span class="st">"run"</span> : <span class="st">"idle"</span>);
+            wasMoving_ = moving;
+        }
+
+        <span class="cm">// ── Camera follow (X axis only) ────────────────────────────────────
+        // Keep the camera centred on the player horizontally.
+        // Fix Y at 0 and Z at CAM_Z — do not let the camera drift vertically
+        // or move toward the XY plane.</span>
+        cam_-&gt;<span class="fn">SetPosition</span>(playerX_, <span class="val">0.0f</span>, <span class="nm">CAM_Z</span>);
+
+        <span class="cm">// ── Update HUD ────────────────────────────────────────────────────</span>
+        std::string dir = moving ? (mx &lt; <span class="val">0</span> ? <span class="st">"&lt;-- left"</span> : <span class="st">"right --&gt;"</span>) : <span class="st">"idle"</span>;
+        hud_-&gt;<span class="fn">SetText</span>(<span class="st">"Player X: "</span> + std::<span class="fn">to_string</span>((<span class="kw">int</span>)playerX_)
+                      + <span class="st">"  ["</span> + dir + <span class="st">"]  |  ESC = quit"</span>);
+    }
+};
+
+<span class="kw">int</span> <span class="fn">main</span>() {
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">Game2DDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP BY STEP ───────────────────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<h3>cam-&gt;SetOrthographic(true)</h3>
+<p>
+  Passing <code>true</code> switches the camera from perspective projection to orthographic
+  projection. In perspective mode the engine applies a depth-based scale factor to
+  everything: objects far away appear smaller. In orthographic mode that scale factor is
+  removed. Two objects at the same size in world units are drawn at exactly the same pixel
+  size regardless of their distance from the camera.
+</p>
+<p>
+  This is the foundational step for any 2D game. Without it the 3D perspective effect
+  makes the XY-plane sprite world look like 3D cards floating in space rather than a flat
+  2D scene.
+</p>
+<p>
+  To revert to 3D at any time simply call <code>cam-&gt;SetOrthographic(false)</code>. You
+  can toggle this at runtime to create a 2D menu that precedes a 3D game, for example.
+</p>
+
+<div class="sig"><span class="ty">cam</span>-&gt;<span class="fn">SetOrthographic</span>(<span class="kw">bool</span> enable);</div>
+
+<h3>cam-&gt;SetOrthoSize(height)</h3>
+<p>
+  <code>SetOrthoSize</code> controls the zoom level of the orthographic camera. The argument
+  is the number of world units visible from the bottom edge to the top edge of the screen.
+  The horizontal extent is derived automatically from the window's aspect ratio.
+</p>
+<p>
+  Think of it like a window frame of a fixed height that you hold up to your world. A small
+  value zooms in; a large value shows more of the world. The relationship between pixels and
+  world units is:
+</p>
+<pre><span class="cm">// At 720p (1280×720) with OrthoSize = 12.0:
+// pixels_per_unit_vertical = 720 / 12 = 60 px/unit
+// pixels_per_unit_horizontal = 1280 / (12 * 16/9) = 60 px/unit  (same, aspect preserved)</span></pre>
+<p>
+  For pixel-perfect rendering, choose an OrthoSize that divides your window resolution
+  evenly. Alternatively, use <code>cam-&gt;Setup2D(ppu)</code> which computes the correct
+  OrthoSize automatically from the pixels-per-unit value you provide.
+</p>
+
+<div class="sig"><span class="ty">cam</span>-&gt;<span class="fn">SetOrthoSize</span>(<span class="kw">float</span> worldUnitsHeight);</div>
+
+<h3>entity-&gt;AddSprite2D(texturePath)</h3>
+<p>
+  <code>AddSprite2D</code> creates a <code>StaticSprite2D</code> component and attaches it
+  to the entity. Internally Urho3D's 2D rendering system handles z-sorting, blending, and
+  UV mapping. The sprite is rendered as a textured quad in the XY plane at the entity's
+  position and scale.
+</p>
+<p>
+  The texture file must be a standard image format (PNG, JPG, TGA) placed under your
+  <code>Data/</code> directory. PNG with transparency is recommended for sprites so that
+  the background behind the character shows through.
+</p>
+<p>
+  Multiple entities can share the same texture without loading it twice — the engine caches
+  loaded textures by path. Always use the same relative path string for the same texture
+  to benefit from the cache.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">AddSprite2D</span>(std::<span class="ty">string</span> texturePath);</div>
+
+<h3>entity-&gt;SetFlipX2D(bool)</h3>
+<p>
+  <code>SetFlipX2D(true)</code> sets a flag on the underlying <code>StaticSprite2D</code>
+  or <code>AnimatedSprite2D</code> component that mirrors the rendered quad horizontally.
+  This works for both static sprites added with <code>AddSprite2D</code> and animated
+  sprites added with <code>AddAnimatedSprite2D</code>.
+</p>
+<p>
+  The flip is purely visual — it does not affect the entity's world-space position,
+  rotation, or physics collision shape. A flipped character's hitbox remains in the same
+  place.
+</p>
+<p>
+  There is no need to call <code>SetFlipX2D</code> every frame. Set it once when the
+  movement direction changes and the sprite stays flipped until you change it again.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">SetFlipX2D</span>(<span class="kw">bool</span> flip);</div>
+
+<h3>entity-&gt;AddAnimatedSprite2D(scmlPath)</h3>
+<p>
+  This call loads a Spriter Pro <code>.scml</code> file and attaches an
+  <code>AnimatedSprite2D</code> component to the entity. A <code>.scml</code> file is
+  an XML file that describes animation timelines using bone and sprite sheet references.
+  Spriter exports the <code>.scml</code> and the referenced sprite sheet images together;
+  all of those files must reside in the same directory under <code>Data/</code>.
+</p>
+<p>
+  A <code>.scml</code> file can contain multiple named animations (clips). The entity
+  displays nothing until you start a clip with <code>PlayAnimation2D()</code>.
+</p>
+<p>
+  Spriter Pro is commercial but has a free edition. The Urho3D 2D animation documentation
+  also describes the <code>.scml</code> format in detail if you need to author compatible
+  files manually.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">AddAnimatedSprite2D</span>(std::<span class="ty">string</span> scmlPath);</div>
+
+<h3>entity-&gt;PlayAnimation2D(name, loop, speed)</h3>
+<p>
+  Starts playing a named animation clip on the <code>AnimatedSprite2D</code> component
+  that was added by <code>AddAnimatedSprite2D</code>. The clip name must match a name
+  defined inside the <code>.scml</code> file exactly, including capitalisation.
+</p>
+<p>
+  Calling <code>PlayAnimation2D</code> while an animation is already playing switches to
+  the new clip immediately, restarting from frame 0. If you want to switch without a hard
+  cut, you will need to implement your own timing logic (or wait for the current clip to
+  finish before switching).
+</p>
+<p>
+  The optional <code>loop</code> flag (default <code>true</code>) controls whether the
+  clip loops. Set it to <code>false</code> for one-shot animations such as jumping, dying,
+  or attacking. The optional <code>speed</code> multiplier (default <code>1.0f</code>) scales
+  the playback rate. A value of <code>2.0f</code> plays at twice the authored speed;
+  <code>0.5f</code> plays in slow motion.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">PlayAnimation2D</span>(std::<span class="ty">string</span> name, <span class="kw">bool</span> loop = <span class="kw">true</span>, <span class="kw">float</span> speed = <span class="val">1.0f</span>);</div>
+
+<h3>LoadTileMap(tmxPath)</h3>
+<p>
+  <code>LoadTileMap()</code> is a <code>Game</code>-level method (call it as a member
+  function in <code>Start()</code> or <code>Update()</code> just like
+  <code>CreateEntity()</code>). It reads a Tiled <code>.tmx</code> file, creates an entity,
+  attaches a <code>TileMap2D</code> component, and returns the entity pointer.
+</p>
+<p>
+  The <code>.tmx</code> file references a tileset image (typically a <code>.tsx</code> file
+  or an embedded tileset). Both the <code>.tmx</code> and the tileset image must be placed
+  under your <code>Data/</code> directory, in paths that match what Tiled records in the
+  <code>.tmx</code>.
+</p>
+<p>
+  Box2D static bodies are created automatically for all rectangles, polygons, and ellipses
+  drawn on Tiled object layers — no additional code is required. If a Tiled object layer
+  has the name "Collision" that layer is processed as collision data and may not be rendered
+  as tiles, depending on your Tiled setup.
+</p>
+<p>
+  The returned <code>Entity*</code> can be repositioned or rescaled like any other entity.
+  Scaling the tile map entity uniformly scales both the visual tiles and the generated
+  collision shapes.
+</p>
+
+<div class="sig"><span class="ty">Entity</span>* map = <span class="fn">LoadTileMap</span>(std::<span class="ty">string</span> tmxPath);</div>
+
+<!-- ─── 3D VS 2D DIFFERENCES ──────────────────────────────────────── -->
+<h2>Key differences between 2D and 3D in simple-3d</h2>
+<p>
+  If you are coming from the 3D tutorials (Parts 01&ndash;11), the table below summarises
+  what changes and what stays the same in 2D mode:
+</p>
+<table>
+  <tr>
+    <th>Topic</th>
+    <th>3D mode</th>
+    <th>2D mode</th>
+  </tr>
+  <tr>
+    <td><strong>Camera projection</strong></td>
+    <td>Perspective (default)</td>
+    <td>Orthographic (<code>SetOrthographic(true)</code>)</td>
+  </tr>
+  <tr>
+    <td><strong>Camera position</strong></td>
+    <td>Anywhere in 3D space</td>
+    <td>Z&nbsp;=&nbsp;&minus;10, X/Y track the player</td>
+  </tr>
+  <tr>
+    <td><strong>Movement axes</strong></td>
+    <td>X/Y/Z (Y = up)</td>
+    <td>X/Y only (Z = depth order, not movement)</td>
+  </tr>
+  <tr>
+    <td><strong>Visual component</strong></td>
+    <td><code>AddModel(path)</code></td>
+    <td><code>AddSprite2D(path)</code> or <code>AddAnimatedSprite2D(path)</code></td>
+  </tr>
+  <tr>
+    <td><strong>Physics engine</strong></td>
+    <td>Bullet (3D rigid body)</td>
+    <td>Box2D (2D rigid body — see Part 13)</td>
+  </tr>
+  <tr>
+    <td><strong>Physics calls</strong></td>
+    <td><code>AddRigidBody(mass)</code></td>
+    <td><code>AddRigidBody2D(mass)</code></td>
+  </tr>
+  <tr>
+    <td><strong>Velocity</strong></td>
+    <td><code>Vector3</code> (3 axes)</td>
+    <td><code>Vector2</code> (X and Y only)</td>
+  </tr>
+  <tr>
+    <td><strong>Level geometry</strong></td>
+    <td>3D models with mesh colliders</td>
+    <td>Tiled .tmx maps via <code>LoadTileMap()</code></td>
+  </tr>
+  <tr>
+    <td><strong>Ground check</strong></td>
+    <td><code>IsOnGround()</code> — 3D ray against layer 2</td>
+    <td><code>IsOnGround2D()</code> — 2D downward ray (Box2D)</td>
+  </tr>
+  <tr>
+    <td><strong>Lighting</strong></td>
+    <td>Full PBR / directional / point lights</td>
+    <td>Not normally used; sprites are rendered unlit or with ambient only</td>
+  </tr>
+  <tr>
+    <td><strong>Entity creation</strong></td>
+    <td><code>CreateEntity(name)</code></td>
+    <td><code>CreateEntity(name)</code> (identical)</td>
+  </tr>
+  <tr>
+    <td><strong>Input, audio, UI</strong></td>
+    <td>Identical API</td>
+    <td>Identical API</td>
+  </tr>
+</table>
+
+<div class="callout info">
+  <h4>Mixing 2D and 3D in the same scene</h4>
+  <p>
+    Because simple-3d uses the same scene graph for both, you can technically place 3D
+    models and 2D sprites in the same scene. However, the camera can only be in one
+    projection mode at a time. A common approach for games that need both (for example a
+    3D game with a 2D HUD element drawn in world space) is to use 3D for the world and
+    the normal <code>CreateLabel</code>/<code>CreateImage</code> UI layer for all flat
+    elements.
+  </p>
+</div>
+
+<!-- ─── CAMERA FOLLOW IN 2D ───────────────────────────────────────── -->
+<h2>Camera following in 2D</h2>
+<p>
+  Because the camera must stay fixed at Z&nbsp;=&nbsp;&minus;10, you cannot use
+  <code>cam-&gt;Follow(player)</code> directly (that method is designed for 3D third-person
+  use). Instead, update the camera position manually in <code>Update()</code>:
+</p>
+<pre><span class="cm">// In Update(dt):
+// Follow the player on X; fix Y at 0 and Z at -10.</span>
+<span class="ty">Vector3</span> pPos = player_-&gt;<span class="fn">GetPosition</span>();
+cam_-&gt;<span class="fn">SetPosition</span>(pPos.<span class="nm">x_</span>, <span class="val">0.0f</span>, -<span class="val">10.0f</span>);</pre>
+
+<p>
+  For a platformer that scrolls both horizontally and vertically, follow both axes:
+</p>
+<pre><span class="cm">// Full 2D camera follow — tracks both X and Y.</span>
+<span class="ty">Vector3</span> pPos = player_-&gt;<span class="fn">GetPosition</span>();
+cam_-&gt;<span class="fn">SetPosition</span>(pPos.<span class="nm">x_</span>, pPos.<span class="nm">y_</span>, -<span class="val">10.0f</span>);</pre>
+
+<p>
+  To add smoothing (so the camera glides toward the player instead of snapping), use
+  linear interpolation:
+</p>
+<pre><span class="ty">Vector3</span> camPos = cam_-&gt;<span class="fn">GetPosition</span>();
+<span class="ty">Vector3</span> pPos   = player_-&gt;<span class="fn">GetPosition</span>();
+<span class="kw">float</span> lerpSpeed = <span class="val">5.0f</span>;   <span class="cm">// higher = snappier; lower = more floaty</span>
+<span class="kw">float</span> newX = camPos.<span class="nm">x_</span> + (pPos.<span class="nm">x_</span> - camPos.<span class="nm">x_</span>) * lerpSpeed * dt;
+<span class="kw">float</span> newY = camPos.<span class="nm">y_</span> + (pPos.<span class="nm">y_</span> - camPos.<span class="nm">y_</span>) * lerpSpeed * dt;
+cam_-&gt;<span class="fn">SetPosition</span>(newX, newY, -<span class="val">10.0f</span>);</pre>
+
+<!-- ─── LUA EQUIVALENT ─────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+<p>
+  All 2D rendering API calls are available from Lua with identical names. The example below
+  reproduces the same scene as the C++ program above: an orthographic camera, a background
+  sprite, a tile map, an animated player character, and camera following.
+</p>
+
+<pre><span class="lua-cm">-- Game2DDemo.lua
+-- Run this as a game-level script or attach it via entity:AddScript().</span>
+
+<span class="lua-kw">local</span> cam, player_, hud_
+<span class="lua-kw">local</span> wasMoving = <span class="lua-kw">false</span>
+<span class="lua-kw">local</span> playerX   = <span class="lua-num">0</span>
+
+<span class="lua-kw">local</span> MOVE_SPEED = <span class="lua-num">5.0</span>
+<span class="lua-kw">local</span> ORTHO_SIZE = <span class="lua-num">12.0</span>
+<span class="lua-kw">local</span> CAM_Z      = -<span class="lua-num">10.0</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-fn">SetWindowTitle</span>(<span class="lua-str">"Part 12 — 2D Mode (Lua)"</span>)
+    <span class="lua-fn">SetClearColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.53</span>, <span class="lua-num">0.81</span>, <span class="lua-num">0.98</span>))
+
+    <span class="lua-cm">-- Orthographic camera</span>
+    cam = <span class="lua-fn">CreateCamera</span>()
+    cam:<span class="lua-fn">SetOrthographic</span>(<span class="lua-kw">true</span>)
+    cam:<span class="lua-fn">SetOrthoSize</span>(ORTHO_SIZE)
+    cam:<span class="lua-fn">SetNearClip</span>(<span class="lua-num">0.1</span>)
+    cam:<span class="lua-fn">SetFarClip</span>(<span class="lua-num">100.0</span>)
+    cam:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, CAM_Z)
+
+    <span class="lua-cm">-- Background static sprite</span>
+    <span class="lua-kw">local</span> bg = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Background"</span>)
+    bg:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">1</span>)   <span class="lua-cm">-- Z=1 puts it behind Z=0 entities</span>
+    bg:<span class="lua-fn">SetScale</span>(<span class="lua-num">24.0</span>)
+    bg:<span class="lua-fn">AddSprite2D</span>(<span class="lua-str">"Sprites/background.png"</span>)
+
+    <span class="lua-cm">-- Tile map</span>
+    <span class="lua-kw">local</span> map = <span class="lua-fn">LoadTileMap</span>(<span class="lua-str">"Maps/level1.tmx"</span>)
+    map:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, -<span class="lua-num">4</span>, <span class="lua-num">0</span>)
+
+    <span class="lua-cm">-- Player with animated sprite</span>
+    player_ = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Player"</span>)
+    player_:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+    player_:<span class="lua-fn">AddAnimatedSprite2D</span>(<span class="lua-str">"Sprites/hero.scml"</span>)
+    player_:<span class="lua-fn">PlayAnimation2D</span>(<span class="lua-str">"idle"</span>)
+
+    <span class="lua-cm">-- A coin with a static sprite</span>
+    <span class="lua-kw">local</span> coin = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Coin"</span>)
+    coin:<span class="lua-fn">SetPosition</span>(<span class="lua-num">4</span>, <span class="lua-num">1.5</span>, <span class="lua-num">0</span>)
+    coin:<span class="lua-fn">AddSprite2D</span>(<span class="lua-str">"Sprites/coin.png"</span>)
+
+    <span class="lua-cm">-- HUD</span>
+    hud_ = <span class="lua-fn">CreateLabel</span>(<span class="lua-str">"A/D or Arrows = move  |  ESC = quit"</span>)
+    hud_:<span class="lua-fn">SetPosition</span>(<span class="lua-num">12</span>, <span class="lua-num">12</span>)
+    hud_:<span class="lua-fn">SetFontSize</span>(<span class="lua-num">16</span>)
+    hud_:<span class="lua-fn">SetColor</span>(Color.WHITE)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyPressed</span>(Key.Escape) <span class="lua-kw">then</span> <span class="lua-fn">Quit</span>() <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Horizontal input</span>
+    <span class="lua-kw">local</span> mx = <span class="lua-num">0</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyDown</span>(Key.A) <span class="lua-kw">or</span> <span class="lua-fn">IsKeyDown</span>(Key.Left)  <span class="lua-kw">then</span> mx = -<span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyDown</span>(Key.D) <span class="lua-kw">or</span> <span class="lua-fn">IsKeyDown</span>(Key.Right) <span class="lua-kw">then</span> mx =  <span class="lua-num">1</span> <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Move player</span>
+    playerX = playerX + mx * MOVE_SPEED * dt
+    player_:<span class="lua-fn">SetPosition</span>(playerX, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+
+    <span class="lua-cm">-- Flip sprite</span>
+    <span class="lua-kw">if</span> mx &lt; <span class="lua-num">0</span> <span class="lua-kw">then</span> player_:<span class="lua-fn">SetFlipX2D</span>(<span class="lua-kw">true</span>)  <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> mx &gt; <span class="lua-num">0</span> <span class="lua-kw">then</span> player_:<span class="lua-fn">SetFlipX2D</span>(<span class="lua-kw">false</span>) <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Switch animation</span>
+    <span class="lua-kw">local</span> moving = (mx ~= <span class="lua-num">0</span>)
+    <span class="lua-kw">if</span> moving ~= wasMoving <span class="lua-kw">then</span>
+        <span class="lua-kw">if</span> moving <span class="lua-kw">then</span>
+            player_:<span class="lua-fn">PlayAnimation2D</span>(<span class="lua-str">"run"</span>)
+        <span class="lua-kw">else</span>
+            player_:<span class="lua-fn">PlayAnimation2D</span>(<span class="lua-str">"idle"</span>)
+        <span class="lua-kw">end</span>
+        wasMoving = moving
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Camera follow</span>
+    cam:<span class="lua-fn">SetPosition</span>(playerX, <span class="lua-num">0</span>, CAM_Z)
+
+    <span class="lua-cm">-- HUD update</span>
+    <span class="lua-kw">local</span> dir = moving <span class="lua-kw">and</span> (mx &lt; <span class="lua-num">0</span> <span class="lua-kw">and</span> <span class="lua-str">"&lt;-- left"</span> <span class="lua-kw">or</span> <span class="lua-str">"right --&gt;"</span>) <span class="lua-kw">or</span> <span class="lua-str">"idle"</span>
+    hud_:<span class="lua-fn">SetText</span>(<span class="lua-str">"Player X: "</span> .. <span class="lua-fn">tostring</span>(<span class="lua-fn">math.floor</span>(playerX))
+                  .. <span class="lua-str">"  ["</span> .. dir .. <span class="lua-str">"]  |  ESC = quit"</span>)
+<span class="lua-kw">end</span></pre>
+
+<div class="callout lua">
+  <h4>Lua note</h4>
+  <p>
+    All 2D API methods (<code>AddSprite2D</code>, <code>AddAnimatedSprite2D</code>,
+    <code>PlayAnimation2D</code>, <code>SetFlipX2D</code>, <code>SetOrthographic</code>,
+    <code>SetOrthoSize</code>, <code>LoadTileMap</code>) are available in Lua with exactly
+    the same names. Boolean values are the Lua literals <code>true</code> and
+    <code>false</code>. Key constants use dot notation: <code>Key.A</code>,
+    <code>Key.Left</code>, and so on.
+    <br><br>
+    In Lua <code>~=</code> is the not-equal operator (C++ uses <code>!=</code>).
+  </p>
+</div>
+
+<!-- ─── QUICK REFERENCE ───────────────────────────────────────────── -->
+<h2>2D rendering API quick reference</h2>
+<table>
+  <tr>
+    <th>Method</th>
+    <th>Where called</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code>cam-&gt;SetOrthographic(bool)</code></td>
+    <td><code>Start()</code></td>
+    <td>Enable/disable orthographic projection. Must be <code>true</code> for 2D.</td>
+  </tr>
+  <tr>
+    <td><code>cam-&gt;SetOrthoSize(float)</code></td>
+    <td><code>Start()</code> or <code>Update()</code></td>
+    <td>Visible height in world units. Smaller = zoomed in; larger = zoomed out.</td>
+  </tr>
+  <tr>
+    <td><code>cam-&gt;Setup2D(float ppu)</code></td>
+    <td><code>Start()</code></td>
+    <td>Shorthand: sets orthographic, OrthoSize from ppu, and camera Z position.</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;AddSprite2D(texPath)</code></td>
+    <td><code>Start()</code></td>
+    <td>Attach a static <code>StaticSprite2D</code> textured quad to the entity.</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;SetFlipX2D(bool)</code></td>
+    <td><code>Update()</code></td>
+    <td>Mirror the sprite horizontally. Use for left-facing movement.</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;AddAnimatedSprite2D(scmlPath)</code></td>
+    <td><code>Start()</code></td>
+    <td>Load a Spriter .scml animation and attach an <code>AnimatedSprite2D</code> component.</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;PlayAnimation2D(name, loop, speed)</code></td>
+    <td><code>Start()</code> or <code>Update()</code></td>
+    <td>Start a named clip. Restarts from frame 0. <code>loop</code> defaults to <code>true</code>.</td>
+  </tr>
+  <tr>
+    <td><code>LoadTileMap(tmxPath)</code></td>
+    <td><code>Start()</code></td>
+    <td>Load a Tiled .tmx map, render tiles, auto-create Box2D static colliders. Returns <code>Entity*</code>.</td>
+  </tr>
+</table>
+
+<!-- ─── COMMON MISTAKES ───────────────────────────────────────────── -->
+<h2>Common mistakes</h2>
+<div class="callout warn">
+  <h4>Common mistakes in 2D mode</h4>
+  <ul>
+    <li>
+      <strong>Forgetting to call <code>SetOrthographic(true)</code>.</strong>
+      Without it the camera uses perspective projection. Sprites still appear but objects
+      further from the camera look smaller, breaking the flat 2D look. Always call this
+      before the first frame.
+    </li>
+    <li>
+      <strong>Setting the camera Z to 0 or a positive value.</strong>
+      The camera must be behind the XY plane (negative Z) to see entities at Z&nbsp;=&nbsp;0.
+      <code>Z&nbsp;=&nbsp;0</code> places the camera on the same plane as the sprites; you
+      will see nothing. Use <code>Z&nbsp;=&nbsp;&minus;10</code> as the standard value.
+    </li>
+    <li>
+      <strong>Setting entity Z to a non-zero value by accident.</strong>
+      In 2D all game entities must sit at Z&nbsp;=&nbsp;0 (or very close to it). Setting
+      an entity to Z&nbsp;=&nbsp;100 moves it far behind the scene. Check your
+      <code>SetPosition</code> calls and make sure the third component is always
+      <code>0.0f</code> for gameplay entities.
+    </li>
+    <li>
+      <strong>Calling <code>PlayAnimation2D</code> every frame instead of only on state change.</strong>
+      <code>PlayAnimation2D</code> restarts the clip from frame 0 each time it is called.
+      Calling it in <code>Update()</code> without a state-change guard causes the animation
+      to restart at frame 0 every frame, resulting in a frozen first frame. Guard the call
+      with a boolean flag that tracks whether the state changed, as shown in the examples.
+    </li>
+    <li>
+      <strong>Mixing 3D physics (<code>AddRigidBody</code>) with 2D physics (<code>AddRigidBody2D</code>) on the same entity.</strong>
+      These attach components from two different physics worlds (Bullet 3D and Box2D 2D).
+      Having both on the same entity produces undefined behaviour. For 2D games only use
+      the <code>AddRigidBody2D</code>, <code>AddBoxCollider2D</code>, and
+      <code>AddCircleCollider2D</code> family of calls. 2D physics is the subject of
+      Part 13.
+    </li>
+    <li>
+      <strong>Placing the <code>.scml</code> file without its referenced textures.</strong>
+      A Spriter <code>.scml</code> file contains relative paths to the sprite sheet images it
+      needs. If those images are missing or in a different directory, the animated sprite loads
+      but renders as a white or invisible quad. Always export the <code>.scml</code> and all
+      referenced PNG files together and keep them at the same relative paths under
+      <code>Data/</code>.
+    </li>
+    <li>
+      <strong>Using the wrong clip name in <code>PlayAnimation2D</code>.</strong>
+      The clip name must match the name defined in the <code>.scml</code> file exactly.
+      Open the <code>.scml</code> in a text editor and look for
+      <code>&lt;animation name="..."&gt;</code> tags to verify the correct names. A
+      mismatched name produces no visual change (the previous clip continues playing) and
+      no error message by default.
+    </li>
+    <li>
+      <strong>Updating the camera X and Y but hard-coding the wrong Z.</strong>
+      If you copy the player's full <code>Vector3</code> position to the camera without
+      overriding Z, the camera slides toward Z&nbsp;=&nbsp;0 and clips through all the
+      sprites. Always set the camera Z to <code>&minus;10</code> explicitly when following
+      a 2D entity.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ──────────────────────────────────────────── -->
+<h2>What you learned</h2>
+<p>
+  This part introduced the full 2D rendering pipeline in simple-3d. You now know how to
+  build a complete 2D scene from scratch:
+</p>
+<ul>
+  <li>
+    <strong>simple-3d's 2D mode</strong> is not a separate engine — it is the same scene
+    graph used in 3D, but with orthographic projection enabled and entities living in the
+    XY plane at Z&nbsp;=&nbsp;0.
+  </li>
+  <li>
+    <strong><code>cam-&gt;SetOrthographic(true)</code></strong> disables perspective
+    foreshortening. Without it the scene looks 3D even though sprites are flat.
+  </li>
+  <li>
+    <strong><code>cam-&gt;SetOrthoSize(height)</code></strong> controls zoom by setting the
+    number of world units visible vertically. Use <code>cam-&gt;Setup2D(ppu)</code> for
+    pixel-art games where you want to think in pixels.
+  </li>
+  <li>
+    <strong>The 2D camera</strong> always sits at Z&nbsp;=&nbsp;&minus;10 and must be
+    updated manually in <code>Update()</code> to follow the player. Copy the player's X and
+    Y position but always override Z to <code>&minus;10</code>.
+  </li>
+  <li>
+    <strong><code>entity-&gt;AddSprite2D(path)</code></strong> attaches a static textured
+    quad to an entity. The texture is centred on the entity's world position.
+  </li>
+  <li>
+    <strong><code>entity-&gt;SetFlipX2D(bool)</code></strong> mirrors the sprite
+    horizontally. Call it once when the movement direction changes, not every frame.
+  </li>
+  <li>
+    <strong><code>entity-&gt;AddAnimatedSprite2D(scmlPath)</code></strong> loads a Spriter
+    animation file. Follow with <code>PlayAnimation2D(name)</code> to start a clip.
+  </li>
+  <li>
+    <strong><code>PlayAnimation2D</code></strong> restarts the named clip from frame 0.
+    Only call it when the animation state changes to avoid flickering.
+  </li>
+  <li>
+    <strong><code>LoadTileMap(tmxPath)</code></strong> reads a Tiled <code>.tmx</code>
+    file, renders tile layers, and automatically creates Box2D static colliders from
+    Tiled object layers. No additional physics setup is needed.
+  </li>
+  <li>
+    <strong>2D and 3D physics are separate</strong>: 2D uses Box2D (Part 13) and
+    <code>AddRigidBody2D</code>; 3D uses Bullet and <code>AddRigidBody</code>. Never mix
+    them on the same entity.
+  </li>
+</ul>
+<p>
+  The next part (Part 13: 2D Physics) builds directly on this foundation by adding Box2D
+  rigid bodies, box colliders, and <code>IsOnGround2D()</code> so the player can walk on
+  platforms and jump.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-11.html">&#8592; Part 11: Spatial Audio</a>
+  <a href="tutorial-13.html">Part 13: 2D Physics &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

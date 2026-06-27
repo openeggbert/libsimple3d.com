@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 05: Third-Person Camera — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+    <li><a href="tutorial-01.html">01. Hello World</a></li>
+    <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+    <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+    <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+    <li class="active"><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+    <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+    <li><a href="tutorial-07.html">07. Character Controller</a></li>
+    <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+    <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+    <li><a href="tutorial-10.html">10. Audio</a></li>
+    <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+    <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+    <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+    <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+    <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+    <li><a href="tutorial-16.html">16. Input Actions</a></li>
+    <li><a href="tutorial-17.html">17. UI System</a></li>
+    <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+    <li><a href="tutorial-19.html">19. Save and Load</a></li>
+    <li><a href="tutorial-20.html">20. Scene Management</a></li>
+    <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+    <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+    <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+    <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+    <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+    <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+    <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+    <li><a href="tutorial-28.html">28. Tweens</a></li>
+    <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+    <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 05</div>
+
+<h1><span class="tutorial-part">Part 05 of 30</span>Third-Person Camera</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>Camera*</code> &mdash; the camera object returned by <code>CreateCamera()</code><br>
+    <code>cam-&gt;Follow(entity, dist, height)</code> &mdash; lock behind an entity at a fixed offset<br>
+    <code>cam-&gt;LookAt(entity)</code> &mdash; keep the camera's gaze on an entity each frame<br>
+    <code>cam-&gt;LookAt(Vector3)</code> &mdash; keep the camera aimed at a fixed world point<br>
+    <code>cam-&gt;SetSmoothFollow(true, speed)</code> &mdash; lerp-smooth the camera's trailing motion<br>
+    <code>cam-&gt;SetOrbitMode(entity, radius)</code> &mdash; right-mouse-button orbit around a target<br>
+    <code>cam-&gt;SetOrbitAngles(yaw, pitch)</code> &mdash; set the starting orbit angle<br>
+    <code>cam-&gt;SetOrbitPitchLimits(min, max)</code> &mdash; clamp vertical look<br>
+    <code>cam-&gt;SetOrbitSensitivity(deg/px)</code> &mdash; mouse drag speed<br>
+    <code>cam-&gt;SetCollisionEnabled(true)</code> &mdash; pull the camera in when geometry is in the way<br>
+    <code>cam-&gt;SetFOV(degrees)</code> &mdash; horizontal field of view<br>
+    <code>cam-&gt;SetFPSMode(entity)</code> &mdash; first-person view attached to an entity<br>
+    <code>cam-&gt;SetFPSHeadOffset(metres)</code> &mdash; vertical head position above the entity origin<br>
+    <code>cam-&gt;SetFPSSensitivity(deg/px)</code> &mdash; mouse-look speed in FPS mode<br>
+    <code>cam-&gt;Detach()</code> &mdash; release the camera from any follow or FPS target
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ──────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How to create a <code>Camera</code> and attach it to a moving entity using <code>Follow()</code>.</li>
+  <li>How <code>LookAt()</code> keeps the camera aimed at a target every frame.</li>
+  <li>How to add motion smoothing with <code>SetSmoothFollow()</code> so the camera doesn't feel rigid.</li>
+  <li>How <strong>orbit mode</strong> lets the player rotate the camera around the character by dragging with the right mouse button.</li>
+  <li>How <code>SetCollisionEnabled(true)</code> prevents the camera from clipping into walls and platforms.</li>
+  <li>How to tune the field of view with <code>SetFOV()</code> to match your game's feel.</li>
+  <li>The difference between <strong>third-person</strong> and <strong>first-person</strong> camera modes and how to switch between them at runtime.</li>
+</ul>
+
+<!-- ─── OVERVIEW ─────────────────────────────────────────────────── -->
+<h2>Camera modes overview</h2>
+<p>
+  simple-3d provides three built-in camera personalities that cover most game genres.
+  Each is set by calling a single method on the <code>Camera*</code> object returned by
+  <code>CreateCamera()</code>. You can switch between modes at runtime &mdash; for example,
+  when a player presses a button to toggle perspective.
+</p>
+
+<div class="grid3">
+  <div class="card card-green">
+    <h3>Follow / LookAt</h3>
+    <p>Camera stays at a fixed world offset behind the entity.
+    Call <code>Follow()</code> to set distance and height, then optionally
+    <code>LookAt()</code> to aim. Best for fixed-angle platformers.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>Orbit (third-person)</h3>
+    <p>Camera orbits a target at a configurable radius. Right-mouse-button drag
+    rotates freely. This is the most common mode for action and platformer games.</p>
+  </div>
+  <div class="card card-orange">
+    <h3>FPS (first-person)</h3>
+    <p>Camera is attached to the entity at head level. Mouse-look is captured.
+    Best for shooters, exploration games, or any perspective requiring immersion.</p>
+  </div>
+</div>
+
+<!-- ─── COMPLETE C++ EXAMPLE ─────────────────────────────────────── -->
+<h2>Complete working example</h2>
+<p>
+  The example below builds a small 3D platformer world &mdash; a ground plane plus four
+  staggered platforms &mdash; with a physics-driven player character. The default view is
+  an orbit camera you can rotate with the right mouse button. Press <kbd>F</kbd> to toggle
+  to first-person and back. This is a self-contained file; you can drop it into any
+  simple-3d project as <code>src/main.cpp</code>.
+</p>
+
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;string&gt;</span>
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="cm">// ── Tuning constants ──────────────────────────────────────────────</span>
+<span class="kw">static constexpr</span> <span class="ty">float</span> MOVE_SPEED     = <span class="val">6.0f</span>;   <span class="cm">// m/s horizontal</span>
+<span class="kw">static constexpr</span> <span class="ty">float</span> JUMP_VEL       = <span class="val">8.5f</span>;   <span class="cm">// m/s upward impulse</span>
+<span class="kw">static constexpr</span> <span class="ty">float</span> ORBIT_RADIUS   = <span class="val">7.0f</span>;   <span class="cm">// metres from player</span>
+<span class="kw">static constexpr</span> <span class="ty">float</span> ORBIT_SMOOTH   = <span class="val">8.0f</span>;   <span class="cm">// lerp speed (higher = snappier)</span>
+<span class="kw">static constexpr</span> <span class="ty">float</span> FPS_HEAD_OFFSET = <span class="val">1.4f</span>;  <span class="cm">// metres above entity origin</span>
+
+<span class="kw">class</span> <span class="ty">PlatformerCamGame</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+    <span class="ty">Entity</span>* player_  = <span class="kw">nullptr</span>;
+    <span class="ty">Camera</span>* cam_     = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*  hud_     = <span class="kw">nullptr</span>;
+    <span class="ty">bool</span>    fpsMode_ = <span class="kw">false</span>;
+
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Part 05 — Third-Person Camera"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.12f</span>, <span class="val">0.16f</span>, <span class="val">0.22f</span>));
+
+        <span class="cm">// Fog so distant geometry fades gracefully</span>
+        <span class="fn">SetFogEnabled</span>(<span class="kw">true</span>);
+        <span class="fn">SetFogColor</span>(<span class="ty">Color</span>(<span class="val">0.12f</span>, <span class="val">0.16f</span>, <span class="val">0.22f</span>));
+        <span class="fn">SetFogRange</span>(<span class="val">35.0f</span>, <span class="val">90.0f</span>);
+
+        <span class="cm">// ── Lighting ─────────────────────────────────────────────</span>
+        <span class="kw">auto</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.95f</span>, <span class="val">0.85f</span>), <span class="val">1.2f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50.0f</span>, -<span class="val">30.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="kw">auto</span>* fill = <span class="fn">CreateEntity</span>(<span class="st">"Fill"</span>);
+        fill-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">0.3f</span>, <span class="val">0.4f</span>, <span class="val">0.6f</span>), <span class="val">0.35f</span>);
+        fill-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(-<span class="val">40.0f</span>, <span class="val">150.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── Ground plane (static rigid body) ─────────────────────</span>
+        <span class="kw">auto</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);
+        ground-&gt;<span class="fn">SetScale</span>(<span class="val">30.0f</span>);
+        ground-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.22f</span>, <span class="val">0.55f</span>, <span class="val">0.22f</span>));
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">30.0f</span>, <span class="val">0.5f</span>, <span class="val">30.0f</span>));
+        ground-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::StaticGeometry);
+
+        <span class="cm">// ── Staggered platforms ───────────────────────────────────</span>
+        <span class="kw">const</span> <span class="ty">Vector3</span> platPositions[] = {
+            <span class="ty">Vector3</span>(-<span class="val">5.0f</span>, <span class="val">1.5f</span>,  <span class="val">6.0f</span>),
+            <span class="ty">Vector3</span>( <span class="val">0.0f</span>, <span class="val">2.8f</span>,  <span class="val">10.0f</span>),
+            <span class="ty">Vector3</span>( <span class="val">4.5f</span>, <span class="val">4.0f</span>,  <span class="val">8.0f</span>),
+            <span class="ty">Vector3</span>(-<span class="val">2.0f</span>, <span class="val">5.5f</span>,  <span class="val">14.0f</span>),
+        };
+        <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i &lt; <span class="val">4</span>; ++i) {
+            <span class="ty">std::string</span> name = <span class="st">"Platform"</span> + std::<span class="fn">to_string</span>(i);
+            <span class="kw">auto</span>* p = <span class="fn">CreateEntity</span>(name);
+            p-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+            p-&gt;<span class="fn">SetPosition</span>(platPositions[i]);
+            p-&gt;<span class="fn">SetScale</span>(<span class="ty">Vector3</span>(<span class="val">3.0f</span>, <span class="val">0.4f</span>, <span class="val">3.0f</span>));
+            p-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.55f</span>, <span class="val">0.4f</span>, <span class="val">0.2f</span>));
+            p-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+            p-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">3.0f</span>, <span class="val">0.4f</span>, <span class="val">3.0f</span>));
+            p-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::StaticGeometry);
+        }
+
+        <span class="cm">// ── Player character (dynamic rigid body + capsule) ───────</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">1.5f</span>, <span class="val">0.0f</span>);
+        player_-&gt;<span class="fn">SetScale</span>(<span class="ty">Vector3</span>(<span class="val">0.7f</span>, <span class="val">1.5f</span>, <span class="val">0.7f</span>));
+        player_-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.25f</span>, <span class="val">0.45f</span>, <span class="val">0.9f</span>));
+        player_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">70.0f</span>);
+        player_-&gt;<span class="fn">AddCapsuleCollider</span>(<span class="val">0.35f</span>, <span class="val">1.6f</span>);
+        player_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::Actor);
+        player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::StaticGeometry
+        }));
+
+        <span class="cm">// ── Camera — orbit mode (the focus of this tutorial) ──────</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+
+        <span class="cm">// Orbit around the player at 7 m radius, starting at 20° pitch</span>
+        cam_-&gt;<span class="fn">SetOrbitMode</span>(player_, ORBIT_RADIUS);
+        cam_-&gt;<span class="fn">SetOrbitAngles</span>(<span class="val">0.0f</span>, <span class="val">20.0f</span>);
+
+        <span class="cm">// Clamp vertical look: never below -10° (through floor) or above 65°</span>
+        cam_-&gt;<span class="fn">SetOrbitPitchLimits</span>(-<span class="val">10.0f</span>, <span class="val">65.0f</span>);
+
+        <span class="cm">// Mouse drag sensitivity for RMB orbit (degrees moved per pixel dragged)</span>
+        cam_-&gt;<span class="fn">SetOrbitSensitivity</span>(<span class="val">0.3f</span>);
+
+        <span class="cm">// Lerp-smooth camera trailing so sudden player turns feel natural</span>
+        cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, ORBIT_SMOOTH);
+
+        <span class="cm">// Pull camera in automatically when a wall or platform is in the way</span>
+        cam_-&gt;<span class="fn">SetCollisionEnabled</span>(<span class="kw">true</span>);
+
+        <span class="cm">// Slightly wider FOV gives a better sense of speed in a platformer</span>
+        cam_-&gt;<span class="fn">SetFOV</span>(<span class="val">70.0f</span>);
+
+        <span class="cm">// ── HUD ──────────────────────────────────────────────────</span>
+        hud_ = <span class="fn">CreateLabel</span>(<span class="st">"Mode: Orbit  |  WASD=move  Space=jump  RMB-drag=orbit  F=FPS  ESC=quit"</span>);
+        hud_-&gt;<span class="fn">SetPosition</span>(<span class="val">12</span>, <span class="val">12</span>);
+        hud_-&gt;<span class="fn">SetFontSize</span>(<span class="val">14</span>);
+        hud_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.85f</span>, <span class="val">0.85f</span>, <span class="val">0.85f</span>));
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+
+        <span class="cm">// ── Player movement (velocity-driven, same pattern as Part 04) ──</span>
+        <span class="ty">Vector3</span> vel = player_-&gt;<span class="fn">GetLinearVelocity</span>();
+        <span class="ty">float</span> mx = <span class="val">0.0f</span>, mz = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::A)) mx = -<span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::D)) mx =  <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::W)) mz =  <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::S)) mz = -<span class="val">1.0f</span>;
+        vel.x_ = mx * MOVE_SPEED;
+        vel.z_ = mz * MOVE_SPEED;
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::Space) &amp;&amp; player_-&gt;<span class="fn">IsOnGround</span>())
+            vel.y_ = JUMP_VEL;
+
+        player_-&gt;<span class="fn">SetLinearVelocity</span>(vel);
+
+        <span class="cm">// ── F key: toggle between orbit and first-person ─────────</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::F)) {
+            fpsMode_ = !fpsMode_;
+
+            <span class="kw">if</span> (fpsMode_) {
+                <span class="cm">// Switch to FPS: attach to player at head height, lock cursor</span>
+                cam_-&gt;<span class="fn">SetFPSMode</span>(player_);
+                cam_-&gt;<span class="fn">SetFPSHeadOffset</span>(FPS_HEAD_OFFSET);
+                cam_-&gt;<span class="fn">SetFPSSensitivity</span>(<span class="val">0.18f</span>);
+                cam_-&gt;<span class="fn">SetFOV</span>(<span class="val">90.0f</span>);  <span class="cm">// typical FPS FOV is wider</span>
+                <span class="fn">SetCursorLocked</span>(<span class="kw">true</span>);
+            } <span class="kw">else</span> {
+                <span class="cm">// Switch back to orbit: release cursor, re-apply orbit settings</span>
+                cam_-&gt;<span class="fn">SetOrbitMode</span>(player_, ORBIT_RADIUS);
+                cam_-&gt;<span class="fn">SetOrbitAngles</span>(<span class="val">0.0f</span>, <span class="val">20.0f</span>);
+                cam_-&gt;<span class="fn">SetOrbitPitchLimits</span>(-<span class="val">10.0f</span>, <span class="val">65.0f</span>);
+                cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, ORBIT_SMOOTH);
+                cam_-&gt;<span class="fn">SetCollisionEnabled</span>(<span class="kw">true</span>);
+                cam_-&gt;<span class="fn">SetFOV</span>(<span class="val">70.0f</span>);
+                <span class="fn">SetCursorLocked</span>(<span class="kw">false</span>);
+            }
+        }
+
+        <span class="cm">// ── Update HUD ────────────────────────────────────────────</span>
+        <span class="ty">std::string</span> mode = fpsMode_ ? <span class="st">"FPS (press F to orbit)"</span>
+                                      : <span class="st">"Orbit (RMB-drag to rotate)"</span>;
+        hud_-&gt;<span class="fn">SetText</span>(<span class="st">"Mode: "</span> + mode +
+                       <span class="st">"  |  WASD=move  Space=jump  F=toggle  ESC=quit"</span>);
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>() {
+    <span class="kw">return</span> <span class="fn">CreateGame</span>&lt;<span class="ty">PlatformerCamGame</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ──────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<!-- Follow / LookAt -->
+<h3>Fixed offset with <code>Follow()</code> and <code>LookAt()</code></h3>
+<p>
+  The simplest way to attach a camera to an entity is <code>Follow()</code>. It positions
+  the camera in world space at a fixed distance behind and above the entity each frame,
+  without any rotation controls:
+</p>
+<pre><span class="cm">// Position camera 6 m behind and 2 m above the player every frame</span>
+cam_-&gt;<span class="fn">Follow</span>(player_, <span class="val">6.0f</span>, <span class="val">2.0f</span>);   <span class="cm">// entity, distance, height</span>
+
+<span class="cm">// Aim the camera at the entity (or at a fixed world point)</span>
+cam_-&gt;<span class="fn">LookAt</span>(player_);              <span class="cm">// track the entity</span>
+cam_-&gt;<span class="fn">LookAt</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>));  <span class="cm">// aim at a fixed world point</span></pre>
+<p>
+  <code>Follow()</code> gives you an isometric-style or fixed-angle action camera &mdash; think classic
+  top-down or side-scrolling perspectives. However it provides no mouse-look control.
+  For games where the player controls the camera angle, prefer <code>SetOrbitMode()</code>.
+</p>
+<p>
+  <code>LookAt(entity)</code> re-aims the camera toward the entity every frame even if you move
+  the camera manually. <code>LookAt(Vector3)</code> is useful when the camera should always
+  look at the center of an arena rather than the player specifically.
+</p>
+
+<!-- SetSmoothFollow -->
+<h3>Motion smoothing with <code>SetSmoothFollow()</code></h3>
+<p>
+  Without smoothing, the camera teleports to its exact target position every frame. This
+  feels mechanical and makes sudden changes in player direction visually jarring. Calling
+  <code>SetSmoothFollow(true, speed)</code> enables linear interpolation (lerp) between the
+  camera's current position and its target position:
+</p>
+<pre><span class="cm">// Enable smooth following at lerp speed 8.0 (higher = snappier, lower = floatier)</span>
+cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">8.0f</span>);
+
+<span class="cm">// Disable smooth following (camera snaps immediately)</span>
+cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">false</span>, <span class="val">0.0f</span>);</pre>
+<p>
+  The speed value is the lerp coefficient applied per second. A value of <code>8.0</code>
+  means the camera closes about 99.97% of the remaining gap in one second.
+  For a relaxed trailing camera use values around <code>4.0</code>&ndash;<code>6.0</code>;
+  for a tight responsive follow use <code>10.0</code>&ndash;<code>15.0</code>.
+  Smooth follow works with both <code>Follow()</code> and <code>SetOrbitMode()</code>.
+</p>
+
+<!-- SetOrbitMode -->
+<h3>Orbit camera with <code>SetOrbitMode()</code></h3>
+<p>
+  Orbit mode is the most popular third-person camera style. The camera circles around
+  a target entity at a configurable radius. The player rotates the view by holding the
+  right mouse button and dragging:
+</p>
+<pre><span class="cm">// Target the player entity; keep the camera 7 m away</span>
+cam_-&gt;<span class="fn">SetOrbitMode</span>(player_, <span class="val">7.0f</span>);
+
+<span class="cm">// Starting angle: 0° yaw (behind player), 20° pitch (slightly above)</span>
+cam_-&gt;<span class="fn">SetOrbitAngles</span>(<span class="val">0.0f</span>, <span class="val">20.0f</span>);
+
+<span class="cm">// Restrict vertical rotation so the player can't look through the floor</span>
+<span class="cm">// or flip the camera upside-down over the top</span>
+cam_-&gt;<span class="fn">SetOrbitPitchLimits</span>(-<span class="val">10.0f</span>, <span class="val">65.0f</span>);
+
+<span class="cm">// Mouse drag sensitivity: degrees of orbit angle per pixel dragged</span>
+cam_-&gt;<span class="fn">SetOrbitSensitivity</span>(<span class="val">0.3f</span>);</pre>
+<p>
+  The first argument to <code>SetOrbitMode()</code> is the entity to orbit around; the second
+  is the nominal orbit radius in metres. The actual distance may be shorter when
+  collision avoidance pulls the camera in (see below).
+</p>
+<p>
+  <code>SetOrbitAngles(yaw, pitch)</code> sets the <em>starting</em> orientation of the orbit sphere.
+  Yaw is measured in degrees around the Y axis (0 = behind the entity in world space);
+  pitch is the vertical angle above the horizon. Both are updated automatically as the
+  player drags the mouse, so you only need to set them once in <code>Start()</code>.
+</p>
+<p>
+  <code>SetOrbitPitchLimits(min, max)</code> prevents the camera from going below the floor
+  (negative pitch) or flipping upside-down (pitch above 90&deg;). A range of
+  <code>-10&deg;</code> to <code>65&deg;</code> works well for most third-person games.
+</p>
+
+<!-- SetCollisionEnabled -->
+<h3>Collision avoidance with <code>SetCollisionEnabled()</code></h3>
+<p>
+  Without collision avoidance, the orbit camera clips straight through walls and platforms
+  whenever the player stands close to them. Enabling collision avoidance fires a ray
+  from the target entity toward the camera's ideal position. If the ray hits static
+  geometry (layer 2), the camera is moved to the hit point instead:
+</p>
+<pre><span class="cm">// Enable collision avoidance — raycasts on StaticGeometry layer only</span>
+cam_-&gt;<span class="fn">SetCollisionEnabled</span>(<span class="kw">true</span>);
+
+<span class="cm">// Disable (default) — camera passes through geometry</span>
+cam_-&gt;<span class="fn">SetCollisionEnabled</span>(<span class="kw">false</span>);</pre>
+<p>
+  This single call is often the difference between a camera that feels professional and
+  one that constantly breaks immersion. It only tests against <code>CollisionLayer::StaticGeometry</code>
+  (layer 2) so dynamic objects like crates or enemies do not push the camera around.
+</p>
+<p>
+  Collision avoidance works in both orbit mode and plain <code>Follow()</code> mode.
+  It has no effect in FPS mode because the camera is at head level and cannot
+  pass through geometry the player is also colliding with.
+</p>
+
+<!-- SetFOV -->
+<h3>Field of view with <code>SetFOV()</code></h3>
+<p>
+  Field of view (FOV) controls how wide the camera's viewing cone is. A narrower FOV
+  makes objects look larger and the scene feel more compressed; a wider FOV gives a
+  stronger sense of speed and space but can cause distortion near the edges:
+</p>
+<pre><span class="cm">// Default is 45°. 60°–75° is typical for third-person games.</span>
+cam_-&gt;<span class="fn">SetFOV</span>(<span class="val">70.0f</span>);
+
+<span class="cm">// FPS games conventionally use 90°–100° for a wider sense of immersion.</span>
+cam_-&gt;<span class="fn">SetFOV</span>(<span class="val">90.0f</span>);
+
+<span class="cm">// Cinematic, telephoto look (zoom effect):</span>
+cam_-&gt;<span class="fn">SetFOV</span>(<span class="val">30.0f</span>);</pre>
+<p>
+  You can call <code>SetFOV()</code> at any time, including inside <code>Update()</code>, to animate
+  zoom effects. For example, zooming in when the player aims a weapon:
+</p>
+<pre><span class="cm">// Smooth zoom-in while holding right mouse button in a shooter</span>
+<span class="kw">float</span> targetFOV = <span class="fn">IsMouseButtonDown</span>(<span class="ty">MouseButton</span>::Right) ? <span class="val">35.0f</span> : <span class="val">70.0f</span>;
+<span class="kw">float</span> currentFOV = <span class="cm">/* store in member variable */</span>;
+currentFOV += (targetFOV - currentFOV) * dt * <span class="val">10.0f</span>;
+cam_-&gt;<span class="fn">SetFOV</span>(currentFOV);</pre>
+
+<!-- SetFPSMode -->
+<h3>First-person mode with <code>SetFPSMode()</code></h3>
+<p>
+  <code>SetFPSMode(entity)</code> attaches the camera to the entity at a configurable head height
+  and enables full mouse-look. The OS cursor is hidden and its motion is captured;
+  <code>GetMouseDelta()</code> still works and is used internally to update the look angles:
+</p>
+<pre><span class="cm">// Attach to the player entity at head level</span>
+cam_-&gt;<span class="fn">SetFPSMode</span>(player_);
+
+<span class="cm">// Height above the entity's origin (player capsule is 1.6 m tall; eyes near top)</span>
+cam_-&gt;<span class="fn">SetFPSHeadOffset</span>(<span class="val">1.4f</span>);
+
+<span class="cm">// Mouse-look sensitivity in degrees per pixel</span>
+cam_-&gt;<span class="fn">SetFPSSensitivity</span>(<span class="val">0.18f</span>);
+
+<span class="cm">// Lock and hide the cursor so the mouse controls the view (not a visible pointer)</span>
+<span class="fn">SetCursorLocked</span>(<span class="kw">true</span>);
+
+<span class="cm">// Optional: set initial look direction</span>
+cam_-&gt;<span class="fn">SetFPSAngles</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>);  <span class="cm">// yaw°, pitch°</span></pre>
+<p>
+  <code>SetFPSHeadOffset()</code> is the height in metres above the entity's origin where the
+  camera will be placed. For a player capsule with height <code>1.6</code> and origin at the
+  feet, <code>1.4</code> puts the camera near the top of the capsule, just below the apex,
+  which looks natural.
+</p>
+<p>
+  When you switch away from FPS mode (for example back to orbit) always call
+  <code>SetCursorLocked(false)</code> to restore the visible cursor, and re-apply the orbit
+  settings with <code>SetOrbitMode()</code>. The camera automatically stops consuming mouse
+  delta once you switch modes.
+</p>
+<p>
+  You can also use <code>SetFPSMode()</code> with no argument for a free-floating FPS camera
+  unattached to any entity &mdash; useful for dev fly-cam or spectator mode:
+</p>
+<pre><span class="cm">// Free-floating fly camera (no entity attached)</span>
+cam_-&gt;<span class="fn">SetFPSMode</span>();
+<span class="fn">SetCursorLocked</span>(<span class="kw">true</span>);</pre>
+
+<!-- Detach -->
+<h3>Releasing a follow target with <code>Detach()</code></h3>
+<p>
+  <code>Detach()</code> stops any follow, orbit, or FPS behaviour and leaves the camera at
+  its current world position. The camera position and orientation can then be set
+  manually via the underlying entity transform. This is useful for cutscenes,
+  death sequences, or menu cameras:
+</p>
+<pre><span class="cm">// Camera stops following; remains at its current world position</span>
+cam_-&gt;<span class="fn">Detach</span>();
+
+<span class="cm">// After detaching you can position the camera manually</span>
+<span class="cm">// (Camera* extends Entity* in simple-3d; transform methods work directly)</span>
+cam_-&gt;<span class="fn">LookAt</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>));</pre>
+
+<!-- ─── FIRST-PERSON vs THIRD-PERSON COMPARISON ──────────────────── -->
+<h2>FPS mode vs. third-person orbit: comparison</h2>
+<p>
+  Choosing the right camera mode depends on game genre and the kind of spatial awareness
+  you want to give the player. Here is a quick reference:
+</p>
+<table>
+  <tr>
+    <th>Feature</th>
+    <th>Third-person orbit</th>
+    <th>First-person FPS</th>
+  </tr>
+  <tr>
+    <td>Setup call</td>
+    <td><code>SetOrbitMode(entity, radius)</code></td>
+    <td><code>SetFPSMode(entity)</code></td>
+  </tr>
+  <tr>
+    <td>Camera position</td>
+    <td>Behind and above the character at configurable distance</td>
+    <td>At head level, inside (or coincident with) the character model</td>
+  </tr>
+  <tr>
+    <td>Mouse-look activation</td>
+    <td>Hold right mouse button and drag</td>
+    <td>Always active; cursor must be locked</td>
+  </tr>
+  <tr>
+    <td>Cursor visibility</td>
+    <td>Cursor remains visible; call <code>SetCursorLocked()</code> only if desired</td>
+    <td>Must call <code>SetCursorLocked(true)</code> to hide and capture cursor</td>
+  </tr>
+  <tr>
+    <td>Character visibility</td>
+    <td>Character model is visible from behind</td>
+    <td>Character model is not visible (you are inside it)</td>
+  </tr>
+  <tr>
+    <td>Spatial awareness</td>
+    <td>High — player can see obstacles around character</td>
+    <td>Low — limited to what the character is looking at</td>
+  </tr>
+  <tr>
+    <td>Typical genres</td>
+    <td>Platformers, action-adventure, RPGs, TPS shooters</td>
+    <td>FPS shooters, horror, exploration, VR-style games</td>
+  </tr>
+  <tr>
+    <td>Collision avoidance</td>
+    <td><code>SetCollisionEnabled(true)</code> prevents clipping</td>
+    <td>Not needed (camera is inside the character)</td>
+  </tr>
+  <tr>
+    <td>Recommended FOV</td>
+    <td>60&deg;&ndash;75&deg;</td>
+    <td>85&deg;&ndash;100&deg;</td>
+  </tr>
+  <tr>
+    <td>Smoothing</td>
+    <td><code>SetSmoothFollow(true, 6-10)</code> recommended</td>
+    <td>No additional smoothing needed (camera follows exactly)</td>
+  </tr>
+</table>
+
+<!-- ─── API QUICK REFERENCE ──────────────────────────────────────── -->
+<h2>Camera API quick reference</h2>
+
+<div class="method-group">
+  <div class="method-group-header">Third-person follow</div>
+  <table>
+    <tr><th>Method</th><th>Parameters</th><th>Notes</th></tr>
+    <tr>
+      <td><code>Follow(entity, dist, height)</code></td>
+      <td><code>Entity*</code>, <code>float</code> m, <code>float</code> m</td>
+      <td>Fixed offset behind and above; no mouse-look</td>
+    </tr>
+    <tr>
+      <td><code>LookAt(entity)</code></td>
+      <td><code>Entity*</code></td>
+      <td>Re-aim at entity every frame</td>
+    </tr>
+    <tr>
+      <td><code>LookAt(pos)</code></td>
+      <td><code>Vector3</code></td>
+      <td>Re-aim at a fixed world point every frame</td>
+    </tr>
+    <tr>
+      <td><code>SetSmoothFollow(enable, speed)</code></td>
+      <td><code>bool</code>, <code>float</code></td>
+      <td>Lerp coefficient per second; works with Follow and orbit</td>
+    </tr>
+  </table>
+</div>
+
+<div class="method-group">
+  <div class="method-group-header">Orbit (RMB drag)</div>
+  <table>
+    <tr><th>Method</th><th>Parameters</th><th>Notes</th></tr>
+    <tr>
+      <td><code>SetOrbitMode(entity, radius)</code></td>
+      <td><code>Entity*</code>, <code>float</code> m</td>
+      <td>Activates orbit mode; RMB drag rotates the view</td>
+    </tr>
+    <tr>
+      <td><code>SetOrbitAngles(yaw, pitch)</code></td>
+      <td><code>float</code>&deg;, <code>float</code>&deg;</td>
+      <td>Starting orientation of the orbit sphere</td>
+    </tr>
+    <tr>
+      <td><code>SetOrbitPitchLimits(min, max)</code></td>
+      <td><code>float</code>&deg;, <code>float</code>&deg;</td>
+      <td>Vertical clamp; prevents floor/ceiling clipping</td>
+    </tr>
+    <tr>
+      <td><code>SetOrbitSensitivity(deg/px)</code></td>
+      <td><code>float</code></td>
+      <td>How many degrees of orbit per pixel dragged; default 0.3</td>
+    </tr>
+    <tr>
+      <td><code>SetCollisionEnabled(bool)</code></td>
+      <td><code>bool</code></td>
+      <td>Raycast pull-in on StaticGeometry; default false</td>
+    </tr>
+  </table>
+</div>
+
+<div class="method-group">
+  <div class="method-group-header">First-person</div>
+  <table>
+    <tr><th>Method</th><th>Parameters</th><th>Notes</th></tr>
+    <tr>
+      <td><code>SetFPSMode(entity)</code></td>
+      <td><code>Entity*</code> (optional)</td>
+      <td>Attach to entity; omit arg for free fly-cam</td>
+    </tr>
+    <tr>
+      <td><code>SetFPSHeadOffset(metres)</code></td>
+      <td><code>float</code></td>
+      <td>Camera height above entity origin; default 1.6</td>
+    </tr>
+    <tr>
+      <td><code>SetFPSSensitivity(deg/px)</code></td>
+      <td><code>float</code></td>
+      <td>Mouse-look sensitivity; default 0.15</td>
+    </tr>
+    <tr>
+      <td><code>SetFPSAngles(yaw, pitch)</code></td>
+      <td><code>float</code>&deg;, <code>float</code>&deg;</td>
+      <td>Initial look direction; pitch clamped to ±89&deg;</td>
+    </tr>
+  </table>
+</div>
+
+<div class="method-group">
+  <div class="method-group-header">Projection and miscellaneous</div>
+  <table>
+    <tr><th>Method</th><th>Parameters</th><th>Notes</th></tr>
+    <tr>
+      <td><code>SetFOV(degrees)</code></td>
+      <td><code>float</code></td>
+      <td>Horizontal field of view; default 45&deg;</td>
+    </tr>
+    <tr>
+      <td><code>SetNearClip(metres)</code></td>
+      <td><code>float</code></td>
+      <td>Near clip plane; default 0.1</td>
+    </tr>
+    <tr>
+      <td><code>SetFarClip(metres)</code></td>
+      <td><code>float</code></td>
+      <td>Far clip plane; default 1000</td>
+    </tr>
+    <tr>
+      <td><code>Detach()</code></td>
+      <td>—</td>
+      <td>Release from any follow/orbit/FPS target</td>
+    </tr>
+    <tr>
+      <td><code>Shake(intensity, duration)</code></td>
+      <td><code>float</code>, <code>float</code></td>
+      <td>Linearly-decaying random XY jitter; great for landings</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ─── LUA EQUIVALENT ────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+<p>
+  Camera setup belongs in C++ because the <code>Camera*</code> pointer lives in the Game
+  subclass. However, you can expose camera switches to Lua by caching a reference
+  to the camera in a global and calling its methods from scripts. The pattern below
+  shows how to configure an orbit camera and perform the FPS toggle entirely from Lua:
+</p>
+
+<pre><span class="lua-cm">-- Scripts/CameraController.lua
+-- Attach to an invisible "GameManager" entity in Start().</span>
+
+<span class="lua-kw">local</span> cam     = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> player  = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> fpsMode = <span class="lua-kw">false</span>
+
+<span class="lua-kw">local</span> ORBIT_RADIUS = <span class="lua-num">7.0</span>
+<span class="lua-kw">local</span> ORBIT_SMOOTH = <span class="lua-num">8.0</span>
+<span class="lua-kw">local</span> FPS_OFFSET   = <span class="lua-num">1.4</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-cm">-- Retrieve entities that were already created in C++ Start()</span>
+    player = scene:GetChild(<span class="lua-str">"Player"</span>, <span class="lua-kw">true</span>)
+    cam    = GetCamera()   <span class="lua-cm">-- simple-3d Lua global: returns the active Camera</span>
+
+    <span class="lua-cm">-- Orbit camera setup</span>
+    cam:SetOrbitMode(player, ORBIT_RADIUS)
+    cam:SetOrbitAngles(<span class="lua-num">0</span>, <span class="lua-num">20</span>)
+    cam:SetOrbitPitchLimits(<span class="lua-num">-10</span>, <span class="lua-num">65</span>)
+    cam:SetOrbitSensitivity(<span class="lua-num">0.3</span>)
+    cam:SetSmoothFollow(<span class="lua-kw">true</span>, ORBIT_SMOOTH)
+    cam:SetCollisionEnabled(<span class="lua-kw">true</span>)
+    cam:SetFOV(<span class="lua-num">70</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> Input:IsKeyPress(<span class="lua-str">"F"</span>) <span class="lua-kw">then</span>
+        fpsMode = <span class="lua-kw">not</span> fpsMode
+
+        <span class="lua-kw">if</span> fpsMode <span class="lua-kw">then</span>
+            cam:SetFPSMode(player)
+            cam:SetFPSHeadOffset(FPS_OFFSET)
+            cam:SetFPSSensitivity(<span class="lua-num">0.18</span>)
+            cam:SetFOV(<span class="lua-num">90</span>)
+            SetCursorLocked(<span class="lua-kw">true</span>)
+        <span class="lua-kw">else</span>
+            cam:SetOrbitMode(player, ORBIT_RADIUS)
+            cam:SetOrbitAngles(<span class="lua-num">0</span>, <span class="lua-num">20</span>)
+            cam:SetOrbitPitchLimits(<span class="lua-num">-10</span>, <span class="lua-num">65</span>)
+            cam:SetSmoothFollow(<span class="lua-kw">true</span>, ORBIT_SMOOTH)
+            cam:SetCollisionEnabled(<span class="lua-kw">true</span>)
+            cam:SetFOV(<span class="lua-num">70</span>)
+            SetCursorLocked(<span class="lua-kw">false</span>)
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<div class="callout lua">
+  <h4>Lua note &mdash; GetCamera()</h4>
+  <p>
+    The global <code>GetCamera()</code> in simple-3d Lua returns the <code>Camera</code> object
+    created by <code>CreateCamera()</code> in C++. If you create the camera in Lua instead,
+    use <code>game:CreateCamera()</code> and store the result in a module-level variable.
+    All <code>Camera</code> methods available in C++ are bound 1:1 in Lua.
+  </p>
+</div>
+
+<!-- ─── PRACTICAL TIPS ────────────────────────────────────────────── -->
+<h2>Practical tips</h2>
+
+<h3>Choosing an orbit radius</h3>
+<p>
+  The orbit radius should scale with the size of your world and the player character's
+  height. A good starting point is <strong>3&times; the character height</strong>.
+  For a 1.6 m tall capsule, try 5&ndash;8 m. Too small and the character occludes
+  too much of the scene; too large and the character feels disconnected from the world.
+</p>
+
+<h3>Preventing the camera from going underground</h3>
+<p>
+  Set the minimum pitch to a small positive value or exactly <code>0.0&deg;</code>
+  if your world is flat. Negative pitch values (looking upward from below) only make
+  sense if the level has enough vertical room:
+</p>
+<pre><span class="cm">// For a flat game: never allow the camera below the horizon</span>
+cam_-&gt;<span class="fn">SetOrbitPitchLimits</span>(<span class="val">5.0f</span>, <span class="val">70.0f</span>);
+
+<span class="cm">// For a game with open vertical space (cliffs, tall interiors):</span>
+cam_-&gt;<span class="fn">SetOrbitPitchLimits</span>(-<span class="val">15.0f</span>, <span class="val">80.0f</span>);</pre>
+
+<h3>Adding a landing impact shake</h3>
+<p>
+  <code>Camera::Shake()</code> adds a linearly-decaying random XY jitter in camera-local
+  space, which pairs perfectly with a jump-and-land mechanic:
+</p>
+<pre><span class="kw">bool</span> wasGrounded_ = <span class="kw">true</span>;   <span class="cm">// member variable, initialized to true</span>
+
+<span class="cm">// In Update():</span>
+<span class="kw">bool</span> grounded = player_-&gt;<span class="fn">IsOnGround</span>();
+<span class="kw">if</span> (grounded &amp;&amp; !wasGrounded_) {
+    <span class="cm">// Player just landed — shake the camera proportional to fall height</span>
+    cam_-&gt;<span class="fn">Shake</span>(<span class="val">0.25f</span>, <span class="val">0.35f</span>);   <span class="cm">// intensity (world units), duration (seconds)</span>
+}
+wasGrounded_ = grounded;</pre>
+
+<h3>Animating the FOV for a speed boost</h3>
+<p>
+  Briefly widening the FOV gives players a visceral sense of acceleration. Lerp between
+  a normal and boosted FOV in <code>Update()</code>:
+</p>
+<pre><span class="ty">float</span> targetFOV_ = <span class="val">70.0f</span>;   <span class="cm">// member variable</span>
+<span class="ty">float</span> currentFOV_ = <span class="val">70.0f</span>;  <span class="cm">// member variable</span>
+
+<span class="cm">// In Update(), while the player is sprinting:</span>
+targetFOV_ = isSprinting ? <span class="val">85.0f</span> : <span class="val">70.0f</span>;
+currentFOV_ += (targetFOV_ - currentFOV_) * dt * <span class="val">6.0f</span>;
+cam_-&gt;<span class="fn">SetFOV</span>(currentFOV_);</pre>
+
+<!-- ─── COMMON MISTAKES ────────────────────────────────────────────── -->
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Forgetting <code>SetCursorLocked(true)</code> in FPS mode.</strong>
+      Without it the cursor remains visible and mouse motion moves the OS pointer
+      instead of rotating the view. Always pair <code>SetFPSMode()</code> with
+      <code>SetCursorLocked(true)</code>, and pair <code>SetOrbitMode()</code> /
+      <code>Detach()</code> with <code>SetCursorLocked(false)</code>.
+    </li>
+    <li>
+      <strong>Not calling <code>SetCollisionEnabled(true)</code> in orbit mode.</strong>
+      The camera will clip through walls. This is off by default and must be
+      explicitly enabled. Add it right after <code>SetOrbitMode()</code>.
+    </li>
+    <li>
+      <strong>Calling camera methods before <code>CreateCamera()</code>.</strong>
+      <code>CreateCamera()</code> must be called first; all camera configuration methods
+      go after it. Never call camera methods in the constructor — use <code>Start()</code>.
+    </li>
+    <li>
+      <strong>Mixing <code>SetOrbitMode()</code> and <code>Follow()</code> on the same camera.</strong>
+      Each call replaces the previous behaviour. Only one camera personality
+      is active at a time. To switch modes, simply call the new mode's setup
+      method and the previous one is automatically deactivated.
+    </li>
+    <li>
+      <strong>Setting pitch limits with min &gt; max.</strong>
+      <code>SetOrbitPitchLimits(-30, 70)</code> is correct;
+      <code>SetOrbitPitchLimits(70, -30)</code> silently results in undefined
+      clamping behaviour. Always pass the smaller value first.
+    </li>
+    <li>
+      <strong>Expecting <code>SetSmoothFollow()</code> to work in FPS mode.</strong>
+      Smooth follow is only meaningful for orbit and <code>Follow()</code> modes.
+      In FPS mode the camera follows the entity exactly at head height — adding
+      a lag would make it feel like the camera is detached from the body.
+    </li>
+    <li>
+      <strong>Using a very low smooth follow speed (e.g. 0.5).</strong>
+      Extremely low values make the camera trail far behind during rapid movement,
+      and can cause nausea. Values below <code>3.0</code> are rarely desirable. Keep
+      the range <code>5.0</code>&ndash;<code>12.0</code> for gameplay cameras.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ──────────────────────────────────────────── -->
+<h2>What you learned</h2>
+<p>In this part you learned how to make a camera that feels like it belongs in a real game:</p>
+<ul>
+  <li>
+    <strong><code>Follow(entity, dist, height)</code></strong> attaches the camera at a fixed world
+    offset behind and above an entity. Combine it with <code>LookAt()</code> to keep the
+    gaze on the target.
+  </li>
+  <li>
+    <strong><code>SetSmoothFollow(true, speed)</code></strong> lerps the camera toward its target
+    position each frame, eliminating the mechanical "teleport" feel. A speed of
+    6&ndash;10 covers most use cases.
+  </li>
+  <li>
+    <strong><code>SetOrbitMode(entity, radius)</code></strong> enables a full right-mouse-button
+    orbit camera. Pair it with <code>SetOrbitAngles()</code>, <code>SetOrbitPitchLimits()</code>,
+    and <code>SetOrbitSensitivity()</code> for fine control.
+  </li>
+  <li>
+    <strong><code>SetCollisionEnabled(true)</code></strong> fires a raycast from the target entity
+    toward the camera and pulls it in when static geometry is in the way &mdash; no
+    camera clipping through walls.
+  </li>
+  <li>
+    <strong><code>SetFOV(degrees)</code></strong> adjusts the viewing cone. Wider values (90&deg;)
+    suit FPS games; narrower values (60&ndash;70&deg;) suit third-person action games.
+    You can animate it in <code>Update()</code> for zoom or speed effects.
+  </li>
+  <li>
+    <strong><code>SetFPSMode(entity)</code></strong> switches to first-person view at configurable
+    head height with captured mouse-look. Pair with <code>SetCursorLocked(true)</code>.
+  </li>
+  <li>
+    The difference between the three camera personalities: <em>Follow/LookAt</em>
+    (fixed offset), <em>Orbit</em> (user-rotatable third-person), and <em>FPS</em>
+    (immersive first-person), and how to switch between them at runtime.
+  </li>
+</ul>
+<p>
+  The next part introduces <strong>Lua scripting</strong> &mdash; you will move game logic out
+  of C++ and into hot-reloadable scripts, starting with a simple entity controller
+  and then wiring up the camera switch from Lua.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-04.html">&#8592; Part 04: 3D Physics</a>
+  <a href="tutorial-06.html">Part 06: Lua Scripting Basics &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

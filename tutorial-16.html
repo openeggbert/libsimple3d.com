@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 16: Input Actions — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li class="active"><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 16</div>
+
+<h1><span class="tutorial-part">Part 16 of 30</span>Input Actions</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>BindAction(name)</code> &mdash; declare a named button action and chain input sources onto it.<br>
+    <code>.Key(Key::Space)</code> / <code>.GamepadButton(GamepadButton::A)</code> &mdash; attach keyboard keys and gamepad buttons to an action binding.<br>
+    <code>BindAxis2D(name)</code> &mdash; declare a named 2D movement axis and chain sources onto it.<br>
+    <code>.Keys(left, right, down, up)</code> &mdash; map four keyboard keys to a 2D axis.<br>
+    <code>.GamepadStick(GamepadAxis::LeftX, GamepadAxis::LeftY)</code> &mdash; map an analog stick pair to a 2D axis.<br>
+    <code>.InvertY(true)</code> &mdash; negate the stick's Y contribution to match the keyboard convention.<br>
+    <code>IsActionDown(name)</code> / <code>IsActionPressed(name)</code> &mdash; query a named action for held or just-pressed state.<br>
+    <code>GetAxis2D(name)</code> &mdash; query a named 2D axis and receive a normalized <code>Vector2</code>.<br>
+    <code>ClearInputBindings()</code> / <code>ResetInputBindings()</code> &mdash; remove all bindings at once.<br>
+    <code>SaveInputBindings()</code> / <code>LoadInputBindings()</code> &mdash; persist and restore bindings across sessions.
+  </p>
+</div>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>Why hard-coded raw key and button checks are a maintenance problem as your game grows.</li>
+  <li>How to declare named actions with <code>BindAction()</code> and wire multiple input sources to the same abstract name.</li>
+  <li>How to declare a 2D movement axis with <code>BindAxis2D()</code> and combine keyboard keys with an analog gamepad stick.</li>
+  <li>The difference between <code>IsActionDown</code> (held) and <code>IsActionPressed</code> (first frame only) and when to use each.</li>
+  <li>How <code>GetAxis2D()</code> returns a normalized <code>Vector2</code> so diagonal keyboard movement is never faster than straight movement.</li>
+  <li>Why <code>InvertY(true)</code> is needed to reconcile the gamepad stick convention with the keyboard up-key convention.</li>
+  <li>How to clear all bindings with <code>ClearInputBindings()</code> when switching between scenes with different control schemes.</li>
+  <li>How to persist player-customized bindings to disk with <code>SaveInputBindings()</code> and restore them on the next launch with <code>LoadInputBindings()</code>.</li>
+  <li>The equivalent Lua scripting approach for all of the above.</li>
+</ul>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>The problem with raw input checks</h2>
+
+<p>
+  In Parts 03 and 15 you read input directly: <code>IsKeyPressed(Key::Space)</code> or
+  <code>IsGamepadButtonPressed(GamepadButton::A)</code>. For a small prototype that is
+  acceptable, but it creates three problems as your game grows:
+</p>
+
+<ol>
+  <li>
+    <strong>Duplication across every input source.</strong> Every action that can come
+    from either keyboard or gamepad requires two separate checks. Jump with
+    <code>LCtrl</code>, <code>Space</code>, <em>and</em> gamepad A? That is three checks
+    joined by <code>||</code>, repeated everywhere jump is relevant.
+  </li>
+  <li>
+    <strong>No single place to change.</strong> If you decide to rebind jump from
+    <code>Space</code> to <code>Z</code>, you must hunt down every raw check in every
+    file.
+  </li>
+  <li>
+    <strong>No path to player remapping.</strong> Letting the player customize controls
+    requires a rebinding UI that writes back to whatever data structure holds the
+    key-to-action relationship. With scattered raw checks there is no such structure.
+  </li>
+</ol>
+
+<p>
+  Input Actions solve all three problems. You declare each action <em>once</em>, attach
+  as many input sources as you like, and then query by the abstract name. Adding or
+  removing sources — or saving them to a JSON file — happens in exactly one place.
+</p>
+
+<pre><span class="cm">// Before: raw checks — keyboard and gamepad duplicated in every location</span>
+<span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">LCtrl</span>) || <span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Space</span>) ||
+    <span class="fn">IsGamepadButtonPressed</span>(<span class="ty">GamepadButton</span>::<span class="val">A</span>))
+    cc_-&gt;<span class="fn">TryJump</span>(<span class="val">12.0f</span>);
+
+<span class="cm">// After: one binding declared in Start(), one query in Update()</span>
+<span class="kw">if</span> (<span class="fn">IsActionPressed</span>(<span class="st">"Jump"</span>))
+    cc_-&gt;<span class="fn">TryJump</span>(<span class="val">12.0f</span>);</pre>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Concepts at a glance</h2>
+
+<table>
+  <thead>
+    <tr><th>Term</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Action</strong></td>
+      <td>A named button event. Any number of keys and gamepad buttons can be sources. Query with <code>IsActionDown</code> / <code>IsActionPressed</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Axis2D</strong></td>
+      <td>A named 2D directional input. Keyboard key-sets and analog sticks can both be sources. Query with <code>GetAxis2D</code>, which returns a <code>Vector2</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Binding</strong></td>
+      <td>The association between an abstract name and its concrete input sources. Created via <code>BindAction()</code> or <code>BindAxis2D()</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>IsActionDown</strong></td>
+      <td>True every frame any bound source is held down.</td>
+    </tr>
+    <tr>
+      <td><strong>IsActionPressed</strong></td>
+      <td>True only on the very first frame any bound source transitions from released to pressed.</td>
+    </tr>
+    <tr>
+      <td><strong>Normalized result</strong></td>
+      <td><code>GetAxis2D</code> clamps the vector length to at most 1, so holding Up+Right on the keyboard is no faster than holding just Up.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Complete working example</h2>
+
+<p>
+  The example below builds a third-person platformer with full keyboard and gamepad
+  support, a jump action, a restart action, a quit action, and persistence of bindings
+  across launches. Every new concept introduced in this part is used at least once.
+</p>
+
+<pre><span class="cm">// InputActionsDemo.cpp</span>
+<span class="cm">// Part 16 — Input Actions / Control Mapping</span>
+<span class="cm">// Build: link against simple-3d</span>
+
+<span class="kw">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="kw">#include</span> <span class="st">&lt;cmath&gt;</span>      <span class="cm">// std::atan2</span>
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">static constexpr float</span> <span class="val">MOVE_SPEED</span>  = <span class="val">6.0f</span>;
+<span class="kw">static constexpr float</span> <span class="val">JUMP_VEL</span>   = <span class="val">12.0f</span>;
+<span class="kw">static constexpr float</span> <span class="val">RAD_TO_DEG</span> = <span class="val">57.29578f</span>;
+
+<span class="kw">class</span> <span class="ty">InputActionsDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+    <span class="ty">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="fn">SetAppName</span>(<span class="st">"InputActionsDemo"</span>);
+
+        <span class="cm">// ── Input bindings ────────────────────────────────────────────────
+        //  Declared once in Start().  Any source triggers the same query.
+        //
+        //  Pattern: ResetInputBindings() first, then try LoadInputBindings().
+        //  If the file does not exist (first launch), apply the built-in defaults.</span>
+        <span class="fn">ResetInputBindings</span>();
+        <span class="kw">if</span> (!<span class="fn">LoadInputBindings</span>()) {
+            <span class="fn">ApplyDefaultBindings</span>();
+        }
+
+        <span class="cm">// ── Ground ────────────────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">30.0f</span>, <span class="val">0.2f</span>, <span class="val">30.0f</span>));
+        ground-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+        <span class="cm">// A platform in the air to practise jumping</span>
+        <span class="ty">Entity</span>* platform = <span class="fn">CreateEntity</span>(<span class="st">"Platform"</span>);
+        platform-&gt;<span class="fn">SetPosition</span>(<span class="val">5.0f</span>, <span class="val">2.0f</span>, <span class="val">0.0f</span>);
+        platform-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        platform-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        platform-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">4.0f</span>, <span class="val">0.4f</span>, <span class="val">4.0f</span>));
+        platform-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+        <span class="cm">// ── Player ────────────────────────────────────────────────────────</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>);
+        player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Hero.mdl"</span>);
+
+        cc_ = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+        cc_-&gt;<span class="fn">SetGravity</span>(<span class="val">25.0f</span>);
+        player_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+        player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>,
+            <span class="ty">CollisionLayer</span>::<span class="val">Trigger</span>
+        }));
+
+        <span class="cm">// ── Camera ────────────────────────────────────────────────────────</span>
+        <span class="ty">Camera</span>* cam = <span class="fn">CreateCamera</span>();
+        cam-&gt;<span class="fn">Follow</span>(player_, <span class="val">7.0f</span>, <span class="val">2.5f</span>);
+        cam-&gt;<span class="fn">LookAt</span>(player_);
+        cam-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">5.0f</span>);
+
+        <span class="cm">// ── Directional light ─────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45</span>, <span class="val">30</span>, <span class="val">0</span>));
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>, <span class="val">1.2f</span>);
+
+        <span class="cm">// ── HUD ───────────────────────────────────────────────────────────</span>
+        hintLabel_ = <span class="fn">CreateLabel</span>(
+            <span class="st">"Arrows/Stick=move  Space/A=jump  R/Start=restart  Esc/B=quit"</span>);
+        hintLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">20</span>);
+        hintLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">16</span>);
+        hintLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.9f</span>, <span class="val">0.9f</span>, <span class="val">0.9f</span>, <span class="val">1.0f</span>));
+
+        axisLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Move axis: (0.00, 0.00)"</span>);
+        axisLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">46</span>);
+        axisLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">16</span>);
+        axisLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.7f</span>, <span class="val">1.0f</span>, <span class="val">0.7f</span>, <span class="val">1.0f</span>));
+
+        jumpLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Jump: idle"</span>);
+        jumpLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">72</span>);
+        jumpLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">16</span>);
+        jumpLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.85f</span>, <span class="val">0.3f</span>, <span class="val">1.0f</span>));
+    }
+
+    <span class="ty">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="cm">// IsActionPressed — true on the first frame the source is pressed.
+        // Use for one-shot events: quit, restart, open menu, jump.</span>
+        <span class="kw">if</span> (<span class="fn">IsActionPressed</span>(<span class="st">"Quit"</span>))    { <span class="fn">Quit</span>(); <span class="kw">return</span>; }
+        <span class="kw">if</span> (<span class="fn">IsActionPressed</span>(<span class="st">"Restart"</span>)) { <span class="fn">RestartLevel</span>(); <span class="kw">return</span>; }
+
+        <span class="cm">// GetAxis2D — returns a Vector2 in [−1,1]×[−1,1], length ≤ 1.
+        // Works identically whether the player is using keyboard or gamepad.</span>
+        <span class="ty">Vector2</span> move = <span class="fn">GetAxis2D</span>(<span class="st">"Move"</span>);
+
+        <span class="cm">// Rotate the player to face the direction of movement</span>
+        <span class="kw">if</span> (move.x_ != <span class="val">0.0f</span> || move.y_ != <span class="val">0.0f</span>) {
+            <span class="ty">float</span> yaw = std::<span class="fn">atan2</span>(move.x_, move.y_) * <span class="val">RAD_TO_DEG</span>;
+            player_-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">0</span>, yaw, <span class="val">0</span>));
+        }
+
+        <span class="cm">// Drive the character controller with the normalized axis result</span>
+        cc_-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(move.x_, <span class="val">0.0f</span>, move.y_) * <span class="val">MOVE_SPEED</span>, dt);
+
+        <span class="cm">// IsActionPressed for jump: one-shot per button press, never repeats
+        // while the key is held.  TryJump() checks IsOnGround() internally.</span>
+        <span class="kw">if</span> (<span class="fn">IsActionPressed</span>(<span class="st">"Jump"</span>)) {
+            cc_-&gt;<span class="fn">TryJump</span>(<span class="val">JUMP_VEL</span>);
+            jumpLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Jump: PRESSED"</span>);
+        } <span class="kw">else</span> {
+            <span class="cm">// IsActionDown — true every frame the source remains held</span>
+            jumpLabel_-&gt;<span class="fn">SetText</span>(
+                <span class="fn">IsActionDown</span>(<span class="st">"Jump"</span>) ? <span class="st">"Jump: held"</span> : <span class="st">"Jump: idle"</span>);
+        }
+
+        <span class="cm">// Display live axis values on the HUD</span>
+        <span class="ty">char</span> buf[<span class="val">64</span>];
+        std::<span class="fn">snprintf</span>(buf, <span class="kw">sizeof</span>(buf),
+            <span class="st">"Move axis: (%.2f, %.2f)"</span>, move.x_, move.y_);
+        axisLabel_-&gt;<span class="fn">SetText</span>(buf);
+    }
+
+    <span class="ty">void</span> <span class="fn">Stop</span>() <span class="kw">override</span>
+    {
+        <span class="cm">// Persist the current bindings so they survive the next launch</span>
+        <span class="fn">SaveInputBindings</span>();
+    }
+
+<span class="kw">private</span>:
+    <span class="ty">void</span> <span class="fn">ApplyDefaultBindings</span>()
+    {
+        <span class="cm">// BindAction creates (or retrieves) a named button action.
+        // Chain .Key() and .GamepadButton() to add any number of sources.
+        // Any one of them being active satisfies the action.</span>
+
+        <span class="fn">BindAction</span>(<span class="st">"Jump"</span>)
+            .<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">LCtrl</span>)
+            .<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">Space</span>)
+            .<span class="fn">GamepadButton</span>(<span class="ty">GamepadButton</span>::<span class="val">A</span>);
+
+        <span class="fn">BindAction</span>(<span class="st">"Restart"</span>)
+            .<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">R</span>)
+            .<span class="fn">GamepadButton</span>(<span class="ty">GamepadButton</span>::<span class="val">Start</span>);
+
+        <span class="fn">BindAction</span>(<span class="st">"Quit"</span>)
+            .<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">Escape</span>)
+            .<span class="fn">GamepadButton</span>(<span class="ty">GamepadButton</span>::<span class="val">B</span>);
+
+        <span class="cm">// BindAxis2D creates (or retrieves) a named 2D axis.
+        // .Keys(left, right, down, up) maps four keys:
+        //   left  → x = −1   right → x = +1
+        //   down  → y = −1   up    → y = +1
+        // .GamepadStick(xAxis, yAxis) adds an analog stick pair.
+        // .InvertY(true) negates the stick Y so that stick-forward (SDL = −1)
+        //   produces +Y, consistent with the Up key producing +1.
+        //   Keyboard axes are NOT inverted by this flag.</span>
+        <span class="fn">BindAxis2D</span>(<span class="st">"Move"</span>)
+            .<span class="fn">Keys</span>(<span class="ty">Key</span>::<span class="val">Left</span>, <span class="ty">Key</span>::<span class="val">Right</span>, <span class="ty">Key</span>::<span class="val">Down</span>, <span class="ty">Key</span>::<span class="val">Up</span>)
+            .<span class="fn">GamepadStick</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftX</span>, <span class="ty">GamepadAxis</span>::<span class="val">LeftY</span>)
+            .<span class="fn">InvertY</span>(<span class="kw">true</span>);
+    }
+
+    <span class="ty">void</span> <span class="fn">RestartLevel</span>()
+    {
+        <span class="cm">// Reset player position as a simple restart</span>
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>);
+    }
+
+    <span class="ty">Entity</span>*              player_    = <span class="kw">nullptr</span>;
+    <span class="ty">CharacterController</span>* cc_        = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*               hintLabel_ = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*               axisLabel_ = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*               jumpLabel_ = <span class="kw">nullptr</span>;
+};
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">InputActionsDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<h3><code>BindAction(name)</code> &mdash; declaring a button action</h3>
+<p>
+  <code>BindAction("Jump")</code> creates an <code>ActionBinding</code> object
+  associated with the string <code>"Jump"</code> and returns a reference to it for
+  method chaining. If a binding with that name already exists, the existing binding is
+  returned so you can add more sources at any time. The name is entirely free-form &mdash;
+  it just has to match what you pass to <code>IsActionDown</code> and
+  <code>IsActionPressed</code> later.
+</p>
+<p>
+  After the call you chain one or more source methods. The most common are
+  <code>.Key(Key::Space)</code> and <code>.GamepadButton(GamepadButton::A)</code>.
+  Each additional call registers one more source; the action is active when
+  <em>any</em> of them is active:
+</p>
+
+<pre><span class="fn">BindAction</span>(<span class="st">"Jump"</span>)
+    .<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">LCtrl</span>)         <span class="cm">// source 1: left control key</span>
+    .<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">Space</span>)          <span class="cm">// source 2: space bar</span>
+    .<span class="fn">GamepadButton</span>(<span class="ty">GamepadButton</span>::<span class="val">A</span>);  <span class="cm">// source 3: gamepad A button</span></pre>
+
+<p>
+  Declaring bindings once in <code>Start()</code> means you can change all three
+  sources in one place without touching any of the game logic in <code>Update()</code>.
+</p>
+
+<h3><code>IsActionPressed(name)</code> vs <code>IsActionDown(name)</code></h3>
+<p>
+  These two query methods exist because "button pressed" and "button held" are
+  different concepts that call for different responses in game code:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Method</th><th>Returns true when&hellip;</th><th>Typical use</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>IsActionPressed(name)</code></td>
+      <td>Any bound source transitions from released to pressed, on that single frame only</td>
+      <td>Jump, restart, open menu, fire weapon (one shot per click)</td>
+    </tr>
+    <tr>
+      <td><code>IsActionDown(name)</code></td>
+      <td>Any bound source is currently held down &mdash; true every frame until released</td>
+      <td>Hold to run, hold to charge, hold to aim, continuous thrust</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  If you use <code>IsActionDown</code> for jump, holding the button causes the
+  character to jump many times per second. Use <code>IsActionPressed</code> instead:
+  it fires only on the frame the button goes down, not during the hold.
+  Conversely, if you use <code>IsActionPressed</code> for a sprint modifier, the sprint
+  activates for only one frame and then stops &mdash; use <code>IsActionDown</code>
+  for anything that should persist while the key is held.
+</p>
+
+<h3><code>BindAxis2D(name)</code> &mdash; declaring a 2D movement axis</h3>
+<p>
+  <code>BindAxis2D("Move")</code> creates an <code>Axis2DBinding</code> and returns a
+  chainable reference. This binding type aggregates multiple input sources into a
+  single <code>Vector2</code> that you read with <code>GetAxis2D("Move")</code>.
+  The methods you chain onto it are:
+</p>
+
+<ul>
+  <li>
+    <strong><code>.Keys(left, right, down, up)</code></strong> &mdash; maps four keyboard
+    keys to the four cardinal directions. While <code>left</code> is held the X
+    component is &minus;1; while <code>right</code> is held it is +1. While
+    <code>down</code> is held the Y component is &minus;1; while <code>up</code> is
+    held it is +1. Pressing two opposing keys (left and right) at the same time
+    cancels to 0. You may call <code>.Keys()</code> more than once to register
+    alternate key sets (e.g. WASD in addition to arrow keys).
+  </li>
+  <li>
+    <strong><code>.GamepadStick(xAxis, yAxis)</code></strong> &mdash; adds an analog
+    stick pair as a source. <code>GamepadAxis::LeftX</code> maps to the result X,
+    <code>GamepadAxis::LeftY</code> maps to the result Y. The global dead zone (set
+    with <code>SetGamepadDeadZone()</code>) is applied automatically.
+  </li>
+  <li>
+    <strong><code>.InvertY(true)</code></strong> &mdash; negates the Y contribution
+    from <em>stick sources only</em>. SDL and Urho3D report pushing the stick
+    forward (away from you) as &minus;1. The keyboard Up key produces +1. Without
+    inversion the keyboard convention and stick convention conflict. <code>InvertY(true)</code>
+    flips only the stick Y so that stick-forward becomes +1, matching the keyboard.
+    Keyboard axes are unaffected by this flag.
+  </li>
+</ul>
+
+<h3><code>GetAxis2D(name)</code> &mdash; reading the 2D axis</h3>
+<p>
+  Called in <code>Update()</code>, this method reads all active sources for the
+  binding named <code>name</code>, combines them, and returns a
+  <code>Vector2</code>. The result is <strong>normalized</strong>: its length is
+  always at most 1. This means holding Up and Right simultaneously (45&deg; diagonal)
+  gives a vector of length 1, not &radic;2. Without normalization keyboard players
+  would move roughly 41% faster diagonally than straight ahead.
+</p>
+
+<pre><span class="ty">Vector2</span> move = <span class="fn">GetAxis2D</span>(<span class="st">"Move"</span>);
+<span class="cm">// move.x_ is in [−1, +1]: negative = left,  positive = right
+// move.y_ is in [−1, +1]: negative = back,  positive = forward
+// move.Length() is always ≤ 1</span>
+
+<span class="cm">// Pass straight to the CharacterController:</span>
+cc_-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(move.x_, <span class="val">0.0f</span>, move.y_) * <span class="val">MOVE_SPEED</span>, dt);
+
+<span class="cm">// Rotate the model to face the direction of movement:</span>
+<span class="kw">if</span> (move.x_ != <span class="val">0.0f</span> || move.y_ != <span class="val">0.0f</span>) {
+    <span class="ty">float</span> yaw = std::<span class="fn">atan2</span>(move.x_, move.y_) * <span class="val">57.29578f</span>;
+    player_-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">0</span>, yaw, <span class="val">0</span>));
+}</pre>
+
+<p>
+  If the binding name does not exist (was never declared with <code>BindAxis2D</code>),
+  <code>GetAxis2D</code> returns <code>Vector2::ZERO</code> safely, with no crash
+  or error log. The same safe-default behavior applies to
+  <code>IsActionDown</code> and <code>IsActionPressed</code> on missing action names
+  (they return <code>false</code>).
+</p>
+
+<h3><code>ClearInputBindings()</code> and <code>ResetInputBindings()</code></h3>
+<p>
+  <code>ClearInputBindings()</code> removes every action binding and every axis binding
+  that was registered so far. <code>ResetInputBindings()</code> is an alias with the same
+  effect; the two names exist because "reset" reads more naturally in the persistence
+  pattern where you clear first and then reload.
+</p>
+<p>
+  The most common use case is switching between scenes with incompatible control
+  schemes. A platformer level and a driving level might both use the left stick, but
+  mean completely different things by it. Calling <code>ClearInputBindings()</code>
+  before loading a new scene ensures there are no leftover bindings from the previous
+  control scheme:
+</p>
+
+<pre><span class="cm">// Switching from platformer to driving mini-game</span>
+<span class="fn">ClearInputBindings</span>();
+
+<span class="fn">BindAxis2D</span>(<span class="st">"Steer"</span>)
+    .<span class="fn">Keys</span>(<span class="ty">Key</span>::<span class="val">Left</span>, <span class="ty">Key</span>::<span class="val">Right</span>, <span class="ty">Key</span>::<span class="val">Left</span>, <span class="ty">Key</span>::<span class="val">Right</span>)
+    .<span class="fn">GamepadStick</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftX</span>, <span class="ty">GamepadAxis</span>::<span class="val">LeftY</span>);
+
+<span class="fn">BindAction</span>(<span class="st">"Accelerate"</span>)
+    .<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">Up</span>)
+    .<span class="fn">GamepadButton</span>(<span class="ty">GamepadButton</span>::<span class="val">A</span>);
+
+<span class="fn">BindAction</span>(<span class="st">"Brake"</span>)
+    .<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">Down</span>)
+    .<span class="fn">GamepadButton</span>(<span class="ty">GamepadButton</span>::<span class="val">B</span>);</pre>
+
+<h3><code>SaveInputBindings()</code> and <code>LoadInputBindings()</code></h3>
+<p>
+  These two methods persist the entire set of current bindings to a JSON file on disk
+  and reload it. The file name defaults to <code>controls.json</code> and is written
+  inside the application's save directory (<code>~/.local/share/&lt;AppName&gt;/</code>
+  on Linux, the appropriate user data folder on other platforms).
+</p>
+
+<table>
+  <thead>
+    <tr><th>Method</th><th>Returns</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>SaveInputBindings()</code></td>
+      <td><code>bool</code></td>
+      <td>Writes <code>&lt;AppName&gt;/controls.json</code>. Returns <code>false</code> on I/O error.</td>
+    </tr>
+    <tr>
+      <td><code>SaveInputBindings("mycontrols.json")</code></td>
+      <td><code>bool</code></td>
+      <td>Custom filename within the same save directory.</td>
+    </tr>
+    <tr>
+      <td><code>LoadInputBindings()</code></td>
+      <td><code>bool</code></td>
+      <td>Loads <code>controls.json</code>. Returns <code>false</code> if absent or malformed.</td>
+    </tr>
+    <tr>
+      <td><code>ResetInputBindings()</code></td>
+      <td>&mdash;</td>
+      <td>Alias for <code>ClearInputBindings()</code>. Use before re-applying defaults.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  The recommended persistence pattern is to always reset first, then attempt to load,
+  and fall back to defaults if the file is not found (first launch) or is corrupt:
+</p>
+
+<pre><span class="ty">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+{
+    <span class="fn">SetAppName</span>(<span class="st">"MyGame"</span>);
+
+    <span class="cm">// 1. Clear any previous bindings (safe to call on a fresh start).</span>
+    <span class="fn">ResetInputBindings</span>();
+
+    <span class="cm">// 2. Try to load the player's saved configuration from disk.
+    //    Returns false on first run (file does not exist yet).</span>
+    <span class="kw">if</span> (!<span class="fn">LoadInputBindings</span>()) {
+
+        <span class="cm">// 3. Fall back to built-in defaults.</span>
+        <span class="fn">BindAction</span>(<span class="st">"Jump"</span>)
+            .<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">Space</span>)
+            .<span class="fn">GamepadButton</span>(<span class="ty">GamepadButton</span>::<span class="val">A</span>);
+
+        <span class="fn">BindAxis2D</span>(<span class="st">"Move"</span>)
+            .<span class="fn">Keys</span>(<span class="ty">Key</span>::<span class="val">Left</span>, <span class="ty">Key</span>::<span class="val">Right</span>, <span class="ty">Key</span>::<span class="val">Down</span>, <span class="ty">Key</span>::<span class="val">Up</span>)
+            .<span class="fn">GamepadStick</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftX</span>, <span class="ty">GamepadAxis</span>::<span class="val">LeftY</span>)
+            .<span class="fn">InvertY</span>(<span class="kw">true</span>);
+    }
+}
+
+<span class="ty">void</span> <span class="fn">Stop</span>() <span class="kw">override</span>
+{
+    <span class="cm">// Persist the current bindings every time the game exits,
+    // so any player-configured remapping survives the next launch.</span>
+    <span class="fn">SaveInputBindings</span>();
+}</pre>
+
+<p>
+  If your game includes a rebinding UI (not covered in this tutorial &mdash; there is no
+  built-in one yet), call <code>SaveInputBindings()</code> after the player finishes
+  customizing. The JSON file stores each action and axis name together with its complete
+  list of sources, so the full configuration is restored on <code>LoadInputBindings()</code>.
+</p>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Why <code>InvertY</code> is necessary</h2>
+
+<p>
+  This is one of the most confusing aspects of mixing keyboard and analog stick
+  input, and it comes from a long-standing hardware convention.
+</p>
+
+<p>
+  SDL (the cross-platform input library used by simple-3d) reports the Y axis of every
+  analog stick in <em>screen space</em>: pushing the stick away from you (forward)
+  produces a <strong>negative</strong> value, and pulling the stick toward you
+  (backward) produces a <strong>positive</strong> value. This matches the screen-Y
+  axis convention where Y increases downward.
+</p>
+
+<p>
+  However, the keyboard axis from <code>.Keys()</code> follows the intuitive game-world
+  convention: the Up key produces <strong>+1</strong> (forward), and the Down key
+  produces <strong>&minus;1</strong> (backward).
+</p>
+
+<p>
+  Without correction, a game built around the keyboard convention would have
+  stick-forward move the character <em>backward</em>. <code>.InvertY(true)</code>
+  negates only the stick Y component so that stick-forward also produces +1, making
+  the two sources consistent. The keyboard contribution is never negated.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Action</th><th>Raw stick Y (SDL)</th><th>After InvertY(true)</th><th>Up key</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Push stick forward</td><td>&minus;1</td><td>+1</td><td>&mdash;</td></tr>
+    <tr><td>Pull stick backward</td><td>+1</td><td>&minus;1</td><td>&mdash;</td></tr>
+    <tr><td>Press Up key</td><td>&mdash;</td><td>&mdash;</td><td>+1</td></tr>
+    <tr><td>Press Down key</td><td>&mdash;</td><td>&mdash;</td><td>&minus;1</td></tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Missing bindings return safe defaults</h2>
+
+<p>
+  Querying an action or axis name that was never registered is safe in simple-3d.
+  The engine returns a predictable default value rather than crashing or logging an
+  error. This is particularly useful during development when you add a query before
+  you have finished setting up the binding:
+</p>
+
+<pre><span class="cm">// These never crash, even if "Nonexistent" was never bound:</span>
+<span class="ty">bool</span>    b1 = <span class="fn">IsActionDown</span>(<span class="st">"Nonexistent"</span>);     <span class="cm">// → false</span>
+<span class="ty">bool</span>    b2 = <span class="fn">IsActionPressed</span>(<span class="st">"Nonexistent"</span>);  <span class="cm">// → false</span>
+<span class="ty">Vector2</span> v  = <span class="fn">GetAxis2D</span>(<span class="st">"Nonexistent"</span>);        <span class="cm">// → Vector2::ZERO</span></pre>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Input Actions API quick reference</h2>
+
+<table>
+  <thead>
+    <tr><th>Method</th><th>Returns</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>BindAction(name)</code></td>
+      <td><code>ActionBinding&amp;</code></td>
+      <td>Create or retrieve; chain <code>.Key()</code> / <code>.GamepadButton()</code></td>
+    </tr>
+    <tr>
+      <td><code>BindAxis2D(name)</code></td>
+      <td><code>Axis2DBinding&amp;</code></td>
+      <td>Create or retrieve; chain <code>.Keys()</code> / <code>.GamepadStick()</code> / <code>.InvertY()</code></td>
+    </tr>
+    <tr>
+      <td><code>IsActionDown(name)</code></td>
+      <td><code>bool</code></td>
+      <td>True every frame any source is held; <code>false</code> for unknown name</td>
+    </tr>
+    <tr>
+      <td><code>IsActionPressed(name)</code></td>
+      <td><code>bool</code></td>
+      <td>True on first frame any source is pressed; <code>false</code> for unknown name</td>
+    </tr>
+    <tr>
+      <td><code>GetAxis2D(name)</code></td>
+      <td><code>Vector2</code></td>
+      <td>Normalized; length &le; 1; <code>Vector2::ZERO</code> for unknown name</td>
+    </tr>
+    <tr>
+      <td><code>ClearInputBindings()</code></td>
+      <td>&mdash;</td>
+      <td>Removes all action and axis bindings immediately</td>
+    </tr>
+    <tr>
+      <td><code>ResetInputBindings()</code></td>
+      <td>&mdash;</td>
+      <td>Alias for <code>ClearInputBindings()</code></td>
+    </tr>
+    <tr>
+      <td><code>SaveInputBindings(filename="controls.json")</code></td>
+      <td><code>bool</code></td>
+      <td>Writes to <code>&lt;AppName&gt;/controls.json</code>; returns false on error</td>
+    </tr>
+    <tr>
+      <td><code>LoadInputBindings(filename="controls.json")</code></td>
+      <td><code>bool</code></td>
+      <td>Loads from file; returns false if absent or malformed</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+
+<p>
+  The Lua scripting API mirrors C++ one-to-one. Game-level functions such as
+  <code>BindAction</code>, <code>BindAxis2D</code>, <code>IsActionPressed</code>,
+  <code>GetAxis2D</code>, <code>ClearInputBindings</code>, <code>SaveInputBindings</code>,
+  and <code>LoadInputBindings</code> are available as globals. Method chaining uses
+  Lua's colon syntax.
+</p>
+
+<pre><span class="lua-cm">-- Scripts/input_actions_demo.lua
+-- Part 16 — Input Actions equivalent in Lua</span>
+
+<span class="lua-kw">local</span> player <span class="lua-cm">-- Entity</span>
+<span class="lua-kw">local</span> cc     <span class="lua-cm">-- CharacterController</span>
+
+<span class="lua-kw">local</span> MOVE_SPEED  = <span class="lua-num">6.0</span>
+<span class="lua-kw">local</span> JUMP_VEL    = <span class="lua-num">12.0</span>
+<span class="lua-kw">local</span> RAD_TO_DEG  = <span class="lua-num">57.29578</span>
+
+<span class="lua-kw">local function</span> <span class="lua-fn">applyDefaultBindings</span>()
+    <span class="lua-fn">BindAction</span>(<span class="lua-str">"Jump"</span>)
+        :<span class="lua-fn">Key</span>(Key.LCtrl)
+        :<span class="lua-fn">Key</span>(Key.Space)
+        :<span class="lua-fn">GamepadButton</span>(GamepadButton.A)
+
+    <span class="lua-fn">BindAction</span>(<span class="lua-str">"Restart"</span>)
+        :<span class="lua-fn">Key</span>(Key.R)
+        :<span class="lua-fn">GamepadButton</span>(GamepadButton.Start)
+
+    <span class="lua-fn">BindAction</span>(<span class="lua-str">"Quit"</span>)
+        :<span class="lua-fn">Key</span>(Key.Escape)
+        :<span class="lua-fn">GamepadButton</span>(GamepadButton.B)
+
+    <span class="lua-cm">-- BindAxis2D: chain Keys and GamepadStick, then InvertY</span>
+    <span class="lua-fn">BindAxis2D</span>(<span class="lua-str">"Move"</span>)
+        :<span class="lua-fn">Keys</span>(Key.Left, Key.Right, Key.Down, Key.Up)
+        :<span class="lua-fn">GamepadStick</span>(GamepadAxis.LeftX, GamepadAxis.LeftY)
+        :<span class="lua-fn">InvertY</span>(<span class="lua-kw">true</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-fn">SetAppName</span>(<span class="lua-str">"InputActionsDemo"</span>)
+
+    <span class="lua-cm">-- Persistence: reset, try to load, fall back to defaults</span>
+    <span class="lua-fn">ResetInputBindings</span>()
+    <span class="lua-kw">if not</span> <span class="lua-fn">LoadInputBindings</span>() <span class="lua-kw">then</span>
+        <span class="lua-fn">applyDefaultBindings</span>()
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Ground</span>
+    <span class="lua-kw">local</span> ground = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Ground"</span>)
+    ground:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Plane.mdl"</span>)
+    ground:<span class="lua-fn">AddRigidBody</span>(<span class="lua-num">0.0</span>)
+    ground:<span class="lua-fn">AddBoxCollider</span>(Vector3(<span class="lua-num">30</span>, <span class="lua-num">0.2</span>, <span class="lua-num">30</span>))
+    ground:<span class="lua-fn">SetCollisionLayer</span>(CollisionLayer.StaticGeometry)
+
+    <span class="lua-cm">-- Player</span>
+    player = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Player"</span>)
+    player:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">1</span>, <span class="lua-num">0</span>)
+    player:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Hero.mdl"</span>)
+
+    cc = player:<span class="lua-fn">AddCharacterController</span>(<span class="lua-num">0.35</span>, <span class="lua-num">1.8</span>)
+    cc:<span class="lua-fn">SetGravity</span>(<span class="lua-num">25.0</span>)
+    player:<span class="lua-fn">SetCollisionLayer</span>(CollisionLayer.Actor)
+    player:<span class="lua-fn">SetCollisionMask</span>(
+        MakeCollisionMask({CollisionLayer.StaticGeometry, CollisionLayer.Trigger}))
+
+    <span class="lua-cm">-- Camera</span>
+    <span class="lua-kw">local</span> cam = <span class="lua-fn">CreateCamera</span>()
+    cam:<span class="lua-fn">Follow</span>(player, <span class="lua-num">7.0</span>, <span class="lua-num">2.5</span>)
+    cam:<span class="lua-fn">LookAt</span>(player)
+    cam:<span class="lua-fn">SetSmoothFollow</span>(<span class="lua-kw">true</span>, <span class="lua-num">5.0</span>)
+
+    <span class="lua-cm">-- Light</span>
+    <span class="lua-kw">local</span> sun = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Sun"</span>)
+    sun:<span class="lua-fn">SetRotation</span>(Quaternion(<span class="lua-num">45</span>, <span class="lua-num">30</span>, <span class="lua-num">0</span>))
+    sun:<span class="lua-fn">AddDirectionalLight</span>(Color.WHITE, <span class="lua-num">1.2</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-cm">-- IsActionPressed: one-shot, fires on the first frame the source goes down</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsActionPressed</span>(<span class="lua-str">"Quit"</span>) <span class="lua-kw">then</span>
+        <span class="lua-fn">Quit</span>()
+        <span class="lua-kw">return</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-kw">if</span> <span class="lua-fn">IsActionPressed</span>(<span class="lua-str">"Restart"</span>) <span class="lua-kw">then</span>
+        player:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">1</span>, <span class="lua-num">0</span>)
+        <span class="lua-kw">return</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- GetAxis2D: returns normalized Vector2 from keyboard or stick</span>
+    <span class="lua-kw">local</span> move = <span class="lua-fn">GetAxis2D</span>(<span class="lua-str">"Move"</span>)
+
+    <span class="lua-kw">if</span> move.x ~= <span class="lua-num">0</span> <span class="lua-kw">or</span> move.y ~= <span class="lua-num">0</span> <span class="lua-kw">then</span>
+        <span class="lua-kw">local</span> yaw = math.<span class="lua-fn">atan2</span>(move.x, move.y) * RAD_TO_DEG
+        player:<span class="lua-fn">SetRotation</span>(Quaternion(<span class="lua-num">0</span>, yaw, <span class="lua-num">0</span>))
+    <span class="lua-kw">end</span>
+
+    cc:<span class="lua-fn">Move</span>(Vector3(move.x, <span class="lua-num">0</span>, move.y) * MOVE_SPEED, dt)
+
+    <span class="lua-cm">-- IsActionPressed for jump (one-shot); IsActionDown for held states</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsActionPressed</span>(<span class="lua-str">"Jump"</span>) <span class="lua-kw">then</span>
+        cc:<span class="lua-fn">TryJump</span>(JUMP_VEL)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Stop</span>()
+    <span class="lua-cm">-- Persist the current bindings so they survive the next launch</span>
+    <span class="lua-fn">SaveInputBindings</span>()
+<span class="lua-kw">end</span></pre>
+
+<div class="callout new">
+  <h4>Lua tip: Vector2 member access</h4>
+  <p>
+    In Lua, <code>Vector2</code> members are accessed as <code>v.x</code> and
+    <code>v.y</code> (without trailing underscores). In C++ they are <code>v.x_</code>
+    and <code>v.y_</code> to match Urho3D's naming convention.
+  </p>
+</div>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Practical pattern: hold-to-sprint with action actions</h2>
+
+<p>
+  The combination of <code>IsActionDown</code> (held modifier) and the axis query
+  (direction) is the standard pattern for sprint-while-moving:
+</p>
+
+<pre><span class="cm">// In Start()</span>
+<span class="fn">BindAction</span>(<span class="st">"Sprint"</span>)
+    .<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">LShift</span>)
+    .<span class="fn">GamepadButton</span>(<span class="ty">GamepadButton</span>::<span class="val">LB</span>);
+
+<span class="cm">// In Update(dt)</span>
+<span class="ty">Vector2</span> move = <span class="fn">GetAxis2D</span>(<span class="st">"Move"</span>);
+<span class="ty">float</span>   top  = <span class="fn">IsActionDown</span>(<span class="st">"Sprint"</span>) ? <span class="val">10.0f</span> : <span class="val">5.0f</span>;
+cc_-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(move.x_, <span class="val">0.0f</span>, move.y_) * top, dt);</pre>
+
+<p>
+  Notice that the sprint check uses <code>IsActionDown</code> because sprint is a
+  persistent modifier that should stay active the entire time the key is held, while
+  jump uses <code>IsActionPressed</code> because it should fire only once per button
+  press, not every frame.
+</p>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Common mistakes</h2>
+
+<div class="callout warn">
+  <h4>Common mistakes to avoid</h4>
+  <ul>
+    <li>
+      <strong>Using <code>IsActionDown</code> for jump.</strong>
+      If you call <code>cc_-&gt;TryJump()</code> inside an <code>IsActionDown</code>
+      check, holding the jump key keeps calling <code>TryJump()</code> many times per
+      second. <code>TryJump()</code> checks <code>IsOnGround()</code> internally, so
+      while the character is airborne it will not double-jump, but the moment the
+      character lands it will immediately jump again. Use <code>IsActionPressed</code>
+      for any action that should fire only once per button press.
+    </li>
+    <li>
+      <strong>Using <code>IsActionPressed</code> for sprint or charge.</strong>
+      <code>IsActionPressed</code> returns true for exactly one frame. If you use it
+      to toggle sprint, the sprint modifier is active for only a single frame and then
+      stops. Use <code>IsActionDown</code> for any effect that should persist while the
+      key is held.
+    </li>
+    <li>
+      <strong>Forgetting <code>InvertY(true)</code> on stick axes.</strong>
+      Without inversion, pushing the analog stick forward makes the player character
+      walk <em>backward</em>. The stick Y axis is reported as negative-forward by SDL,
+      which is the opposite of the keyboard Up key which produces +1. Always add
+      <code>.InvertY(true)</code> when combining a stick source with keyboard sources
+      on the same axis.
+    </li>
+    <li>
+      <strong>Not calling <code>SetAppName()</code> before persistence.</strong>
+      <code>SaveInputBindings()</code> and <code>LoadInputBindings()</code> write to and
+      read from a directory named after the application. If you do not call
+      <code>SetAppName("MyGame")</code> before the first save, the directory defaults to
+      <code>Simple3DGame</code>, which may conflict with other projects.
+    </li>
+    <li>
+      <strong>Calling <code>LoadInputBindings()</code> without a preceding
+      <code>ResetInputBindings()</code>.</strong>
+      If existing bindings are already in memory and you load from file on top of them,
+      you may end up with duplicate sources (both the hard-coded defaults and the
+      file-based ones). Always call <code>ResetInputBindings()</code> first to start
+      with a clean slate.
+    </li>
+    <li>
+      <strong>Querying an axis that was never bound.</strong>
+      <code>GetAxis2D("Nonexistent")</code> returns <code>Vector2::ZERO</code>, which
+      means no movement &mdash; this is safe but may be confusing during development if
+      the binding name has a typo. Double-check that the name passed to
+      <code>BindAxis2D</code> exactly matches the name passed to <code>GetAxis2D</code>.
+    </li>
+    <li>
+      <strong>Expecting <code>.Keys(left, right, down, up)</code> to accept four
+      separate calls.</strong>
+      The four keys must all be passed to a single <code>.Keys()</code> call in the
+      order <em>left, right, down, up</em>. If you pass them in a different order, the
+      directions will be swapped. To add a second key set (e.g. WASD), call
+      <code>.Keys()</code> a second time on the same binding.
+    </li>
+  </ul>
+</div>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>What is not yet implemented</h2>
+
+<p>
+  simple-3d does not currently provide a built-in <strong>rebinding UI</strong>. There
+  is no menu or dialog that lets the player reassign keys at runtime. You can build your
+  own on top of the existing API: present your own UI, call <code>ClearInputBindings()</code>
+  followed by <code>BindAction()</code> / <code>BindAxis2D()</code> with the new keys,
+  and then call <code>SaveInputBindings()</code> to persist the choices. The JSON format
+  and file path are stable, so a custom rebinding UI written today will continue to work
+  with future engine versions.
+</p>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>What you learned</h2>
+
+<ul>
+  <li>
+    Raw key and button checks scattered across game code create a maintenance problem.
+    Input Actions replace them with a single declaration per action and a single query
+    per action, decoupling the input source from the game logic entirely.
+  </li>
+  <li>
+    <code>BindAction(name)</code> declares a named button action. Chaining
+    <code>.Key()</code> and <code>.GamepadButton()</code> adds multiple sources; any one
+    being active satisfies the action. The same name is passed to
+    <code>IsActionDown</code> and <code>IsActionPressed</code> in <code>Update()</code>.
+  </li>
+  <li>
+    <code>IsActionPressed</code> fires on the first frame a source goes down;
+    <code>IsActionDown</code> fires every frame the source is held. Use
+    <code>IsActionPressed</code> for one-shot events (jump, restart, fire) and
+    <code>IsActionDown</code> for continuous modifiers (sprint, charge, aim).
+  </li>
+  <li>
+    <code>BindAxis2D(name)</code> declares a named 2D movement axis.
+    <code>.Keys(left, right, down, up)</code> maps four keyboard keys;
+    <code>.GamepadStick(xAxis, yAxis)</code> adds an analog stick pair.
+    <code>.InvertY(true)</code> corrects the SDL stick Y convention so
+    stick-forward produces the same +Y as the Up key.
+  </li>
+  <li>
+    <code>GetAxis2D(name)</code> returns a normalized <code>Vector2</code> with length
+    at most 1, so diagonal keyboard movement is never faster than straight movement.
+    Pass the result directly to <code>CharacterController::Move()</code>.
+  </li>
+  <li>
+    <code>ClearInputBindings()</code> (or its alias <code>ResetInputBindings()</code>)
+    removes all registered bindings at once. Use it when switching between scenes that
+    have incompatible control schemes.
+  </li>
+  <li>
+    <code>SaveInputBindings()</code> persists the current bindings to a JSON file in the
+    application's save directory. <code>LoadInputBindings()</code> restores them. The
+    recommended pattern is: reset, try to load, fall back to defaults if the file is
+    absent (first launch). Call <code>SaveInputBindings()</code> in <code>Stop()</code>
+    so customized bindings survive the next session.
+  </li>
+  <li>
+    The Lua API is identical: the same global functions exist, and method chaining uses
+    Lua's colon syntax. <code>Vector2</code> members are accessed as
+    <code>v.x</code> and <code>v.y</code> (no trailing underscores).
+  </li>
+</ul>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-15.html">&#8592; Part 15: Gamepad Input</a>
+  <a href="tutorial-17.html">Part 17: UI System &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

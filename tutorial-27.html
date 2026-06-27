@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 27: Debug Draw — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li class="active"><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 27</div>
+
+<h1><span class="tutorial-part">Part 27 of 30</span>Debug Draw</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>SetDebugDrawEnabled(bool)</code> &mdash;
+    <code>IsDebugDrawEnabled()</code> &mdash;
+    <code>DrawDebugLine(from, to, color=WHITE)</code> &mdash;
+    <code>DrawDebugBox(center, halfSize, color=WHITE)</code> &mdash;
+    <code>DrawDebugSphere(center, radius, color=WHITE)</code> &mdash;
+    <code>DrawDebugText(worldPos, text, color=WHITE)</code> &mdash;
+    zero-cost no-ops in release builds, visualizing colliders, nav mesh paths, AI state, and trigger zones.
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ──────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How to enable the debug draw subsystem once with <code>SetDebugDrawEnabled(true)</code> and query its state with <code>IsDebugDrawEnabled()</code>.</li>
+  <li>How to toggle debug visualization at runtime with a key press, so it can be switched on and off without recompiling.</li>
+  <li>How to draw one-frame world-space lines with <code>DrawDebugLine</code> to visualize rays, velocity vectors, and nav mesh paths.</li>
+  <li>How to draw axis-aligned wireframe boxes with <code>DrawDebugBox</code> to overlay collider extents and trigger zone boundaries.</li>
+  <li>How to draw wireframe spheres with <code>DrawDebugSphere</code> to visualize detection radii and sphere colliders.</li>
+  <li>How to place one-frame billboard text labels in 3D space with <code>DrawDebugText</code> to display entity names, HP values, and AI state.</li>
+  <li>Why all <code>DrawDebug*</code> calls are zero-cost no-ops when debug draw is disabled and how to gate the enable call behind a build flag.</li>
+  <li>Practical patterns for visualizing physics colliders, navigation paths, AI behavior, and trigger volumes.</li>
+</ul>
+
+<!-- ─── BACKGROUND ───────────────────────────────────────────────── -->
+<h2>Background: what debug draw is and how it works</h2>
+
+<p>
+  During development it is invaluable to see invisible data: the exact shape of a
+  physics collider, the waypoints a nav agent computed, the detection radius of an
+  enemy, the bounds of a trigger zone, the current AI state printed above an NPC's
+  head.  Debug draw provides exactly these overlays without requiring you to place
+  persistent scene geometry, add UI elements, or rebuild assets.
+</p>
+
+<p>
+  All <code>DrawDebug*</code> geometry calls submit wireframe primitives to Urho3D's
+  built-in <code>DebugRenderer</code>.  The renderer auto-clears them at the start of
+  each new frame, so you simply call them every <code>Update</code> tick and they
+  appear for exactly one frame.  <code>DrawDebugText</code> works slightly differently:
+  it creates a temporary <code>Text3D</code> scene node that is also removed at the
+  beginning of the next frame.
+</p>
+
+<p>
+  Crucially, when <code>SetDebugDrawEnabled(false)</code> (the default), every
+  <code>DrawDebug*</code> call returns immediately without touching the renderer or
+  allocating memory.  Calling <code>SetDebugDrawEnabled(true)</code> only in debug
+  builds &mdash; or behind a runtime toggle &mdash; means shipping code pays exactly
+  zero overhead from debug draw calls left in your <code>Update</code> loops.
+</p>
+
+<div class="grid2">
+  <div class="card card-green">
+    <h3>Geometry primitives</h3>
+    <p>
+      Lines, boxes, and spheres are rendered by Urho3D's <code>DebugRenderer</code>
+      as single-pixel wireframes.  They appear on top of scene geometry and are
+      automatically cleared every frame.  No persistent nodes are created; submit
+      the calls each tick in <code>Update()</code>.
+    </p>
+  </div>
+  <div class="card card-blue">
+    <h3>Billboard text</h3>
+    <p>
+      <code>DrawDebugText</code> creates a <code>Text3D</code> node at the given
+      world position.  The node always faces the camera (billboard mode) and is
+      removed at the start of the next <code>HandleUpdate</code>.  Disabling debug
+      draw mid-frame with <code>SetDebugDrawEnabled(false)</code> also removes any
+      pending text nodes immediately.
+    </p>
+  </div>
+</div>
+
+<!-- ─── COMPLETE EXAMPLE ──────────────────────────────────────────── -->
+<h2>Complete working example</h2>
+
+<p>
+  The example below builds a small scene with a player, several AI patrol enemies,
+  a trigger zone, and a navigation target.  Press <kbd>F1</kbd> to toggle the debug
+  overlay on and off.  When enabled, you will see collider boxes and spheres on every
+  entity, a path line from the first enemy to the player, detection radius circles on
+  all enemies, floating state labels above each enemy, and a box outline around the
+  trigger zone.
+</p>
+
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="cm">// ────────────────────────────────────────────────────────────────────
+// DebugDrawDemo — showcases all DrawDebug* helpers in one scene.
+// Press F1 to toggle the debug overlay at runtime.
+// ────────────────────────────────────────────────────────────────────</span>
+<span class="kw">class</span> <span class="ty">DebugDrawDemo</span> : <span class="kw">public</span> <span class="ty">Game</span>
+{
+<span class="kw">public</span>:
+    <span class="cm">// ── Scene entities ────────────────────────────────────────────────</span>
+    <span class="ty">Entity</span>*  player_        = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*  navTarget_     = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*  triggerZone_   = <span class="kw">nullptr</span>;
+    <span class="ty">Camera</span>*  cam_           = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── Enemies — tagged "enemy" for batch retrieval ──────────────────</span>
+    <span class="ty">std::vector</span>&lt;<span class="ty">Entity</span>*&gt; enemies_;
+
+    <span class="cm">// ── AI states for the enemies ─────────────────────────────────────</span>
+    <span class="ty">std::vector</span>&lt;<span class="ty">String</span>&gt;  enemyStates_;
+
+    <span class="cm">// ── Detection radius that each enemy uses ─────────────────────────</span>
+    <span class="kw">static constexpr</span> <span class="ty">float</span> DETECT_RADIUS = <span class="val">5.0f</span>;
+
+    <span class="cm">// ── Trigger zone half-size ────────────────────────────────────────</span>
+    <span class="kw">static constexpr</span> <span class="ty">float</span> TRIGGER_HALF = <span class="val">3.0f</span>;
+
+    <span class="cm">// ── Player speed ─────────────────────────────────────────────────</span>
+    <span class="kw">static constexpr</span> <span class="ty">float</span> SPEED = <span class="val">5.0f</span>;
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // Start() — build the scene and enable debug draw in debug builds.
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="fn">SetAppName</span>(<span class="st">"DebugDrawDemo"</span>);
+
+        <span class="cm">// ── Debug draw: enable only in debug builds. ─────────────────
+        // When disabled (the default) every DrawDebug* call is a
+        // zero-cost no-op, so it is safe to leave them in Update()
+        // unconditionally for shipping code.</span>
+<span class="pp">#ifdef _DEBUG</span>
+        <span class="fn">SetDebugDrawEnabled</span>(<span class="kw">true</span>);
+<span class="pp">#endif</span>
+
+        <span class="cm">// ── Ground plane ─────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground-&gt;<span class="fn">SetScale</span>(<span class="ty">Vector3</span>(<span class="val">30.0f</span>, <span class="val">1.0f</span>, <span class="val">30.0f</span>));
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);                       <span class="cm">// mass 0 = static</span>
+        ground-&gt;<span class="fn">AddCollisionShape</span>(<span class="ty">CollisionShape</span>::<span class="val">Box</span>,
+                                    <span class="ty">Vector3</span>(<span class="val">15.0f</span>, <span class="val">0.1f</span>, <span class="val">15.0f</span>));
+
+        <span class="cm">// ── Player ───────────────────────────────────────────────────</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        player_-&gt;<span class="fn">SetScale</span>(<span class="val">0.8f</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">0.5f</span>, <span class="val">0.0f</span>));
+        player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.4f</span>, <span class="val">0.8f</span>);
+
+        <span class="cm">// ── Trigger zone (invisible box at the far end of the arena) ─</span>
+        triggerZone_ = <span class="fn">CreateEntity</span>(<span class="st">"TriggerZone"</span>);
+        triggerZone_-&gt;<span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">10.0f</span>, <span class="val">1.5f</span>, <span class="val">10.0f</span>));
+        triggerZone_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        triggerZone_-&gt;<span class="fn">AddCollisionShape</span>(<span class="ty">CollisionShape</span>::<span class="val">Box</span>,
+                                         <span class="ty">Vector3</span>(TRIGGER_HALF,
+                                                 TRIGGER_HALF,
+                                                 TRIGGER_HALF));
+        triggerZone_-&gt;<span class="fn">SetTrigger</span>(<span class="kw">true</span>);
+        triggerZone_-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>](<span class="ty">Entity</span>* other) {
+            <span class="kw">if</span> (other == player_)
+                <span class="fn">Log</span>(<span class="st">"Player entered trigger zone!"</span>);
+        });
+
+        <span class="cm">// ── Navigation target marker ──────────────────────────────────</span>
+        navTarget_ = <span class="fn">CreateEntity</span>(<span class="st">"NavTarget"</span>);
+        navTarget_-&gt;<span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">8.0f</span>, <span class="val">0.0f</span>, <span class="val">8.0f</span>));
+
+        <span class="cm">// ── Spawn three patrol enemies ────────────────────────────────</span>
+        <span class="ty">Vector3</span> spawnPositions[] = {
+            <span class="ty">Vector3</span>(-<span class="val">4.0f</span>, <span class="val">0.5f</span>,  <span class="val">4.0f</span>),
+            <span class="ty">Vector3</span>( <span class="val">4.0f</span>, <span class="val">0.5f</span>, -<span class="val">4.0f</span>),
+            <span class="ty">Vector3</span>(-<span class="val">6.0f</span>, <span class="val">0.5f</span>, -<span class="val">6.0f</span>)
+        };
+        <span class="ty">String</span> enemyNames[] = { <span class="st">"EnemyA"</span>, <span class="st">"EnemyB"</span>, <span class="st">"EnemyC"</span> };
+
+        <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i &lt; <span class="val">3</span>; ++i)
+        {
+            <span class="ty">Entity</span>* e = <span class="fn">CreateEntity</span>(enemyNames[i]);
+            e-&gt;<span class="fn">SetTag</span>(<span class="st">"enemy"</span>);
+            e-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Cone.mdl"</span>);
+            e-&gt;<span class="fn">SetScale</span>(<span class="val">0.7f</span>);
+            e-&gt;<span class="fn">SetPosition</span>(spawnPositions[i]);
+            e-&gt;<span class="fn">AddRigidBody</span>(<span class="val">1.0f</span>);
+            e-&gt;<span class="fn">AddCollisionShape</span>(<span class="ty">CollisionShape</span>::<span class="val">Capsule</span>,
+                                  <span class="ty">Vector3</span>(<span class="val">0.35f</span>, <span class="val">0.7f</span>, <span class="val">0.35f</span>));
+            enemies_.<span class="fn">push_back</span>(e);
+            enemyStates_.<span class="fn">push_back</span>(<span class="st">"Patrol"</span>);
+        }
+
+        <span class="cm">// ── Lighting ─────────────────────────────────────────────────</span>
+        <span class="fn">SetAmbientLight</span>(<span class="ty">Color</span>(<span class="val">0.3f</span>, <span class="val">0.3f</span>, <span class="val">0.3f</span>));
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.95f</span>, <span class="val">0.8f</span>), <span class="val">1.2f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45.0f</span>, <span class="val">30.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── Camera ───────────────────────────────────────────────────</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">Follow</span>(player_, <span class="val">10.0f</span>, <span class="val">4.0f</span>);
+        cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">5.0f</span>);
+
+        <span class="cm">// ── HUD hint ─────────────────────────────────────────────────</span>
+        <span class="ty">Label</span>* hint = <span class="fn">CreateLabel</span>(
+            <span class="st">"WASD = move   F1 = toggle debug draw"</span>);
+        hint-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">10</span>);
+        hint-&gt;<span class="fn">SetFontSize</span>(<span class="val">15</span>);
+        hint-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>);
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // Update() — player movement, AI logic, and all debug draw calls.
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="cm">// ── Toggle debug draw with F1 ─────────────────────────────────</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">F1</span>))
+            <span class="fn">SetDebugDrawEnabled</span>(!<span class="fn">IsDebugDrawEnabled</span>());
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Escape</span>))
+            <span class="fn">Quit</span>();
+
+        <span class="cm">// ── Player movement ───────────────────────────────────────────</span>
+        <span class="fn">HandleMovement</span>(dt);
+
+        <span class="cm">// ── Minimal AI: decide state per enemy ───────────────────────</span>
+        <span class="ty">Vector3</span> playerPos = player_-&gt;<span class="fn">GetPosition</span>();
+        <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i &lt; (<span class="ty">int</span>)enemies_.<span class="fn">size</span>(); ++i)
+        {
+            <span class="ty">float</span> dist = (enemies_[i]-&gt;<span class="fn">GetPosition</span>() - playerPos).<span class="fn">Length</span>();
+            enemyStates_[i] = (dist &lt; DETECT_RADIUS) ? <span class="st">"Chase!"</span> : <span class="st">"Patrol"</span>;
+        }
+
+        <span class="cm">// ── All debug draw calls ──────────────────────────────────────
+        // When SetDebugDrawEnabled(false) all calls below are no-ops.
+        // In release builds compiled with _DEBUG undefined and
+        // SetDebugDrawEnabled never called, they cost nothing.</span>
+
+        <span class="fn">DrawColliderOverlays</span>();
+        <span class="fn">DrawEnemyDebug</span>();
+        <span class="fn">DrawNavPath</span>();
+        <span class="fn">DrawTriggerZoneOverlay</span>();
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // DrawColliderOverlays() — draw a white box around the player and
+    // cyan boxes around each static obstacle to make collider shapes
+    // visible without opening a physics debugger.
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">DrawColliderOverlays</span>()
+    {
+        <span class="cm">// Player has a capsule controller; approximate it with a box overlay.</span>
+        <span class="fn">DrawDebugBox</span>(
+            player_-&gt;<span class="fn">GetPosition</span>(),
+            <span class="ty">Vector3</span>(<span class="val">0.4f</span>, <span class="val">0.8f</span>, <span class="val">0.4f</span>),
+            <span class="ty">Color</span>::<span class="val">WHITE</span>);
+
+        <span class="cm">// Ground plane — show its thin box collider in grey.</span>
+        <span class="fn">DrawDebugBox</span>(
+            <span class="ty">Vector3</span>(<span class="val">0.0f</span>, -<span class="val">0.05f</span>, <span class="val">0.0f</span>),
+            <span class="ty">Vector3</span>(<span class="val">15.0f</span>, <span class="val">0.1f</span>, <span class="val">15.0f</span>),
+            <span class="ty">Color</span>(<span class="val">0.5f</span>, <span class="val">0.5f</span>, <span class="val">0.5f</span>, <span class="val">1.0f</span>));
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // DrawEnemyDebug() — for each enemy draw:
+    //   • a red sphere at their feet (capsule collider approximation)
+    //   • a yellow sphere showing their detection radius
+    //   • a floating text label with their name and AI state
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">DrawEnemyDebug</span>()
+    {
+        <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i &lt; (<span class="ty">int</span>)enemies_.<span class="fn">size</span>(); ++i)
+        {
+            <span class="ty">Entity</span>* e     = enemies_[i];
+            <span class="ty">Vector3</span> pos   = e-&gt;<span class="fn">GetPosition</span>();
+            <span class="ty">bool</span>    chasing = (enemyStates_[i] == <span class="st">"Chase!"</span>);
+
+            <span class="cm">// Capsule collider — show as a small red sphere at the base.</span>
+            <span class="fn">DrawDebugSphere</span>(pos, <span class="val">0.35f</span>, <span class="ty">Color</span>::<span class="val">RED</span>);
+
+            <span class="cm">// Detection radius — yellow when patrolling, magenta when chasing.</span>
+            <span class="ty">Color</span> radiusCol = chasing
+                ? <span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>)   <span class="cm">// magenta</span>
+                : <span class="ty">Color</span>::<span class="val">YELLOW</span>;
+            <span class="fn">DrawDebugSphere</span>(pos, DETECT_RADIUS, radiusCol);
+
+            <span class="cm">// Line from enemy to player when chasing — shows the pursuit vector.</span>
+            <span class="kw">if</span> (chasing)
+            {
+                <span class="fn">DrawDebugLine</span>(
+                    pos,
+                    player_-&gt;<span class="fn">GetPosition</span>(),
+                    <span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.4f</span>, <span class="val">0.0f</span>, <span class="val">1.0f</span>));   <span class="cm">// orange</span>
+            }
+
+            <span class="cm">// Billboard text label 2.2 units above the entity origin.</span>
+            <span class="ty">Vector3</span> labelPos = pos + <span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">2.2f</span>, <span class="val">0.0f</span>);
+            <span class="ty">String</span>  label    = e-&gt;<span class="fn">GetName</span>() + <span class="st">": "</span> + enemyStates_[i];
+            <span class="ty">Color</span>   textCol  = chasing
+                ? <span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.3f</span>, <span class="val">0.3f</span>, <span class="val">1.0f</span>)     <span class="cm">// red-ish when chasing</span>
+                : <span class="ty">Color</span>::<span class="val">WHITE</span>;
+            <span class="fn">DrawDebugText</span>(labelPos, label, textCol);
+        }
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // DrawNavPath() — compute the nav mesh path from the first enemy
+    // to the nav target and draw each path segment as a cyan line.
+    // This makes it easy to verify that pathfinding is working.
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">DrawNavPath</span>()
+    {
+        <span class="kw">if</span> (enemies_.<span class="fn">empty</span>()) <span class="kw">return</span>;
+
+        <span class="ty">auto</span> path = enemies_[<span class="val">0</span>]-&gt;<span class="fn">FindPath</span>(navTarget_-&gt;<span class="fn">GetPosition</span>());
+
+        <span class="cm">// Draw each segment of the computed path.</span>
+        <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i + <span class="val">1</span> &lt; (<span class="ty">int</span>)path.<span class="fn">size</span>(); ++i)
+            <span class="fn">DrawDebugLine</span>(path[i], path[i + <span class="val">1</span>], <span class="ty">Color</span>::<span class="val">CYAN</span>);
+
+        <span class="cm">// Mark each waypoint with a small yellow sphere.</span>
+        <span class="kw">for</span> (<span class="kw">const</span> <span class="ty">Vector3</span>&amp; wp : path)
+            <span class="fn">DrawDebugSphere</span>(wp, <span class="val">0.12f</span>, <span class="ty">Color</span>::<span class="val">YELLOW</span>);
+
+        <span class="cm">// Label the destination.</span>
+        <span class="kw">if</span> (!path.<span class="fn">empty</span>())
+        {
+            <span class="fn">DrawDebugText</span>(
+                navTarget_-&gt;<span class="fn">GetPosition</span>() + <span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">1.5f</span>, <span class="val">0.0f</span>),
+                <span class="st">"NavTarget"</span>,
+                <span class="ty">Color</span>::<span class="val">CYAN</span>);
+        }
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // DrawTriggerZoneOverlay() — draw a green wire box at the trigger's
+    // position and size so artists can see the invisible volume.
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">DrawTriggerZoneOverlay</span>()
+    {
+        <span class="fn">DrawDebugBox</span>(
+            triggerZone_-&gt;<span class="fn">GetPosition</span>(),
+            <span class="ty">Vector3</span>(TRIGGER_HALF, TRIGGER_HALF, TRIGGER_HALF),
+            <span class="ty">Color</span>::<span class="val">GREEN</span>);
+
+        <span class="fn">DrawDebugText</span>(
+            triggerZone_-&gt;<span class="fn">GetPosition</span>() + <span class="ty">Vector3</span>(<span class="val">0.0f</span>, TRIGGER_HALF + <span class="val">0.5f</span>, <span class="val">0.0f</span>),
+            <span class="st">"Trigger Zone"</span>,
+            <span class="ty">Color</span>::<span class="val">GREEN</span>);
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">HandleMovement</span>(<span class="ty">float</span> dt)
+    {
+        <span class="ty">CharacterController</span>* cc =
+            player_-&gt;<span class="fn">GetComponent</span>&lt;<span class="ty">CharacterController</span>&gt;();
+        <span class="kw">if</span> (!cc) <span class="kw">return</span>;
+
+        <span class="ty">float</span> mx = <span class="val">0.0f</span>, mz = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">A</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Left</span>))  mx -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">D</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Right</span>)) mx += <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">W</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Up</span>))    mz -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">S</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Down</span>))  mz += <span class="val">1.0f</span>;
+
+        cc-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(mx, <span class="val">0.0f</span>, mz) * SPEED, dt);
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Space</span>) &amp;&amp; cc-&gt;<span class="fn">IsOnGround</span>())
+            cc-&gt;<span class="fn">TryJump</span>(<span class="val">8.0f</span>);
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">DebugDrawDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ──────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<!-- SetDebugDrawEnabled -->
+<h3>SetDebugDrawEnabled(bool)</h3>
+<p>
+  This is the master switch for the debug draw subsystem.  When set to
+  <code>false</code> (the default), all <code>DrawDebug*</code> calls are complete
+  no-ops: they do not touch the renderer, do not allocate memory, and return
+  immediately.  The flag is checked at the entry point of each helper, so even
+  thousands of <code>DrawDebugSphere</code> calls scattered through a large
+  <code>Update</code> loop cost nothing in a build where the flag has never been
+  set to <code>true</code>.
+</p>
+<p>
+  Call it once in <code>Start()</code>.  The canonical pattern is to gate it behind
+  the preprocessor so release builds never enable it accidentally:
+</p>
+
+<pre><span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+{
+<span class="pp">#ifdef _DEBUG</span>
+    <span class="fn">SetDebugDrawEnabled</span>(<span class="kw">true</span>);
+<span class="pp">#endif</span>
+}</pre>
+
+<p>
+  You can also allow the player (or an internal developer menu) to toggle it at
+  runtime using <code>IsDebugDrawEnabled()</code> as the current state query:
+</p>
+
+<pre><span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+{
+    <span class="cm">// F1 flips the current state — no explicit true/false needed.</span>
+    <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">F1</span>))
+        <span class="fn">SetDebugDrawEnabled</span>(!<span class="fn">IsDebugDrawEnabled</span>());
+}</pre>
+
+<p>
+  When you call <code>SetDebugDrawEnabled(false)</code> while debug draw is active,
+  any <code>Text3D</code> billboard nodes that were created by <code>DrawDebugText</code>
+  in the current frame are removed immediately.  Geometry submitted to the
+  <code>DebugRenderer</code> is cleared at the end of the frame regardless.
+</p>
+
+<!-- DrawDebugLine -->
+<h3>DrawDebugLine(from, to, color=WHITE)</h3>
+<p>
+  Submits a single line segment to Urho3D's <code>DebugRenderer</code>.  The line
+  exists for exactly one frame and is automatically cleared before the next
+  <code>Update</code> runs.  You must call it every frame for a persistent visual.
+  It is the most versatile primitive: use it for velocity arrows, ray cast paths,
+  bone chains, field-of-view edges, or any directed relationship between two
+  world positions.
+</p>
+
+<pre><span class="cm">// Simplest form — white line between two points</span>
+<span class="fn">DrawDebugLine</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>),
+              <span class="ty">Vector3</span>(<span class="val">5.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>));
+
+<span class="cm">// Colored line between two entity positions</span>
+<span class="fn">DrawDebugLine</span>(shooter-&gt;<span class="fn">GetPosition</span>(),
+              target-&gt;<span class="fn">GetPosition</span>(),
+              <span class="ty">Color</span>::<span class="val">RED</span>);
+
+<span class="cm">// Velocity vector: draw from entity position scaled by velocity</span>
+<span class="ty">Vector3</span> vel = rb-&gt;<span class="fn">GetLinearVelocity</span>();
+<span class="fn">DrawDebugLine</span>(entity-&gt;<span class="fn">GetPosition</span>(),
+              entity-&gt;<span class="fn">GetPosition</span>() + vel,
+              <span class="ty">Color</span>::<span class="val">YELLOW</span>);
+
+<span class="cm">// Visualise a nav path — call in a loop across path waypoints</span>
+<span class="kw">auto</span> path = agent-&gt;<span class="fn">FindPath</span>(destination);
+<span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i + <span class="val">1</span> &lt; (<span class="ty">int</span>)path.<span class="fn">size</span>(); ++i)
+    <span class="fn">DrawDebugLine</span>(path[i], path[i + <span class="val">1</span>], <span class="ty">Color</span>::<span class="val">CYAN</span>);</pre>
+
+<!-- DrawDebugBox -->
+<h3>DrawDebugBox(center, halfSize, color=WHITE)</h3>
+<p>
+  Draws a wireframe axis-aligned bounding box (AABB) centered at <code>center</code>
+  with half-extents <code>halfSize</code>.  Because the box is axis-aligned, its edges
+  always run parallel to the world X, Y, and Z axes.  This is the right tool for
+  visualizing <code>CollisionShape::Box</code> colliders, spawn area bounds, grid
+  cells, and trigger volumes.
+</p>
+<p>
+  The <code>halfSize</code> parameter uses <em>half</em> extents, matching the
+  convention used by <code>AddCollisionShape</code>.  If your collision shape was
+  created with <code>Vector3(2.0f, 1.0f, 2.0f)</code>, pass the same vector directly
+  to <code>DrawDebugBox</code> to see the exact collider boundary:
+</p>
+
+<pre><span class="cm">// Mirror a box collider exactly — same half-extents as AddCollisionShape</span>
+<span class="ty">Vector3</span> halfExtents(<span class="val">2.0f</span>, <span class="val">1.0f</span>, <span class="val">2.0f</span>);
+entity-&gt;<span class="fn">AddCollisionShape</span>(<span class="ty">CollisionShape</span>::<span class="val">Box</span>, halfExtents);
+<span class="fn">DrawDebugBox</span>(entity-&gt;<span class="fn">GetPosition</span>(), halfExtents, <span class="ty">Color</span>::<span class="val">GREEN</span>);
+
+<span class="cm">// Trigger zone — green so it stands out from physics colliders</span>
+<span class="fn">DrawDebugBox</span>(
+    triggerEntity-&gt;<span class="fn">GetPosition</span>(),
+    <span class="ty">Vector3</span>(<span class="val">3.0f</span>, <span class="val">3.0f</span>, <span class="val">3.0f</span>),
+    <span class="ty">Color</span>::<span class="val">GREEN</span>);
+
+<span class="cm">// Grid cell in a procedural level — iterate and draw each cell</span>
+<span class="kw">for</span> (<span class="ty">int</span> z = <span class="val">0</span>; z &lt; GRID_H; ++z)
+    <span class="kw">for</span> (<span class="ty">int</span> x = <span class="val">0</span>; x &lt; GRID_W; ++x)
+    {
+        <span class="ty">Vector3</span> cellCenter(x * CELL_SIZE, <span class="val">0.0f</span>, z * CELL_SIZE);
+        <span class="fn">DrawDebugBox</span>(cellCenter,
+                     <span class="ty">Vector3</span>(CELL_SIZE * <span class="val">0.5f</span>, <span class="val">0.05f</span>, CELL_SIZE * <span class="val">0.5f</span>),
+                     <span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.2f</span>, <span class="val">0.8f</span>, <span class="val">1.0f</span>));
+    }</pre>
+
+<!-- DrawDebugSphere -->
+<h3>DrawDebugSphere(center, radius, color=WHITE)</h3>
+<p>
+  Draws a wireframe sphere at <code>center</code> with the given <code>radius</code>.
+  Internally this renders several latitude and longitude circle arcs to approximate
+  the sphere shell.  It is ideal for visualizing sphere colliders, detection radii,
+  explosion blast radii, audio attenuation ranges, and any other concept that is
+  fundamentally circular in all directions.
+</p>
+
+<pre><span class="cm">// Show a sphere collider in red</span>
+<span class="fn">DrawDebugSphere</span>(entity-&gt;<span class="fn">GetPosition</span>(), <span class="val">0.5f</span>, <span class="ty">Color</span>::<span class="val">RED</span>);
+
+<span class="cm">// Enemy detection radius — yellow when idle, magenta when alert</span>
+<span class="ty">Color</span> col = enemy-&gt;<span class="fn">IsAlert</span>()
+    ? <span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>)
+    : <span class="ty">Color</span>::<span class="val">YELLOW</span>;
+<span class="fn">DrawDebugSphere</span>(enemy-&gt;<span class="fn">GetPosition</span>(), DETECT_RADIUS, col);
+
+<span class="cm">// Explosion blast radius — briefly visible on detonation frame</span>
+<span class="fn">DrawDebugSphere</span>(blastCenter, blastRadius,
+               <span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.5f</span>, <span class="val">0.0f</span>, <span class="val">1.0f</span>));   <span class="cm">// orange</span>
+
+<span class="cm">// Nav path waypoints — tiny spheres at each position</span>
+<span class="kw">for</span> (<span class="kw">const</span> <span class="ty">Vector3</span>&amp; wp : path)
+    <span class="fn">DrawDebugSphere</span>(wp, <span class="val">0.1f</span>, <span class="ty">Color</span>::<span class="val">CYAN</span>);</pre>
+
+<!-- DrawDebugText -->
+<h3>DrawDebugText(worldPos, text, color=WHITE)</h3>
+<p>
+  Places a <code>Text3D</code> scene node at <code>worldPos</code> that always faces
+  the camera (billboard mode).  The node is removed at the start of the next
+  <code>HandleUpdate</code>, so calling this once per frame gives a persistent label
+  with no manual cleanup.  This is the quickest way to put readable information
+  directly in 3D space: entity names, health points, physics body states, AI state
+  machine transitions, or any string value you want to inspect in context.
+</p>
+<p>
+  Position the text slightly above the entity so it clears the mesh.  A Y offset
+  between <code>1.5f</code> and <code>2.5f</code> works well for human-scale characters:
+</p>
+
+<pre><span class="cm">// Entity name floating above its head</span>
+<span class="fn">DrawDebugText</span>(
+    entity-&gt;<span class="fn">GetPosition</span>() + <span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">2.2f</span>, <span class="val">0.0f</span>),
+    entity-&gt;<span class="fn">GetName</span>());
+
+<span class="cm">// Health value with a warm-color tint</span>
+<span class="fn">DrawDebugText</span>(
+    entity-&gt;<span class="fn">GetPosition</span>() + <span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">2.0f</span>, <span class="val">0.0f</span>),
+    <span class="st">"HP: "</span> + <span class="ty">String</span>(currentHp),
+    <span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.5f</span>, <span class="val">0.0f</span>, <span class="val">1.0f</span>));
+
+<span class="cm">// AI state — colour-coded: white=patrol, red=chase, green=search</span>
+<span class="ty">Color</span> stateColor =
+    (state == AIState::Chase)  ? <span class="ty">Color</span>::<span class="val">RED</span>   :
+    (state == AIState::Search) ? <span class="ty">Color</span>::<span class="val">GREEN</span> :
+                                 <span class="ty">Color</span>::<span class="val">WHITE</span>;
+<span class="fn">DrawDebugText</span>(
+    enemy-&gt;<span class="fn">GetPosition</span>() + <span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">2.5f</span>, <span class="val">0.0f</span>),
+    aiStateToString(state),
+    stateColor);
+
+<span class="cm">// Batch-label all entities tagged "interactable"</span>
+<span class="kw">for</span> (<span class="ty">Entity</span>* e : <span class="fn">FindEntitiesByTag</span>(<span class="st">"interactable"</span>))
+    <span class="fn">DrawDebugText</span>(
+        e-&gt;<span class="fn">GetPosition</span>() + <span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">1.8f</span>, <span class="val">0.0f</span>),
+        e-&gt;<span class="fn">GetName</span>(),
+        <span class="ty">Color</span>::<span class="val">WHITE</span>);</pre>
+
+<!-- Zero cost in release -->
+<h3>Zero overhead in release builds</h3>
+<p>
+  Every <code>DrawDebug*</code> function begins with a single branch on the enabled
+  flag.  When the flag is <code>false</code>, the function returns immediately.  No
+  vector math, no renderer submissions, no string construction.  This means you can
+  write expressive debug draw calls spread throughout your <code>Update</code>,
+  AI, and physics code and leave them there permanently: in a release build compiled
+  without calling <code>SetDebugDrawEnabled(true)</code> they cost one branch each
+  at most &mdash; typically far less than a cache miss or a renderer state change.
+</p>
+<p>
+  For the most conservative approach, combine the runtime flag with a preprocessor
+  guard so the calls are completely elided in release compilation:
+</p>
+
+<pre><span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+{
+<span class="pp">#ifdef _DEBUG</span>
+    <span class="fn">SetDebugDrawEnabled</span>(<span class="kw">true</span>);
+<span class="pp">#endif</span>
+}
+
+<span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+{
+    <span class="cm">// These calls are in shipping code.
+    // In _DEBUG builds: rendered as wireframes.
+    // In release builds: SetDebugDrawEnabled was never called, so
+    //                    each call returns immediately, costing ~1 ns.</span>
+    <span class="fn">DrawDebugSphere</span>(player_-&gt;<span class="fn">GetPosition</span>(), <span class="val">0.5f</span>, <span class="ty">Color</span>::<span class="val">WHITE</span>);
+    <span class="fn">DrawDebugBox</span>(triggerZone_-&gt;<span class="fn">GetPosition</span>(),
+                 <span class="ty">Vector3</span>(<span class="val">3.0f</span>, <span class="val">3.0f</span>, <span class="val">3.0f</span>),
+                 <span class="ty">Color</span>::<span class="val">GREEN</span>);
+}</pre>
+
+<!-- Practical patterns -->
+<h2>Practical visualization patterns</h2>
+
+<h3>Visualizing physics colliders</h3>
+<p>
+  Draw a debug box or sphere in your <code>Update</code> at the same position and
+  size as each entity's collision shape.  This lets you spot mismatches between the
+  visual mesh and the physics volume without opening a separate physics debugger
+  tool.  Use distinct colors for different collision layers: white for the player,
+  grey for static geometry, red for enemies, green for triggers.
+</p>
+
+<pre><span class="cm">// Show all entities' approximate collider boxes by iterating tagged groups</span>
+<span class="kw">for</span> (<span class="ty">Entity</span>* e : <span class="fn">FindEntitiesByTag</span>(<span class="st">"obstacle"</span>))
+    <span class="fn">DrawDebugBox</span>(e-&gt;<span class="fn">GetPosition</span>(), e-&gt;<span class="fn">GetScale</span>() * <span class="val">0.5f</span>,
+                 <span class="ty">Color</span>(<span class="val">0.6f</span>, <span class="val">0.6f</span>, <span class="val">0.6f</span>, <span class="val">1.0f</span>));</pre>
+
+<h3>Visualizing nav mesh paths</h3>
+<p>
+  Call <code>FindPath</code> on your nav agent each frame and draw lines between
+  consecutive waypoints.  This confirms that the nav mesh is baked correctly, that
+  the agent's target is reachable, and lets you watch the path update in real time
+  as dynamic obstacles move:
+</p>
+
+<pre><span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+{
+    <span class="ty">auto</span> path = navAgent_-&gt;<span class="fn">FindPath</span>(player_-&gt;<span class="fn">GetPosition</span>());
+
+    <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i + <span class="val">1</span> &lt; (<span class="ty">int</span>)path.<span class="fn">size</span>(); ++i)
+        <span class="fn">DrawDebugLine</span>(path[i], path[i + <span class="val">1</span>], <span class="ty">Color</span>::<span class="val">CYAN</span>);
+
+    <span class="cm">// Show the end of the path</span>
+    <span class="kw">if</span> (!path.<span class="fn">empty</span>())
+        <span class="fn">DrawDebugSphere</span>(path.<span class="fn">back</span>(), <span class="val">0.2f</span>, <span class="ty">Color</span>::<span class="val">YELLOW</span>);
+}</pre>
+
+<h3>Visualizing AI state and attention</h3>
+<p>
+  Print the current FSM state above each AI entity and color-code detection spheres
+  by alert level.  You can also draw a line from the AI to its current target when
+  chasing, and draw the last known player position as a small sphere to debug
+  search behavior:
+</p>
+
+<pre><span class="kw">void</span> <span class="fn">DrawAIDebug</span>(<span class="ty">Entity</span>* ai, <span class="ty">AIState</span> state,
+                   <span class="ty">Vector3</span> lastKnownPlayerPos)
+{
+    <span class="ty">Vector3</span> pos = ai-&gt;<span class="fn">GetPosition</span>();
+
+    <span class="cm">// Detection radius — color shows alert level</span>
+    <span class="ty">Color</span> col = (state == <span class="ty">AIState</span>::<span class="val">Chase</span>)  ? <span class="ty">Color</span>::<span class="val">RED</span>
+              : (state == <span class="ty">AIState</span>::<span class="val">Search</span>) ? <span class="ty">Color</span>::<span class="val">YELLOW</span>
+              :                                <span class="ty">Color</span>::<span class="val">GREEN</span>;
+    <span class="fn">DrawDebugSphere</span>(pos, <span class="val">6.0f</span>, col);
+
+    <span class="cm">// Current state text</span>
+    <span class="fn">DrawDebugText</span>(pos + <span class="ty">Vector3</span>(<span class="val">0</span>, <span class="val">2.5f</span>, <span class="val">0</span>),
+                  ai-&gt;<span class="fn">GetName</span>() + <span class="st">": "</span> + <span class="fn">AIStateToStr</span>(state), col);
+
+    <span class="cm">// Last known player position during Search state</span>
+    <span class="kw">if</span> (state == <span class="ty">AIState</span>::<span class="val">Search</span>)
+    {
+        <span class="fn">DrawDebugSphere</span>(lastKnownPlayerPos, <span class="val">0.4f</span>,
+                        <span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.5f</span>, <span class="val">0.0f</span>, <span class="val">1.0f</span>));
+        <span class="fn">DrawDebugLine</span>(pos, lastKnownPlayerPos,
+                      <span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.5f</span>, <span class="val">0.0f</span>, <span class="val">1.0f</span>));
+        <span class="fn">DrawDebugText</span>(lastKnownPlayerPos + <span class="ty">Vector3</span>(<span class="val">0</span>, <span class="val">0.6f</span>, <span class="val">0</span>),
+                      <span class="st">"Last seen"</span>,
+                      <span class="ty">Color</span>::<span class="val">YELLOW</span>);
+    }
+}</pre>
+
+<h3>Visualizing trigger volumes</h3>
+<p>
+  Trigger volumes are invisible by design, which makes them easy to misconfigure.
+  Draw a colored box or sphere in <code>Update</code> at each trigger's position and
+  size so level designers can see exactly where a volume begins and ends.  Use a
+  different color from physics colliders so the two are easy to distinguish at a
+  glance:
+</p>
+
+<pre><span class="cm">// Draw every entity tagged "trigger" in green</span>
+<span class="kw">for</span> (<span class="ty">Entity</span>* t : <span class="fn">FindEntitiesByTag</span>(<span class="st">"trigger"</span>))
+{
+    <span class="ty">Vector3</span> half = t-&gt;<span class="fn">GetScale</span>() * <span class="val">0.5f</span>;
+    <span class="fn">DrawDebugBox</span>(t-&gt;<span class="fn">GetPosition</span>(), half, <span class="ty">Color</span>::<span class="val">GREEN</span>);
+    <span class="fn">DrawDebugText</span>(t-&gt;<span class="fn">GetPosition</span>() + <span class="ty">Vector3</span>(<span class="val">0</span>, half.y_ + <span class="val">0.3f</span>, <span class="val">0</span>),
+                  t-&gt;<span class="fn">GetName</span>(), <span class="ty">Color</span>::<span class="val">GREEN</span>);
+}</pre>
+
+<!-- ─── QUICK REFERENCE TABLE ─────────────────────────────────────── -->
+<h2>Quick reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Returns</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>SetDebugDrawEnabled(bool)</code></td>
+      <td>&mdash;</td>
+      <td>Master switch. Disabling also removes any pending <code>Text3D</code> nodes.</td>
+    </tr>
+    <tr>
+      <td><code>IsDebugDrawEnabled()</code></td>
+      <td><code>bool</code></td>
+      <td>Query the current state; use for runtime toggle logic.</td>
+    </tr>
+    <tr>
+      <td><code>DrawDebugLine(from, to, color=WHITE)</code></td>
+      <td>&mdash;</td>
+      <td>One-frame wireframe line. Submit every <code>Update</code> tick for persistence.</td>
+    </tr>
+    <tr>
+      <td><code>DrawDebugBox(center, halfSize, color=WHITE)</code></td>
+      <td>&mdash;</td>
+      <td>Axis-aligned wireframe box. <code>halfSize</code> matches <code>AddCollisionShape</code> convention.</td>
+    </tr>
+    <tr>
+      <td><code>DrawDebugSphere(center, radius, color=WHITE)</code></td>
+      <td>&mdash;</td>
+      <td>Wireframe sphere. Good for detection radii and sphere colliders.</td>
+    </tr>
+    <tr>
+      <td><code>DrawDebugText(worldPos, text, color=WHITE)</code></td>
+      <td>&mdash;</td>
+      <td>Billboard <code>Text3D</code> node; removed at the start of the next frame.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ─── LUA EQUIVALENT ───────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+
+<p>
+  All debug draw methods are available on the <code>game</code> global inside Lua
+  scripts.  Signatures mirror C++ exactly.  The one-frame rule applies identically:
+  call them every <code>Update</code> tick from Lua for a persistent overlay, or call
+  once for a single-frame flash.
+</p>
+
+<pre><span class="lua-cm">-- Scripts/debug_draw_demo.lua
+-- Attach this script to any persistent entity.
+-- Press F1 to toggle the debug overlay at runtime.</span>
+
+<span class="lua-kw">local</span> player   = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> enemies  = {}
+<span class="lua-kw">local</span> DETECT   = <span class="lua-num">5.0</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-cm">-- Enable debug draw only in debug builds.</span>
+<span class="lua-cm">-- (No Lua-side preprocessor; use a runtime config flag instead.)</span>
+    game:<span class="lua-fn">SetDebugDrawEnabled</span>(<span class="lua-kw">true</span>)
+
+    player   = game:<span class="lua-fn">FindEntity</span>(<span class="lua-str">"Player"</span>)
+    enemies  = game:<span class="lua-fn">FindEntitiesByTag</span>(<span class="lua-str">"enemy"</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-cm">-- Runtime toggle</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.F1) <span class="lua-kw">then</span>
+        game:<span class="lua-fn">SetDebugDrawEnabled</span>(<span class="lua-kw">not</span> game:<span class="lua-fn">IsDebugDrawEnabled</span>())
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Player collider box</span>
+    game:<span class="lua-fn">DrawDebugBox</span>(
+        player:<span class="lua-fn">GetPosition</span>(),
+        Vector3(<span class="lua-num">0.4</span>, <span class="lua-num">0.8</span>, <span class="lua-num">0.4</span>),
+        Color.WHITE)
+
+    <span class="lua-cm">-- Enemy overlays</span>
+    <span class="lua-kw">for</span> _, e <span class="lua-kw">in</span> <span class="lua-fn">ipairs</span>(enemies) <span class="lua-kw">do</span>
+        <span class="lua-kw">local</span> pos  = e:<span class="lua-fn">GetPosition</span>()
+        <span class="lua-kw">local</span> dist = (pos - player:<span class="lua-fn">GetPosition</span>()):<span class="lua-fn">Length</span>()
+        <span class="lua-kw">local</span> chasing = dist &lt; DETECT
+
+        <span class="lua-cm">-- Capsule approximation</span>
+        game:<span class="lua-fn">DrawDebugSphere</span>(pos, <span class="lua-num">0.35</span>, Color.RED)
+
+        <span class="lua-cm">-- Detection radius: yellow or magenta</span>
+        <span class="lua-kw">local</span> col = chasing
+            <span class="lua-kw">and</span> Color(<span class="lua-num">1</span>, <span class="lua-num">0</span>, <span class="lua-num">1</span>, <span class="lua-num">1</span>)
+            <span class="lua-kw">or</span>  Color.YELLOW
+        game:<span class="lua-fn">DrawDebugSphere</span>(pos, DETECT, col)
+
+        <span class="lua-cm">-- Chase line</span>
+        <span class="lua-kw">if</span> chasing <span class="lua-kw">then</span>
+            game:<span class="lua-fn">DrawDebugLine</span>(pos, player:<span class="lua-fn">GetPosition</span>(),
+                                Color(<span class="lua-num">1</span>, <span class="lua-num">0.4</span>, <span class="lua-num">0</span>, <span class="lua-num">1</span>))
+        <span class="lua-kw">end</span>
+
+        <span class="lua-cm">-- Billboard label</span>
+        <span class="lua-kw">local</span> label = e:<span class="lua-fn">GetName</span>() .. <span class="lua-str">": "</span>
+                   .. (chasing <span class="lua-kw">and</span> <span class="lua-str">"Chase!"</span> <span class="lua-kw">or</span> <span class="lua-str">"Patrol"</span>)
+        game:<span class="lua-fn">DrawDebugText</span>(
+            pos + Vector3(<span class="lua-num">0</span>, <span class="lua-num">2.2</span>, <span class="lua-num">0</span>),
+            label,
+            chasing <span class="lua-kw">and</span> Color(<span class="lua-num">1</span>, <span class="lua-num">0.3</span>, <span class="lua-num">0.3</span>, <span class="lua-num">1</span>) <span class="lua-kw">or</span> Color.WHITE)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Nav path from first enemy to player</span>
+    <span class="lua-kw">if</span> #enemies &gt; <span class="lua-num">0</span> <span class="lua-kw">then</span>
+        <span class="lua-kw">local</span> path = enemies[<span class="lua-num">1</span>]:<span class="lua-fn">FindPath</span>(player:<span class="lua-fn">GetPosition</span>())
+        <span class="lua-kw">for</span> i = <span class="lua-num">1</span>, #path - <span class="lua-num">1</span> <span class="lua-kw">do</span>
+            game:<span class="lua-fn">DrawDebugLine</span>(path[i], path[i + <span class="lua-num">1</span>], Color.CYAN)
+        <span class="lua-kw">end</span>
+        <span class="lua-kw">for</span> _, wp <span class="lua-kw">in</span> <span class="lua-fn">ipairs</span>(path) <span class="lua-kw">do</span>
+            game:<span class="lua-fn">DrawDebugSphere</span>(wp, <span class="lua-num">0.1</span>, Color.YELLOW)
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Trigger zone (named "TriggerZone" in the scene)</span>
+    <span class="lua-kw">local</span> tz = game:<span class="lua-fn">FindEntity</span>(<span class="lua-str">"TriggerZone"</span>)
+    <span class="lua-kw">if</span> tz <span class="lua-kw">then</span>
+        game:<span class="lua-fn">DrawDebugBox</span>(tz:<span class="lua-fn">GetPosition</span>(),
+                           Vector3(<span class="lua-num">3</span>, <span class="lua-num">3</span>, <span class="lua-num">3</span>),
+                           Color.GREEN)
+        game:<span class="lua-fn">DrawDebugText</span>(tz:<span class="lua-fn">GetPosition</span>() + Vector3(<span class="lua-num">0</span>, <span class="lua-num">3.5</span>, <span class="lua-num">0</span>),
+                           <span class="lua-str">"Trigger Zone"</span>, Color.GREEN)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── COMMON MISTAKES ───────────────────────────────────────────── -->
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Calling DrawDebug* only once instead of every frame.</strong>
+      All geometry calls and text calls survive for exactly one frame.  If you call
+      <code>DrawDebugSphere</code> in <code>Start()</code> or once when an event
+      fires, the sphere appears for a single frame and then vanishes.  Move all
+      debug draw calls into <code>Update()</code> so they are resubmitted each tick.
+    </li>
+    <li>
+      <strong>Forgetting that SetDebugDrawEnabled is false by default.</strong>
+      Nothing will appear until you call <code>SetDebugDrawEnabled(true)</code>.
+      If your overlays are invisible, check that the call is actually being reached.
+      A common culprit is placing it inside a conditional block
+      (<code>#ifdef _DEBUG</code>) without defining <code>_DEBUG</code> in the build.
+    </li>
+    <li>
+      <strong>Using halfSize incorrectly for DrawDebugBox.</strong>
+      The second argument is half-extents, not full size.  A call of
+      <code>DrawDebugBox(pos, Vector3(1,1,1))</code> draws a 2&times;2&times;2 metre box
+      centered at <code>pos</code>.  If your box looks twice as large as the mesh,
+      divide the scale or the collision shape size by two.
+    </li>
+    <li>
+      <strong>Enabling debug draw in release builds by accident.</strong>
+      If you call <code>SetDebugDrawEnabled(true)</code> unconditionally in
+      <code>Start()</code> without a preprocessor guard, the debug overlay will
+      appear in shipped builds.  Gate the call inside <code>#ifdef _DEBUG</code>
+      or behind a developer-only runtime flag checked against a build configuration.
+    </li>
+    <li>
+      <strong>Expecting DrawDebugText to accumulate across frames.</strong>
+      Each call to <code>DrawDebugText</code> creates a new <code>Text3D</code> node.
+      Calling it twice in the same frame for the same position creates two overlapping
+      labels.  Call it once per entity per frame.
+    </li>
+    <li>
+      <strong>Not accounting for entity position when sizing debug boxes.</strong>
+      <code>DrawDebugBox</code> draws an axis-aligned box centered at the provided
+      position.  If your entity is offset from the origin (e.g. the collision shape
+      is centered differently from the entity pivot), you may need to offset the
+      center argument accordingly to match the actual collider location.
+    </li>
+    <li>
+      <strong>Calling DrawDebugLine with identical from and to points.</strong>
+      A zero-length line is valid but invisible.  If your lines disappear, verify
+      that <code>from != to</code>.  This often happens when referencing a position
+      that was not yet updated (e.g. a nav target entity at the default origin).
+    </li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ─────────────────────────────────────────── -->
+<h2>What you learned</h2>
+
+<p>
+  In this part you learned how to use simple-3d's debug draw system to overlay
+  real-time diagnostic information directly in your 3D world:
+</p>
+<ul>
+  <li>
+    <strong>Enabling the system:</strong> <code>SetDebugDrawEnabled(true)</code>
+    activates the subsystem; <code>IsDebugDrawEnabled()</code> reads the current
+    state so you can build a runtime toggle with a single key press.  Gate the
+    enable call behind <code>#ifdef _DEBUG</code> to guarantee zero impact on
+    release builds.
+  </li>
+  <li>
+    <strong>Lines:</strong> <code>DrawDebugLine(from, to, color)</code> draws a
+    one-frame world-space line segment.  Resubmit every <code>Update</code> tick
+    for a persistent overlay.  Essential for velocity vectors, ray casts, chase
+    lines, and nav path segments.
+  </li>
+  <li>
+    <strong>Boxes:</strong> <code>DrawDebugBox(center, halfSize, color)</code> draws
+    an axis-aligned wireframe box using the same half-extents convention as
+    <code>AddCollisionShape</code>.  Use it to expose invisible box colliders and
+    trigger zone boundaries to level designers and programmers alike.
+  </li>
+  <li>
+    <strong>Spheres:</strong> <code>DrawDebugSphere(center, radius, color)</code>
+    draws a wireframe sphere.  Ideal for sphere colliders, detection radii, blast
+    radii, and audio attenuation boundaries.
+  </li>
+  <li>
+    <strong>Text:</strong> <code>DrawDebugText(worldPos, text, color)</code> places
+    a camera-facing <code>Text3D</code> node for one frame.  Use it to display
+    entity names, HP values, and AI state machine transitions floating above entities
+    in world space without any persistent UI setup.
+  </li>
+  <li>
+    <strong>Zero release overhead:</strong> all calls are no-ops when the flag is
+    <code>false</code>, so you can leave debug draw calls in your shipping code
+    paths without any measurable runtime cost.
+  </li>
+  <li>
+    <strong>Practical patterns:</strong> you now know how to visualize physics
+    colliders, nav mesh paths, AI detection radii and states, and trigger volumes
+    using a consistent color-coding convention that makes complex runtime behavior
+    readable at a glance.
+  </li>
+</ul>
+
+<p>
+  Next up: <a href="tutorial-28.html">Part 28: Tweens</a> &mdash;
+  animating values over time with easing curves using the tween system, including
+  position, rotation, scale, and color interpolation without writing manual
+  timer logic.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-26.html">&#8592; Part 26: Ray Picking</a>
+  <a href="tutorial-28.html">Part 28: Tweens &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

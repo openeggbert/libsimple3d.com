@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 29: Sky and Atmosphere — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li class="active"><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 29</div>
+
+<h1><span class="tutorial-part">Part 29 of 30</span>Sky and Atmosphere</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>SetSkyDome(texturePath)</code> &mdash;
+    <code>SetSkyDomeEnabled(bool)</code> &mdash;
+    <code>SetSkyGradient(zenithColor, horizonColor)</code> &mdash;
+    <code>SetAmbientColor(color)</code> &mdash;
+    <code>SetFogEnabled(bool)</code> &mdash;
+    <code>SetFogColor(color)</code> &mdash;
+    <code>SetFogRange(start, end)</code> &mdash;
+    <code>entity-&gt;SetMaterialColor(color)</code> (flat unlit material) &mdash;
+    <code>entity-&gt;SetTileTexture(texPath, uOff, vOff, uScale, vScale)</code> (UV-atlas crop) &mdash;
+    <code>SaveScreenshot(path)</code>
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ──────────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How to display a large sky sphere with <code>SetSkyDome</code>, and show or hide it at runtime with <code>SetSkyDomeEnabled</code>.</li>
+  <li>How to generate a smooth two-colour gradient sky without any texture file using <code>SetSkyGradient</code>.</li>
+  <li>How ambient light works and how to set its colour and brightness with <code>SetAmbientColor</code>.</li>
+  <li>How to enable linear fog and configure its colour and distance range with <code>SetFogEnabled</code>, <code>SetFogColor</code>, and <code>SetFogRange</code>.</li>
+  <li>How to apply a flat, unlit solid colour to a mesh entity using <code>SetMaterialColor</code>.</li>
+  <li>How to sample a single tile from a UV texture atlas with <code>SetTileTexture</code>.</li>
+  <li>How to capture the current framebuffer as a PNG with <code>SaveScreenshot</code>.</li>
+  <li>How to compose per-world atmosphere presets (grassland, cave, lava, space) that all these settings work together.</li>
+</ul>
+
+<!-- ─── BACKGROUND ───────────────────────────────────────────────────── -->
+<h2>Background: how the atmosphere system works</h2>
+
+<p>
+  simple-3d wraps Urho3D's <em>Zone</em> component to provide scene-wide atmosphere
+  controls.  A Zone is a bounding volume attached to an invisible node that covers the
+  entire scene; simple-3d creates one automatically and exposes it through the
+  <code>SetAmbientColor</code>, <code>SetFogColor</code>, and <code>SetFogRange</code>
+  family of calls.  You never touch the Zone directly &mdash; just call the Game methods
+  from <code>Start()</code> or whenever you switch worlds.
+</p>
+
+<p>
+  The <em>sky dome</em> is a separate sphere of radius 450 that is rendered from the
+  inside and follows the camera, so it never clips against the far plane.  You can
+  texture it from a file or let simple-3d generate a vertical gradient from two colours.
+  Either approach requires a single call and takes effect on the very next frame.
+</p>
+
+<div class="grid2">
+  <div class="card card-green">
+    <h3>Atmosphere (Zone)</h3>
+    <p>
+      Controls the minimum light on all surfaces (<em>ambient</em>) and the linear fog
+      that blends geometry into a chosen colour as distance increases.  All four
+      atmosphere methods operate on the same underlying Zone; changing any one of them
+      is instant and does not require recreating the scene.
+    </p>
+  </div>
+  <div class="card card-blue">
+    <h3>Sky dome</h3>
+    <p>
+      A large inside-out sphere that provides the visible backdrop behind all geometry.
+      Use <code>SetSkyGradient</code> for quick programmatic skies (no art assets
+      needed) or <code>SetSkyDome</code> with a texture path for a hand-painted or
+      photographic sky.  Toggle visibility with <code>SetSkyDomeEnabled</code>.
+    </p>
+  </div>
+</div>
+
+<!-- ─── ASSET LAYOUT ─────────────────────────────────────────────────── -->
+<h2>Recommended asset layout</h2>
+
+<p>
+  Texture-based sky domes and terrain atlases both live under <code>Data/Textures/</code>
+  so the resource cache resolves them by relative path regardless of working directory:
+</p>
+
+<pre>Data/
+  Textures/
+    sky_day.png           <span class="cm">// panoramic sky photograph or painted sky</span>
+    sky_stars.png         <span class="cm">// star-field for a space scene</span>
+    terrain-atlas.png     <span class="cm">// NxN grid of terrain tiles (e.g. 4x4 = 16 tiles)</span>
+  Models/
+    Box.mdl
+    Plane.mdl
+</pre>
+
+<p>
+  The sky dome texture wraps cylindrically around the sphere interior.  A 2:1
+  aspect-ratio equirectangular image works best, but simple square textures are
+  also acceptable and will just repeat horizontally.
+</p>
+
+<!-- ─── COMPLETE EXAMPLE ───────────────────────────────────────────────── -->
+<h2>Complete working example</h2>
+
+<p>
+  The program below builds a scene with a textured ground plane, two demonstration
+  boxes (one with a solid unlit colour, one with a UV-atlas tile), and a directional
+  sun light.  Press <kbd>1</kbd>&ndash;<kbd>4</kbd> to switch between four atmosphere
+  presets.  Press <kbd>F12</kbd> to capture a screenshot to disk.
+</p>
+
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;string&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="cm">// ─────────────────────────────────────────────────────────────────────
+// AtmosphereDemo
+//   Demonstrates sky dome, sky gradient, ambient light, linear fog,
+//   per-entity material colour, UV-atlas texture crops and screenshot
+//   capture.  Press 1–4 to switch world presets, F12 to screenshot.
+// ─────────────────────────────────────────────────────────────────────</span>
+<span class="kw">class</span> <span class="ty">AtmosphereDemo</span> : <span class="kw">public</span> <span class="ty">Game</span>
+{
+<span class="kw">public</span>:
+    <span class="cm">// ── Scene entities ────────────────────────────────────────────────</span>
+    <span class="ty">Entity</span>* ground_    = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>* sun_       = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>* colorBox_  = <span class="kw">nullptr</span>; <span class="cm">// flat unlit colour via SetMaterialColor</span>
+    <span class="ty">Entity</span>* atlasBox_  = <span class="kw">nullptr</span>; <span class="cm">// UV-atlas tile via SetTileTexture</span>
+
+    <span class="cm">// ── Camera ────────────────────────────────────────────────────────</span>
+    <span class="ty">Camera</span>* cam_ = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── UI ────────────────────────────────────────────────────────────</span>
+    <span class="ty">Label</span>* worldLabel_      = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>* hintLabel_       = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>* screenshotLabel_ = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── State ─────────────────────────────────────────────────────────</span>
+    <span class="ty">int</span>   currentWorld_    = <span class="val">0</span>;
+    <span class="ty">float</span> screenshotTimer_ = <span class="val">0.0f</span>; <span class="cm">// seconds to show the "saved" message</span>
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────
+    // Start() — called once before the first frame.
+    // ─────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="fn">SetAppName</span>(<span class="st">"AtmosphereDemo"</span>);
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Part 29 — Sky and Atmosphere"</span>);
+
+        <span class="cm">// ── Ground plane ─────────────────────────────────────────────
+        // A large flat quad serves as the floor for all worlds.
+        // We apply a tiled terrain-atlas texture so the ground shows
+        // a repeating grass tile from a 4×4 UV atlas.</span>
+        ground_ = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground_-&gt;<span class="fn">SetScale</span>(<span class="val">50.0f</span>);
+        ground_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);                              <span class="cm">// static</span>
+        ground_-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">50.0f</span>, <span class="val">0.5f</span>, <span class="val">50.0f</span>));
+        ground_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+        <span class="cm">// Atlas layout: 4 columns × 4 rows, each tile = 1/4 of UV space.
+        // Tile (col=0, row=0) is the grass tile at the top-left corner.
+        //   uOff   = col * tileSize = 0 * 0.25 = 0.0
+        //   vOff   = row * tileSize = 0 * 0.25 = 0.0
+        //   uScale = tileSize = 0.25
+        //   vScale = tileSize = 0.25</span>
+        <span class="kw">const</span> <span class="ty">float</span> TILE = <span class="val">1.0f</span> / <span class="val">4.0f</span>; <span class="cm">// 4×4 atlas</span>
+        ground_-&gt;<span class="fn">SetTileTexture</span>(<span class="st">"Textures/terrain-atlas.png"</span>,
+                                  <span class="val">0.0f</span>,  <span class="val">0.0f</span>,   <span class="cm">// uOff, vOff — top-left tile</span>
+                                  TILE,  TILE);   <span class="cm">// uScale, vScale — one tile</span>
+
+        <span class="cm">// ── Flat unlit colour box (left) ─────────────────────────────
+        // SetMaterialColor applies a fully unlit solid colour material.
+        // No lighting calculation is done — the colour is constant
+        // regardless of the scene's lights, ambient setting or fog.</span>
+        colorBox_ = <span class="fn">CreateEntity</span>(<span class="st">"ColorBox"</span>);
+        colorBox_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        colorBox_-&gt;<span class="fn">SetPosition</span>(-<span class="val">3.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>);
+        colorBox_-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.8f</span>, <span class="val">0.3f</span>)); <span class="cm">// bright unlit green</span>
+
+        <span class="cm">// ── UV-atlas textured box (right) ────────────────────────────
+        // SetTileTexture samples the stone tile at column 1, row 0
+        // from the same 4×4 terrain atlas used for the ground.
+        // This box IS affected by directional lights and ambient light
+        // (it uses a lit diffuse material), unlike the colour box above.</span>
+        atlasBox_ = <span class="fn">CreateEntity</span>(<span class="st">"AtlasBox"</span>);
+        atlasBox_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        atlasBox_-&gt;<span class="fn">SetPosition</span>(<span class="val">3.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>);
+        <span class="cm">// Column 1, row 0: uOff = 1*TILE = 0.25, vOff = 0</span>
+        atlasBox_-&gt;<span class="fn">SetTileTexture</span>(<span class="st">"Textures/terrain-atlas.png"</span>,
+                                    <span class="val">1</span> * TILE, <span class="val">0.0f</span>,    <span class="cm">// stone tile</span>
+                                    TILE,     TILE);
+
+        <span class="cm">// ── Directional sun light ────────────────────────────────────</span>
+        sun_ = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun_-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.98f</span>, <span class="val">0.9f</span>), <span class="val">1.2f</span>);
+        sun_-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45.0f</span>, <span class="val">40.0f</span>, <span class="val">0.0f</span>));
+        sun_-&gt;<span class="fn">SetCastShadows</span>(<span class="kw">true</span>);
+
+        <span class="cm">// ── Camera ───────────────────────────────────────────────────</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">4.0f</span>, -<span class="val">12.0f</span>));
+        cam_-&gt;<span class="fn">LookAt</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>));
+        cam_-&gt;<span class="fn">SetFOV</span>(<span class="val">65.0f</span>);
+        cam_-&gt;<span class="fn">SetFarClip</span>(<span class="val">500.0f</span>);     <span class="cm">// sky dome radius is 450; set far clip beyond it</span>
+
+        <span class="cm">// ── HUD labels ───────────────────────────────────────────────</span>
+        worldLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"World: Grassland"</span>);
+        worldLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">10</span>);
+        worldLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">20</span>);
+        worldLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>);
+
+        hintLabel_ = <span class="fn">CreateLabel</span>(
+            <span class="st">"1=Grassland  2=Cave  3=Volcanic  4=Space  F12=Screenshot  ESC=Quit"</span>);
+        hintLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">38</span>);
+        hintLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">13</span>);
+        hintLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.85f</span>, <span class="val">0.85f</span>, <span class="val">0.85f</span>, <span class="val">1.0f</span>));
+
+        screenshotLabel_ = <span class="fn">CreateLabel</span>(<span class="st">""</span>);
+        screenshotLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">62</span>);
+        screenshotLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">14</span>);
+        screenshotLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.4f</span>, <span class="val">1.0f</span>, <span class="val">0.4f</span>, <span class="val">1.0f</span>));
+        screenshotLabel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);
+
+        <span class="cm">// ── Load first world preset ───────────────────────────────────</span>
+        <span class="fn">LoadWorld</span>(<span class="val">0</span>);
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────
+    // LoadWorld(id) — apply a complete atmosphere preset.
+    // Call this from Start() and whenever the player presses 1–4.
+    // All atmosphere API calls are safe to call at any time.
+    // ─────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">LoadWorld</span>(<span class="ty">int</span> id)
+    {
+        currentWorld_ = id;
+
+        <span class="kw">switch</span> (id)
+        {
+        <span class="kw">case</span> <span class="val">0</span>: <span class="cm">// ── Grassland ─────────────────────────────────────────</span>
+            <span class="cm">// Programmatic gradient sky: deep blue at the zenith (top),
+            // warm orange-peach at the horizon.
+            // SetSkyGradient creates a 1×16 gradient texture internally —
+            // no texture file needed.</span>
+            <span class="fn">SetSkyGradient</span>(<span class="ty">Color</span>(<span class="val">0.10f</span>, <span class="val">0.30f</span>, <span class="val">0.80f</span>),   <span class="cm">// zenith  — sky blue</span>
+                           <span class="ty">Color</span>(<span class="val">0.80f</span>, <span class="val">0.60f</span>, <span class="val">0.40f</span>));  <span class="cm">// horizon — warm peach</span>
+            <span class="fn">SetSkyDomeEnabled</span>(<span class="kw">true</span>);
+
+            <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.52f</span>, <span class="val">0.80f</span>, <span class="val">0.92f</span>));
+            <span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.25f</span>, <span class="val">0.30f</span>, <span class="val">0.20f</span>));   <span class="cm">// soft green-tinted ambient</span>
+
+            <span class="cm">// Fog colour matches the clear / sky horizon colour so distant
+            // objects fade smoothly into the sky rather than a hard edge.</span>
+            <span class="fn">SetFogColor</span>(<span class="ty">Color</span>(<span class="val">0.52f</span>, <span class="val">0.80f</span>, <span class="val">0.92f</span>));
+            <span class="fn">SetFogRange</span>(<span class="val">80.0f</span>, <span class="val">250.0f</span>);  <span class="cm">// starts at 80 m, fully opaque at 250 m</span>
+            <span class="fn">SetFogEnabled</span>(<span class="kw">true</span>);
+
+            worldLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"World: Grassland"</span>);
+            <span class="kw">break</span>;
+
+        <span class="kw">case</span> <span class="val">1</span>: <span class="cm">// ── Cave / night ──────────────────────────────────────</span>
+            <span class="cm">// No sky visible underground — hide the dome entirely.
+            // Very low ambient makes unlit surfaces nearly black,
+            // giving an authentic underground feel.
+            // Dense, short-range dark fog closes in the walls.</span>
+            <span class="fn">SetSkyDomeEnabled</span>(<span class="kw">false</span>);
+
+            <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>));
+            <span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.05f</span>, <span class="val">0.05f</span>, <span class="val">0.10f</span>)); <span class="cm">// near-black blue-tint</span>
+            <span class="fn">SetFogColor</span>(<span class="ty">Color</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.05f</span>));
+            <span class="fn">SetFogRange</span>(<span class="val">10.0f</span>, <span class="val">40.0f</span>);   <span class="cm">// dense fog: full opacity by 40 m</span>
+            <span class="fn">SetFogEnabled</span>(<span class="kw">true</span>);
+
+            worldLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"World: Cave"</span>);
+            <span class="kw">break</span>;
+
+        <span class="kw">case</span> <span class="val">2</span>: <span class="cm">// ── Volcanic / lava ────────────────────────────────────</span>
+            <span class="cm">// Dark red gradient sky — murky at the zenith, glowing at
+            // the horizon as if lit by distant lava flows.
+            // High red-dominant ambient simulates reflected heat glow.</span>
+            <span class="fn">SetSkyGradient</span>(<span class="ty">Color</span>(<span class="val">0.10f</span>, <span class="val">0.02f</span>, <span class="val">0.00f</span>),   <span class="cm">// zenith  — near black-red</span>
+                           <span class="ty">Color</span>(<span class="val">0.70f</span>, <span class="val">0.20f</span>, <span class="val">0.00f</span>));  <span class="cm">// horizon — deep orange</span>
+            <span class="fn">SetSkyDomeEnabled</span>(<span class="kw">true</span>);
+
+            <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.15f</span>, <span class="val">0.05f</span>, <span class="val">0.00f</span>));
+            <span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.40f</span>, <span class="val">0.10f</span>, <span class="val">0.05f</span>));  <span class="cm">// hot red ambient</span>
+            <span class="fn">SetFogColor</span>(<span class="ty">Color</span>(<span class="val">0.30f</span>, <span class="val">0.05f</span>, <span class="val">0.00f</span>));
+            <span class="fn">SetFogRange</span>(<span class="val">20.0f</span>, <span class="val">80.0f</span>);   <span class="cm">// ash-choked air: visibility ~80 m</span>
+            <span class="fn">SetFogEnabled</span>(<span class="kw">true</span>);
+
+            worldLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"World: Volcanic"</span>);
+            <span class="kw">break</span>;
+
+        <span class="kw">case</span> <span class="val">3</span>: <span class="cm">// ── Space / void ───────────────────────────────────────</span>
+            <span class="cm">// Texture-based sky dome — a hand-painted star-field image.
+            // SetSkyDome("path") creates the dome sphere on the first call;
+            // subsequent calls with a different path swap the texture.</span>
+            <span class="fn">SetSkyDome</span>(<span class="st">"Textures/sky_stars.png"</span>);
+            <span class="fn">SetSkyDomeEnabled</span>(<span class="kw">true</span>);
+
+            <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.00f</span>, <span class="val">0.00f</span>, <span class="val">0.02f</span>));
+            <span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.05f</span>, <span class="val">0.05f</span>, <span class="val">0.10f</span>)); <span class="cm">// dim starlight</span>
+
+            <span class="cm">// No atmospheric fog in the vacuum of space.</span>
+            <span class="fn">SetFogEnabled</span>(<span class="kw">false</span>);
+
+            worldLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"World: Space"</span>);
+            <span class="kw">break</span>;
+        }
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────
+    // Update() — input handling each frame.
+    // ─────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="cm">// World preset selection</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Num1</span>)) <span class="fn">LoadWorld</span>(<span class="val">0</span>);
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Num2</span>)) <span class="fn">LoadWorld</span>(<span class="val">1</span>);
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Num3</span>)) <span class="fn">LoadWorld</span>(<span class="val">2</span>);
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Num4</span>)) <span class="fn">LoadWorld</span>(<span class="val">3</span>);
+
+        <span class="cm">// Screenshot capture with F12.
+        // SaveScreenshot writes the current rendered framebuffer to a PNG
+        // at the given path and returns true on success, false on I/O error.</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">F12</span>))
+        {
+            <span class="ty">std::string</span> path = <span class="st">"screenshot_world"</span> + <span class="ty">std::to_string</span>(currentWorld_) + <span class="st">".png"</span>;
+            <span class="kw">if</span> (<span class="fn">SaveScreenshot</span>(path))
+            {
+                screenshotLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Screenshot saved: "</span> + path);
+                screenshotLabel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+                screenshotTimer_ = <span class="val">3.0f</span>; <span class="cm">// display for 3 seconds</span>
+            }
+        }
+
+        <span class="cm">// Auto-hide the screenshot confirmation message after 3 seconds</span>
+        <span class="kw">if</span> (screenshotTimer_ &gt; <span class="val">0.0f</span>)
+        {
+            screenshotTimer_ -= dt;
+            <span class="kw">if</span> (screenshotTimer_ &lt;= <span class="val">0.0f</span>)
+                screenshotLabel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);
+        }
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Escape</span>))
+            <span class="fn">Quit</span>();
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">AtmosphereDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ─────────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<!-- SetSkyDome -->
+<h3>SetSkyDome(texturePath)</h3>
+<p>
+  <code>SetSkyDome</code> creates a large inside-out sphere of radius 450 world units
+  and wraps the given texture around its interior surface.  The sphere node is
+  permanently parented to the camera, so it moves with it every frame and never
+  clips against the far plane as long as <code>cam-&gt;SetFarClip</code> is set to at
+  least 500.  On the first call the sphere node and material are created; subsequent
+  calls with a different path simply swap the texture on the existing material.
+  Passing an empty string leaves the dome untextured (solid white).
+</p>
+
+<pre><span class="cm">// File-based sky — a hand-painted equirectangular panorama</span>
+<span class="fn">SetSkyDome</span>(<span class="st">"Textures/sky_day.png"</span>);
+
+<span class="cm">// Swap to a night sky when the player enters a dungeon exit</span>
+<span class="fn">SetSkyDome</span>(<span class="st">"Textures/sky_night.png"</span>);
+
+<span class="cm">// Untextured dome (useful as a base before SetSkyGradient is called)</span>
+<span class="fn">SetSkyDome</span>(<span class="st">""</span>);</pre>
+
+<!-- SetSkyDomeEnabled -->
+<h3>SetSkyDomeEnabled(bool)</h3>
+<p>
+  Toggles the visibility of the sky dome without destroying it.  When set to
+  <code>false</code>, the sphere node is disabled; the clear colour you set with
+  <code>SetClearColor</code> shows through the gaps in geometry instead.
+  Underground scenes, indoor areas, or space sequences where you want a pure
+  black background should call <code>SetSkyDomeEnabled(false)</code> after
+  setting <code>SetClearColor(Color(0,0,0))</code>.
+</p>
+
+<pre><span class="cm">// Show the sky (default after the first SetSkyDome or SetSkyGradient call)</span>
+<span class="fn">SetSkyDomeEnabled</span>(<span class="kw">true</span>);
+
+<span class="cm">// Hide for an underground level — black clear colour shows through</span>
+<span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>));
+<span class="fn">SetSkyDomeEnabled</span>(<span class="kw">false</span>);</pre>
+
+<!-- SetSkyGradient -->
+<h3>SetSkyGradient(zenithColor, horizonColor)</h3>
+<p>
+  <code>SetSkyGradient</code> generates a tiny 1&times;16 gradient texture in memory
+  &mdash; no image file required &mdash; and applies it to the sky dome sphere.
+  The first argument is the colour at the very top of the dome (zenith) and the
+  second is the colour at the equator (horizon).  The gradient interpolates linearly
+  between the two values.  Calling <code>SetSkyGradient</code> implicitly enables the
+  sky dome if it was previously hidden.
+</p>
+<p>
+  Use colour values in the 0&ndash;1 float range.  Slightly oversaturated or high-value
+  colours (e.g. <code>Color(0.1f, 0.3f, 0.8f)</code>) look more vibrant than clamped
+  values because the sky is an emissive surface and is not affected by ambient light.
+</p>
+
+<pre><span class="cm">// Daytime blue sky fading to warm horizon</span>
+<span class="fn">SetSkyGradient</span>(<span class="ty">Color</span>(<span class="val">0.10f</span>, <span class="val">0.30f</span>, <span class="val">0.80f</span>),   <span class="cm">// zenith  — sky blue</span>
+               <span class="ty">Color</span>(<span class="val">0.80f</span>, <span class="val">0.60f</span>, <span class="val">0.40f</span>));  <span class="cm">// horizon — warm peach</span>
+
+<span class="cm">// Twilight: dark purple zenith, crimson horizon</span>
+<span class="fn">SetSkyGradient</span>(<span class="ty">Color</span>(<span class="val">0.10f</span>, <span class="val">0.05f</span>, <span class="val">0.20f</span>),
+               <span class="ty">Color</span>(<span class="val">0.70f</span>, <span class="val">0.15f</span>, <span class="val">0.05f</span>));
+
+<span class="cm">// Overcast: flat grey from zenith to horizon</span>
+<span class="fn">SetSkyGradient</span>(<span class="ty">Color</span>(<span class="val">0.55f</span>, <span class="val">0.55f</span>, <span class="val">0.58f</span>),
+               <span class="ty">Color</span>(<span class="val">0.72f</span>, <span class="val">0.72f</span>, <span class="val">0.74f</span>));</pre>
+
+<!-- SetAmbientColor -->
+<h3>SetAmbientColor(color)</h3>
+<p>
+  Ambient light is the constant minimum brightness applied to every surface in the
+  scene regardless of whether any direct light reaches it.  It is implemented via
+  Urho3D's Zone component.  The default is <code>Color(0.3, 0.3, 0.3)</code> (a
+  moderate neutral grey).  Setting it very low creates dramatic deep shadows
+  (caves, night, space); setting it high produces the flat, shadowless look typical
+  of overcast outdoor scenes.
+</p>
+<p>
+  Tinting the ambient colour gives the whole scene a mood: a slight green tint
+  suggests forest or jungle, a blue tint reads as moonlight or underwater, and a
+  red-orange tint conveys heat or volcanic illumination.
+</p>
+
+<pre><span class="cm">// Dark cave or night scene — surfaces in shadow are nearly invisible</span>
+<span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.05f</span>, <span class="val">0.05f</span>, <span class="val">0.10f</span>));
+
+<span class="cm">// Bright overcast exterior — shadows are barely visible</span>
+<span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.60f</span>, <span class="val">0.60f</span>, <span class="val">0.60f</span>));
+
+<span class="cm">// Forest green ambient — dappled-light feel without a texture</span>
+<span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.15f</span>, <span class="val">0.25f</span>, <span class="val">0.10f</span>));
+
+<span class="cm">// Default — restore to engine default</span>
+<span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.30f</span>, <span class="val">0.30f</span>, <span class="val">0.30f</span>));</pre>
+
+<!-- SetFogColor / SetFogRange / SetFogEnabled -->
+<h3>SetFogColor(color), SetFogRange(start, end), SetFogEnabled(bool)</h3>
+<p>
+  Fog is linear: geometry at <em>start</em> metres is fully unfogged; geometry at
+  <em>end</em> metres is fully replaced by the fog colour.  Everything between the
+  two distances is blended proportionally.  Fog is <strong>disabled by default</strong>.
+  The recommended pattern is to call <code>SetFogColor</code> and
+  <code>SetFogRange</code> first, then call <code>SetFogEnabled(true)</code>.
+  You can call these methods in any order; the values are cached and applied
+  together when fog is enabled.
+</p>
+<p>
+  For best results, match <code>SetFogColor</code> to <code>SetClearColor</code> and
+  to the horizon colour in <code>SetSkyGradient</code> so that distant geometry
+  fades into the sky seamlessly rather than into a visible coloured band.
+</p>
+
+<pre><span class="cm">// Standard sky-blue horizon fog — set colour and range first</span>
+<span class="fn">SetFogColor</span>(<span class="ty">Color</span>(<span class="val">0.52f</span>, <span class="val">0.80f</span>, <span class="val">0.92f</span>));
+<span class="fn">SetFogRange</span>(<span class="val">80.0f</span>, <span class="val">250.0f</span>);   <span class="cm">// blends from 80 m; fully opaque at 250 m</span>
+<span class="fn">SetFogEnabled</span>(<span class="kw">true</span>);
+
+<span class="cm">// Dense underground mist — short range, dark colour</span>
+<span class="fn">SetFogColor</span>(<span class="ty">Color</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.05f</span>));
+<span class="fn">SetFogRange</span>(<span class="val">10.0f</span>, <span class="val">40.0f</span>);
+<span class="fn">SetFogEnabled</span>(<span class="kw">true</span>);
+
+<span class="cm">// Remove fog for an outdoor space scene</span>
+<span class="fn">SetFogEnabled</span>(<span class="kw">false</span>);
+
+<span class="cm">// Range is safe to update while fog is disabled; it is applied on next enable</span>
+<span class="fn">SetFogRange</span>(<span class="val">60.0f</span>, <span class="val">200.0f</span>);   <span class="cm">// cached but not active yet</span>
+<span class="fn">SetFogEnabled</span>(<span class="kw">true</span>);          <span class="cm">// now active with the cached range</span></pre>
+
+<!-- SetMaterialColor -->
+<h3>entity-&gt;SetMaterialColor(color)</h3>
+<p>
+  <code>SetMaterialColor</code> applies an <em>unlit</em> solid-colour material to the
+  entity's <code>StaticModel</code>.  "Unlit" means no lighting equation is computed
+  &mdash; the colour is constant regardless of directional lights, point lights,
+  shadows, or the ambient setting.  This makes it ideal for UI elements placed in
+  3D space, debug markers, highlight overlays, or any object that should always
+  appear at its full specified colour.
+</p>
+<p>
+  Because the material is programmatic, no material XML file is needed.  The call is
+  a no-op if the entity has no <code>StaticModel</code> (i.e. if you have not called
+  <code>AddModel</code> first).
+</p>
+
+<pre><span class="cm">// Bright unlit green — will look exactly this shade under any lighting</span>
+box-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+box-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.20f</span>, <span class="val">0.80f</span>, <span class="val">0.30f</span>));
+
+<span class="cm">// Semitransparent red highlight — alpha &lt; 1.0 enables transparency</span>
+marker-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.5f</span>));
+
+<span class="cm">// Reuse the same entity and swap colour at runtime</span>
+indicator-&gt;<span class="fn">SetMaterialColor</span>(hp &gt; <span class="val">0.5f</span> ? <span class="ty">Color</span>::<span class="val">GREEN</span> : <span class="ty">Color</span>::<span class="val">RED</span>);</pre>
+
+<!-- SetTileTexture -->
+<h3>entity-&gt;SetTileTexture(texPath, uOff, vOff, uScale, vScale)</h3>
+<p>
+  <code>SetTileTexture</code> applies a <em>lit diffuse</em> material that shows a
+  cropped rectangular region of a texture.  This is the canonical way to use a UV
+  texture atlas (a single image containing many tiles) without needing a separate
+  texture file per tile.  The five parameters specify the UV rectangle to sample:
+</p>
+<ul>
+  <li><strong>texPath</strong> &mdash; path to the atlas texture.</li>
+  <li><strong>uOff, vOff</strong> &mdash; UV offset of the top-left corner of the tile, in the range 0&ndash;1.</li>
+  <li><strong>uScale, vScale</strong> &mdash; size of the tile in UV space.  For an N&times;N atlas, each tile's scale is <code>1.0f / N</code>.</li>
+</ul>
+<p>
+  Unlike <code>SetMaterialColor</code>, the resulting material <em>is</em> affected by
+  lights and ambient, so tiles will appear darker in shadow as you would expect.
+  The call is a no-op without a prior <code>AddModel</code>.
+</p>
+
+<pre><span class="cm">// 4×4 atlas: 16 tiles, each occupying 1/4 of UV space in each axis</span>
+<span class="kw">const</span> <span class="ty">float</span> TILE = <span class="val">1.0f</span> / <span class="val">4.0f</span>;
+
+<span class="cm">// Grass tile — column 0, row 0</span>
+ground-&gt;<span class="fn">SetTileTexture</span>(<span class="st">"Textures/terrain.png"</span>,
+                         <span class="val">0</span> * TILE, <span class="val">0</span> * TILE,   <span class="cm">// uOff, vOff</span>
+                         TILE,     TILE);          <span class="cm">// uScale, vScale</span>
+
+<span class="cm">// Stone tile — column 1, row 0</span>
+wall-&gt;<span class="fn">SetTileTexture</span>(<span class="st">"Textures/terrain.png"</span>,
+                      <span class="val">1</span> * TILE, <span class="val">0</span> * TILE,
+                      TILE,     TILE);
+
+<span class="cm">// Lava tile — column 2, row 1</span>
+floor-&gt;<span class="fn">SetTileTexture</span>(<span class="st">"Textures/terrain.png"</span>,
+                       <span class="val">2</span> * TILE, <span class="val">1</span> * TILE,
+                       TILE,     TILE);</pre>
+
+<p>
+  For an 8&times;8 atlas (64 tiles) use <code>1.0f / 8.0f</code> as the tile size,
+  and so on.  The atlas does not need to be square, but a power-of-two texture
+  size is recommended for best GPU compatibility.
+</p>
+
+<!-- SaveScreenshot -->
+<h3>SaveScreenshot(path)</h3>
+<p>
+  <code>SaveScreenshot</code> captures the current rendered framebuffer and writes it
+  to a PNG file at the given path.  It returns <code>true</code> on success and
+  <code>false</code> if the path is unwritable or another I/O error occurred.  The
+  screenshot includes everything visible in the viewport: the 3D scene, the sky dome,
+  and the UI overlay.
+</p>
+<p>
+  The path is relative to the current working directory of the process, which is
+  typically the directory containing your executable.  Use
+  <code>std::to_string</code> or a string formatter to include dynamic information
+  like the current level or a timestamp in the filename.
+</p>
+
+<pre><span class="cm">// Simple timestamped screenshot</span>
+<span class="ty">bool</span> ok = <span class="fn">SaveScreenshot</span>(<span class="st">"screenshot.png"</span>);
+
+<span class="cm">// Include the world name in the filename</span>
+<span class="ty">std::string</span> path = <span class="st">"world"</span> + <span class="ty">std::to_string</span>(currentWorld_) + <span class="st">".png"</span>;
+<span class="kw">if</span> (<span class="fn">SaveScreenshot</span>(path))
+    label-&gt;<span class="fn">SetText</span>(<span class="st">"Saved: "</span> + path);
+<span class="kw">else</span>
+    label-&gt;<span class="fn">SetText</span>(<span class="st">"Screenshot failed!"</span>);</pre>
+
+<!-- ─── PER-WORLD PRESETS ──────────────────────────────────────────────── -->
+<h2>Building per-world atmosphere presets</h2>
+
+<p>
+  The most maintainable way to handle atmosphere in a multi-world game is a dedicated
+  <code>LoadWorld(int id)</code> helper called from <code>Start()</code> and from
+  whatever loads a new world at runtime.  All atmosphere methods are safe to call
+  at any time, so swapping worlds mid-session requires no teardown.
+</p>
+
+<pre><span class="kw">struct</span> <span class="ty">WorldPreset</span>
+{
+    <span class="ty">Color</span>  zenith, horizon;       <span class="cm">// sky gradient</span>
+    <span class="ty">bool</span>   skyEnabled;
+    <span class="ty">Color</span>  ambient;
+    <span class="ty">Color</span>  fogColor;
+    <span class="ty">float</span>  fogStart, fogEnd;
+    <span class="ty">bool</span>   fogEnabled;
+    <span class="ty">std::string</span> skyTex;           <span class="cm">// empty = use gradient, not a file</span>
+};
+
+<span class="kw">const</span> <span class="ty">WorldPreset</span> PRESETS[] = {
+    <span class="cm">// 0: Grassland</span>
+    { {<span class="val">0.10f</span>,<span class="val">0.30f</span>,<span class="val">0.80f</span>}, {<span class="val">0.80f</span>,<span class="val">0.60f</span>,<span class="val">0.40f</span>}, <span class="kw">true</span>,
+      {<span class="val">0.25f</span>,<span class="val">0.30f</span>,<span class="val">0.20f</span>}, {<span class="val">0.52f</span>,<span class="val">0.80f</span>,<span class="val">0.92f</span>}, <span class="val">80.f</span>, <span class="val">250.f</span>, <span class="kw">true</span>,  <span class="st">""</span> },
+    <span class="cm">// 1: Cave</span>
+    { {<span class="val">0</span>,<span class="val">0</span>,<span class="val">0</span>},            {<span class="val">0</span>,<span class="val">0</span>,<span class="val">0</span>},            <span class="kw">false</span>,
+      {<span class="val">0.05f</span>,<span class="val">0.05f</span>,<span class="val">0.10f</span>}, {<span class="val">0</span>,<span class="val">0</span>,<span class="val">0.05f</span>},         <span class="val">10.f</span>, <span class="val">40.f</span>,  <span class="kw">true</span>,  <span class="st">""</span> },
+    <span class="cm">// 2: Volcanic</span>
+    { {<span class="val">0.10f</span>,<span class="val">0.02f</span>,<span class="val">0.00f</span>}, {<span class="val">0.70f</span>,<span class="val">0.20f</span>,<span class="val">0.00f</span>}, <span class="kw">true</span>,
+      {<span class="val">0.40f</span>,<span class="val">0.10f</span>,<span class="val">0.05f</span>}, {<span class="val">0.30f</span>,<span class="val">0.05f</span>,<span class="val">0.00f</span>}, <span class="val">20.f</span>, <span class="val">80.f</span>,  <span class="kw">true</span>,  <span class="st">""</span> },
+    <span class="cm">// 3: Space</span>
+    { {<span class="val">0</span>,<span class="val">0</span>,<span class="val">0.02f</span>},        {<span class="val">0</span>,<span class="val">0</span>,<span class="val">0.02f</span>},        <span class="kw">true</span>,
+      {<span class="val">0.05f</span>,<span class="val">0.05f</span>,<span class="val">0.10f</span>}, {<span class="val">0</span>,<span class="val">0</span>,<span class="val">0</span>},             <span class="val">0.f</span>,  <span class="val">0.f</span>,   <span class="kw">false</span>, <span class="st">"Textures/sky_stars.png"</span> },
+};
+
+<span class="kw">void</span> <span class="fn">ApplyPreset</span>(<span class="ty">int</span> id)
+{
+    <span class="kw">const</span> <span class="kw">auto</span>&amp; p = PRESETS[id];
+    <span class="kw">if</span> (!p.skyTex.empty())
+        <span class="fn">SetSkyDome</span>(p.skyTex);
+    <span class="kw">else</span>
+        <span class="fn">SetSkyGradient</span>(p.zenith, p.horizon);
+    <span class="fn">SetSkyDomeEnabled</span>(p.skyEnabled);
+    <span class="fn">SetAmbientColor</span>(p.ambient);
+    <span class="fn">SetFogColor</span>(p.fogColor);
+    <span class="kw">if</span> (p.fogEnabled)
+        <span class="fn">SetFogRange</span>(p.fogStart, p.fogEnd);
+    <span class="fn">SetFogEnabled</span>(p.fogEnabled);
+}</pre>
+
+<!-- ─── LUA EQUIVALENT ────────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+
+<p>
+  All atmosphere and sky API calls are available as global functions inside any Lua
+  script.  The entity material methods are available on entity objects.
+  <code>SaveScreenshot</code> returns a boolean result just as in C++.
+</p>
+
+<pre><span class="lua-cm">-- Scripts/atmosphere.lua
+-- Attach to a persistent manager entity from C++.
+-- Press 1–4 to switch worlds, F12 to screenshot.</span>
+
+<span class="lua-kw">local</span> currentWorld   = <span class="lua-num">0</span>
+<span class="lua-kw">local</span> screenshotTimer = <span class="lua-num">0.0</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-fn">LoadWorld</span>(<span class="lua-num">0</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">LoadWorld</span>(id)
+    currentWorld = id
+
+    <span class="lua-kw">if</span> id == <span class="lua-num">0</span> <span class="lua-kw">then</span>
+        <span class="lua-cm">-- Grassland: gradient sky, moderate fog</span>
+        <span class="lua-fn">SetSkyGradient</span>(<span class="lua-num">0.10</span>, <span class="lua-num">0.30</span>, <span class="lua-num">0.80</span>,   <span class="lua-cm">-- zenith</span>
+                       <span class="lua-num">0.80</span>, <span class="lua-num">0.60</span>, <span class="lua-num">0.40</span>)   <span class="lua-cm">-- horizon</span>
+        <span class="lua-fn">SetSkyDomeEnabled</span>(<span class="lua-kw">true</span>)
+        <span class="lua-fn">SetClearColor</span>(<span class="lua-num">0.52</span>, <span class="lua-num">0.80</span>, <span class="lua-num">0.92</span>)
+        <span class="lua-fn">SetAmbientColor</span>(<span class="lua-num">0.25</span>, <span class="lua-num">0.30</span>, <span class="lua-num">0.20</span>)
+        <span class="lua-fn">SetFogColor</span>(<span class="lua-num">0.52</span>, <span class="lua-num">0.80</span>, <span class="lua-num">0.92</span>)
+        <span class="lua-fn">SetFogRange</span>(<span class="lua-num">80</span>, <span class="lua-num">250</span>)
+        <span class="lua-fn">SetFogEnabled</span>(<span class="lua-kw">true</span>)
+
+    <span class="lua-kw">elseif</span> id == <span class="lua-num">1</span> <span class="lua-kw">then</span>
+        <span class="lua-cm">-- Cave: no sky, dense dark fog</span>
+        <span class="lua-fn">SetSkyDomeEnabled</span>(<span class="lua-kw">false</span>)
+        <span class="lua-fn">SetClearColor</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+        <span class="lua-fn">SetAmbientColor</span>(<span class="lua-num">0.05</span>, <span class="lua-num">0.05</span>, <span class="lua-num">0.10</span>)
+        <span class="lua-fn">SetFogColor</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0.05</span>)
+        <span class="lua-fn">SetFogRange</span>(<span class="lua-num">10</span>, <span class="lua-num">40</span>)
+        <span class="lua-fn">SetFogEnabled</span>(<span class="lua-kw">true</span>)
+
+    <span class="lua-kw">elseif</span> id == <span class="lua-num">2</span> <span class="lua-kw">then</span>
+        <span class="lua-cm">-- Volcanic: red gradient, hot ambient, ash fog</span>
+        <span class="lua-fn">SetSkyGradient</span>(<span class="lua-num">0.10</span>, <span class="lua-num">0.02</span>, <span class="lua-num">0.00</span>,
+                       <span class="lua-num">0.70</span>, <span class="lua-num">0.20</span>, <span class="lua-num">0.00</span>)
+        <span class="lua-fn">SetSkyDomeEnabled</span>(<span class="lua-kw">true</span>)
+        <span class="lua-fn">SetClearColor</span>(<span class="lua-num">0.15</span>, <span class="lua-num">0.05</span>, <span class="lua-num">0</span>)
+        <span class="lua-fn">SetAmbientColor</span>(<span class="lua-num">0.40</span>, <span class="lua-num">0.10</span>, <span class="lua-num">0.05</span>)
+        <span class="lua-fn">SetFogColor</span>(<span class="lua-num">0.30</span>, <span class="lua-num">0.05</span>, <span class="lua-num">0</span>)
+        <span class="lua-fn">SetFogRange</span>(<span class="lua-num">20</span>, <span class="lua-num">80</span>)
+        <span class="lua-fn">SetFogEnabled</span>(<span class="lua-kw">true</span>)
+
+    <span class="lua-kw">elseif</span> id == <span class="lua-num">3</span> <span class="lua-kw">then</span>
+        <span class="lua-cm">-- Space: textured star-field dome, no fog</span>
+        <span class="lua-fn">SetSkyDome</span>(<span class="lua-str">"Textures/sky_stars.png"</span>)
+        <span class="lua-fn">SetSkyDomeEnabled</span>(<span class="lua-kw">true</span>)
+        <span class="lua-fn">SetClearColor</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0.02</span>)
+        <span class="lua-fn">SetAmbientColor</span>(<span class="lua-num">0.05</span>, <span class="lua-num">0.05</span>, <span class="lua-num">0.10</span>)
+        <span class="lua-fn">SetFogEnabled</span>(<span class="lua-kw">false</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-cm">-- World switching</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.Num1) <span class="lua-kw">then</span> <span class="lua-fn">LoadWorld</span>(<span class="lua-num">0</span>) <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.Num2) <span class="lua-kw">then</span> <span class="lua-fn">LoadWorld</span>(<span class="lua-num">1</span>) <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.Num3) <span class="lua-kw">then</span> <span class="lua-fn">LoadWorld</span>(<span class="lua-num">2</span>) <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.Num4) <span class="lua-kw">then</span> <span class="lua-fn">LoadWorld</span>(<span class="lua-num">3</span>) <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Screenshot</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.F12) <span class="lua-kw">then</span>
+        <span class="lua-kw">local</span> path = <span class="lua-str">"screenshot_world"</span> .. currentWorld .. <span class="lua-str">".png"</span>
+        <span class="lua-kw">local</span> ok = <span class="lua-fn">SaveScreenshot</span>(path)
+        <span class="lua-kw">if</span> ok <span class="lua-kw">then</span>
+            screenshotTimer = <span class="lua-num">3.0</span>
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-kw">if</span> screenshotTimer &gt; <span class="lua-num">0</span> <span class="lua-kw">then</span>
+        screenshotTimer = screenshotTimer - dt
+    <span class="lua-kw">end</span>
+
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.Escape) <span class="lua-kw">then</span>
+        game:<span class="lua-fn">Quit</span>()
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- Apply a UV-atlas tile to an entity from Lua:
+--   tileSize = 1/4 for a 4x4 atlas
+--   entity:SetTileTexture(path, uOff, vOff, uScale, vScale)</span>
+<span class="lua-kw">function</span> <span class="lua-fn">ApplyTile</span>(entity, col, row)
+    <span class="lua-kw">local</span> t = <span class="lua-num">1.0</span> / <span class="lua-num">4.0</span>
+    entity:<span class="lua-fn">SetTileTexture</span>(<span class="lua-str">"Textures/terrain-atlas.png"</span>,
+                           col * t, row * t, t, t)
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- Apply a flat unlit colour to an entity from Lua:
+--   entity:SetMaterialColor(r, g, b, a=1)</span>
+<span class="lua-kw">function</span> <span class="lua-fn">MarkGreen</span>(entity)
+    entity:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-num">0.2</span>, <span class="lua-num">0.8</span>, <span class="lua-num">0.3</span>)
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── QUICK REFERENCE ───────────────────────────────────────────────── -->
+<h2>Quick reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Returns</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>SetSkyDome(texturePath)</code></td>
+      <td>&mdash;</td>
+      <td>Creates dome sphere on first call; swaps texture on subsequent calls. Empty path = untextured.</td>
+    </tr>
+    <tr>
+      <td><code>SetSkyDomeEnabled(bool)</code></td>
+      <td>&mdash;</td>
+      <td>Show or hide the dome without destroying it. Default: enabled after first SetSkyDome/SetSkyGradient call.</td>
+    </tr>
+    <tr>
+      <td><code>SetSkyGradient(zenith, horizon)</code></td>
+      <td>&mdash;</td>
+      <td>Generates a 1&times;16 gradient texture and applies it to the dome. No texture file required.</td>
+    </tr>
+    <tr>
+      <td><code>SetAmbientColor(color)</code></td>
+      <td>&mdash;</td>
+      <td>Minimum brightness on all surfaces. Default <code>Color(0.3, 0.3, 0.3)</code>.</td>
+    </tr>
+    <tr>
+      <td><code>SetFogEnabled(bool)</code></td>
+      <td>&mdash;</td>
+      <td>Enable/disable linear fog. Default false. Enable after calling SetFogColor and SetFogRange.</td>
+    </tr>
+    <tr>
+      <td><code>SetFogColor(color)</code></td>
+      <td>&mdash;</td>
+      <td>Colour geometry fades into with distance. Match to clear colour for seamless sky blending.</td>
+    </tr>
+    <tr>
+      <td><code>SetFogRange(start, end)</code></td>
+      <td>&mdash;</td>
+      <td>Linear fog distances in world units. Safe to call while fog is disabled.</td>
+    </tr>
+    <tr>
+      <td><code>entity-&gt;SetMaterialColor(color)</code></td>
+      <td>&mdash;</td>
+      <td>Unlit solid colour. Not affected by lights or ambient. No-op without StaticModel.</td>
+    </tr>
+    <tr>
+      <td><code>entity-&gt;SetTileTexture(path, uOff, vOff, uScale, vScale)</code></td>
+      <td>&mdash;</td>
+      <td>Lit diffuse material using a UV-atlas crop. No-op without StaticModel.</td>
+    </tr>
+    <tr>
+      <td><code>SaveScreenshot(path)</code></td>
+      <td><code>bool</code></td>
+      <td>Writes current framebuffer to PNG. Returns false on I/O error.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ─── COMMON MISTAKES ───────────────────────────────────────────────── -->
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Sky dome clips against the far plane.</strong>
+      The sky dome sphere has a radius of 450 world units.  If you set
+      <code>cam-&gt;SetFarClip</code> to less than 500, the back of the dome will be
+      clipped and you will see a black ring around the horizon.  Always set the far
+      clip to at least 500 when using a sky dome.
+    </li>
+    <li>
+      <strong>Calling SetSkyGradient and then SetSkyDomeEnabled(false) expecting the gradient to reappear.</strong>
+      <code>SetSkyGradient</code> and <code>SetSkyDome</code> always re-enable the dome.
+      If you then call <code>SetSkyDomeEnabled(false)</code> in the same world setup
+      function, the dome will be hidden.  Call <code>SetSkyDomeEnabled(false)</code>
+      only in presets where you genuinely want no sky visible.
+    </li>
+    <li>
+      <strong>Fog colour does not match the sky colour.</strong>
+      When <code>SetFogColor</code> is different from <code>SetClearColor</code> and
+      the sky horizon colour, a visible coloured band appears at the fog boundary.
+      For outdoor scenes, all three should be set to the same or very similar value.
+    </li>
+    <li>
+      <strong>SetFogEnabled(true) before SetFogRange, getting zero-range fog.</strong>
+      If you call <code>SetFogEnabled(true)</code> without first calling
+      <code>SetFogRange</code>, the start and end distances default to 0 and 0, which
+      makes everything immediately opaque.  Always call <code>SetFogRange</code>
+      before <code>SetFogEnabled(true)</code>.
+    </li>
+    <li>
+      <strong>Using SetMaterialColor on an entity with no model.</strong>
+      <code>SetMaterialColor</code> and <code>SetTileTexture</code> are both no-ops
+      unless the entity already has a <code>StaticModel</code> added via
+      <code>AddModel</code>.  Call <code>AddModel</code> first.
+    </li>
+    <li>
+      <strong>Confusing SetMaterialColor (unlit) with a lit coloured material.</strong>
+      <code>SetMaterialColor</code> produces an <em>emissive, unlit</em> surface.  If
+      you want a coloured surface that still responds to lights and shadows, use
+      <code>SetTileTexture</code> with a small single-colour texture, or provide a
+      custom material XML.
+    </li>
+    <li>
+      <strong>SetTileTexture UV coordinates outside [0,1] causing tiling artefacts.</strong>
+      If <code>uOff + uScale &gt; 1.0</code> or <code>vOff + vScale &gt; 1.0</code>,
+      the UV rectangle wraps and samples from the wrong tile.  For an N&times;N atlas
+      always compute the tile size as <code>1.0f / N</code> and check that
+      <code>col &lt; N</code> and <code>row &lt; N</code> before multiplying.
+    </li>
+    <li>
+      <strong>SaveScreenshot path not writable.</strong>
+      Relative paths are resolved from the working directory of the process, which may
+      not be writable in installed or sandboxed builds.  Check the return value and
+      inform the user if <code>false</code> is returned.  For portable paths prefer the
+      save-data directory exposed by the OS (e.g. <code>~/.local/share/MyGame/</code>).
+    </li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ──────────────────────────────────────────────── -->
+<h2>What you learned</h2>
+
+<p>
+  In this part you gained complete control over the visual atmosphere of a simple-3d
+  scene:
+</p>
+<ul>
+  <li>
+    <strong>Sky dome:</strong> <code>SetSkyDome(path)</code> wraps a texture around a
+    large inside-out sphere that follows the camera.  <code>SetSkyDomeEnabled(false)</code>
+    hides it for indoor or underground scenes without destroying the node.
+  </li>
+  <li>
+    <strong>Procedural gradient sky:</strong> <code>SetSkyGradient(zenith, horizon)</code>
+    generates a two-colour gradient texture in memory &mdash; no image file needed &mdash;
+    and applies it to the dome.  It is the fastest way to give a scene a distinctive sky.
+  </li>
+  <li>
+    <strong>Ambient light:</strong> <code>SetAmbientColor</code> sets the minimum
+    brightness of every surface.  Low values create dramatic shadows; high values
+    produce the flat look of overcast daylight.  Tinting the colour shifts the whole
+    scene's mood.
+  </li>
+  <li>
+    <strong>Linear fog:</strong> <code>SetFogColor</code>, <code>SetFogRange</code>, and
+    <code>SetFogEnabled</code> work together to blend distant geometry into a chosen
+    colour.  Matching the fog colour to the sky horizon produces seamless depth without
+    visible edges.
+  </li>
+  <li>
+    <strong>Unlit material colour:</strong> <code>entity-&gt;SetMaterialColor</code>
+    applies a programmatic emissive material.  The colour is constant regardless of
+    lights, shadows, or ambient &mdash; useful for debug markers, UI elements in 3D
+    space, and objects that must always be fully visible.
+  </li>
+  <li>
+    <strong>UV-atlas tile texture:</strong> <code>entity-&gt;SetTileTexture(path, uOff, vOff, uScale, vScale)</code>
+    crops a rectangular region from a texture atlas and applies it as a lit diffuse
+    material.  This avoids needing a separate image file per tile.
+  </li>
+  <li>
+    <strong>Screenshots:</strong> <code>SaveScreenshot(path)</code> captures the full
+    rendered framebuffer to a PNG, including the sky, geometry, and UI overlay.
+  </li>
+  <li>
+    <strong>Per-world presets:</strong> combining all the above calls into a single
+    <code>LoadWorld(id)</code> helper makes it trivial to switch between dramatically
+    different visual environments at runtime with no teardown required.
+  </li>
+</ul>
+
+<p>
+  That brings us to the final tutorial: <a href="tutorial-30.html">Part 30: Networking Basics</a>
+  &mdash; starting a server, connecting a client, and passing custom messages between
+  them using <code>NetworkManager</code>.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-28.html">&#8592; Part 28: Tweens</a>
+  <a href="tutorial-30.html">Part 30: Networking Basics &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 14: Navigation and Pathfinding — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li class="active"><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 14</div>
+
+<h1><span class="tutorial-part">Part 14 of 30</span>Navigation and Pathfinding</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>BuildNavMesh(agentRadius, agentHeight, cellSize)</code> &mdash;
+    <code>entity-&gt;MoveToward(target, speed, dt)</code> auto-navigation &mdash;
+    <code>entity-&gt;FindPath(target)</code> returning <code>std::vector&lt;Vector3&gt;</code> &mdash;
+    <code>entity-&gt;StopMoving()</code> &mdash;
+    agent radius and cell size tuning &mdash;
+    static geometry baking requirement
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ──────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>What a navigation mesh is and how simple-3d builds one from your level geometry using <strong>Recast/Detour</strong>.</li>
+  <li>Why <strong>static geometry</strong> must be in place before calling <code>BuildNavMesh()</code>, and what happens if you add obstacles afterwards.</li>
+  <li>How to call <code>BuildNavMesh(agentRadius, agentHeight, cellSize)</code> in <code>Start()</code> with appropriate parameters for your game.</li>
+  <li>How <strong>agent radius</strong> controls the clearance kept from obstacle edges, and how <strong>cell size</strong> trades accuracy for baking speed.</li>
+  <li>How to make an enemy automatically navigate around obstacles toward the player every frame with <code>entity-&gt;MoveToward(target, speed, dt)</code>.</li>
+  <li>How <code>MoveToward</code> caches the computed path and only recomputes when the target drifts by more than 0.5&nbsp;m &mdash; keeping CPU cost low.</li>
+  <li>How to query a path as a list of world-space waypoints with <code>entity-&gt;FindPath(target)</code> when you need to inspect or visualise the route without immediately following it.</li>
+  <li>How to cancel ongoing navigation with <code>entity-&gt;StopMoving()</code>.</li>
+  <li>The equivalent Lua API so the same navigation logic can be scripted without recompiling.</li>
+</ul>
+
+<!-- ─── HOW NAVIGATION MESHES WORK ──────────────────────────────── -->
+<h2>How navigation meshes work in simple-3d</h2>
+<p>
+  A <strong>navigation mesh</strong> (navmesh) is a simplified polygon surface that covers the
+  walkable areas of your level. Pathfinding algorithms can route an agent across this surface
+  efficiently because they only ever need to reason about polygons, not raw triangle soup.
+</p>
+<p>
+  simple-3d uses the industry-standard <strong>Recast</strong> library to bake the navmesh and
+  <strong>Detour</strong> to query paths through it at runtime. The typical workflow has three
+  steps:
+</p>
+<ol>
+  <li>Place all <strong>static</strong> level geometry (ground, walls, crates) in the scene and
+  assign them <code>CollisionLayer::StaticGeometry</code> with mass&nbsp;0 rigid bodies so the
+  engine can find them.</li>
+  <li>Call <code>BuildNavMesh()</code> <strong>once</strong> in <code>Start()</code> after setup.
+  Recast voxelises the geometry, erodes the walkable surface by the agent radius, and stores
+  the resulting polygon mesh. For a normal-sized level this takes a fraction of a second.</li>
+  <li>Every frame, call <code>entity-&gt;MoveToward()</code> or <code>entity-&gt;FindPath()</code>
+  to navigate agents across the cached mesh. These calls are cheap because the heavy baking
+  work is already done.</li>
+</ol>
+
+<div class="callout info">
+  <h4>Dynamic obstacles</h4>
+  <p>
+    The navmesh baked in <code>Start()</code> is static. If you add or remove a wall at
+    runtime (for example, a door that opens), call <code>BuildNavMesh()</code> again with the
+    same parameters to rebuild it. Rebuilding is synchronous and safe to call at any time,
+    though it will cause a brief stall on very large levels.
+  </p>
+</div>
+
+<!-- ─── STATIC GEOMETRY REQUIREMENT ─────────────────────────────── -->
+<h2>Static geometry: what the nav mesh sees</h2>
+<p>
+  Recast only includes entities that have both a <strong>zero-mass rigid body</strong> and a
+  collision shape assigned to <code>CollisionLayer::StaticGeometry</code> (layer&nbsp;2). A
+  decorative entity with no physics components will be ignored entirely; a dynamic entity with
+  mass&nbsp;&gt;&nbsp;0 will also be ignored because it can move at any time.
+</p>
+<p>
+  The minimum required setup for any object you want to block navigation:
+</p>
+<pre><span class="ty">Entity</span>* wall = <span class="fn">CreateEntity</span>(<span class="st">"Wall"</span>);
+wall-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">5.0f</span>, <span class="val">1.5f</span>, <span class="val">0.0f</span>));
+wall-><span class="fn">SetScale</span>(<span class="ty">Vector3</span>(<span class="val">1.0f</span>, <span class="val">3.0f</span>, <span class="val">8.0f</span>));
+wall-><span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+
+<span class="cm">// Step 1: Mass 0 — static body. Never moves. Nav mesh can use it.</span>
+wall-><span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+
+<span class="cm">// Step 2: Collision shape so physics (and Recast) know the wall's extent.</span>
+wall-><span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">1.0f</span>, <span class="val">3.0f</span>, <span class="val">8.0f</span>));
+
+<span class="cm">// Step 3: Layer 2 — Recast collects only this layer during baking.</span>
+wall-><span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="nm">StaticGeometry</span>);</pre>
+<p>
+  Any entity that does not follow this pattern (wrong layer, missing rigid body, or mass&nbsp;&gt;&nbsp;0)
+  will be transparent to the nav mesh and agents will walk right through it.
+</p>
+
+<!-- ─── COMPLETE EXAMPLE ──────────────────────────────────────────── -->
+<h2>Complete example</h2>
+<p>
+  The demo below creates a 30&times;30&nbsp;m arena with four wall obstacles, a player
+  (controlled with the arrow keys) and a red enemy that automatically navigates around the
+  walls to reach the player. Press <kbd>C</kbd> to switch the enemy between chasing the player
+  and heading to the center of the arena. Press <kbd>F</kbd> to toggle a yellow debug
+  visualisation of the current path waypoints. Press <kbd>Escape</kbd> to quit.
+</p>
+
+<pre><span class="cm">// NavDemo.cpp — Part 14 of the simple-3d tutorial series</span>
+<span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;string&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;vector&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">NavDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+    <span class="ty">Entity</span>*              player_   = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*              enemy_    = <span class="kw">nullptr</span>;
+    <span class="ty">CharacterController</span>* playerCC_ = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*               statusLbl_= <span class="kw">nullptr</span>;
+    <span class="kw">bool</span>                 debugPath_= <span class="kw">false</span>;
+    <span class="kw">bool</span>                 chaseMode_= <span class="kw">true</span>;
+
+    <span class="cm">// Fixed rally point: center of the arena, at ground level.</span>
+    <span class="ty">Vector3</span> rallyPoint_ = <span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);
+
+    <span class="cm">// ── Helper: create one static obstacle ───────────────────────</span>
+    <span class="kw">void</span> <span class="fn">MakeWall</span>(<span class="kw">const char</span>* name, <span class="ty">Vector3</span> pos, <span class="ty">Vector3</span> size) {
+        <span class="ty">Entity</span>* w = <span class="fn">CreateEntity</span>(name);
+        w-><span class="fn">SetPosition</span>(pos);
+        w-><span class="fn">SetScale</span>(size);
+        w-><span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        w-><span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.55f</span>, <span class="val">0.50f</span>, <span class="val">0.45f</span>));
+        w-><span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);              <span class="cm">// static — included in nav mesh bake</span>
+        w-><span class="fn">AddBoxCollider</span>(size);
+        w-><span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="nm">StaticGeometry</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Part 14 — Navigation and Pathfinding"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.12f</span>, <span class="val">0.14f</span>, <span class="val">0.18f</span>));
+
+        <span class="cm">// ── Camera: angled overhead view of the arena ─────────────</span>
+        <span class="ty">Camera</span>* cam = <span class="fn">CreateCamera</span>();
+        cam-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">22.0f</span>, -<span class="val">18.0f</span>));
+        cam-><span class="fn">LookAt</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">3.0f</span>));
+        cam-><span class="fn">SetFOV</span>(<span class="val">50.0f</span>);
+
+        <span class="cm">// ── Directional light ─────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-><span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50.0f</span>, <span class="val">20.0f</span>, <span class="val">0.0f</span>));
+        sun-><span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>::<span class="nm">WHITE</span>, <span class="val">1.0f</span>);
+
+        <span class="cm">// ════════════════════════════════════════════════════════
+        // STEP 1: Place all static geometry BEFORE calling BuildNavMesh.
+        // Recast only sees entities on CollisionLayer::StaticGeometry
+        // with a zero-mass rigid body.
+        // ════════════════════════════════════════════════════════</span>
+
+        <span class="cm">// Ground plane — 30 m × 30 m, 0.5 m thick, top surface at y = +0.25</span>
+        <span class="ty">Entity</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>));
+        ground-><span class="fn">SetScale</span>(<span class="ty">Vector3</span>(<span class="val">30.0f</span>, <span class="val">0.5f</span>, <span class="val">30.0f</span>));
+        ground-><span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        ground-><span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.28f</span>, <span class="val">0.48f</span>, <span class="val">0.28f</span>));
+        ground-><span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        ground-><span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">30.0f</span>, <span class="val">0.5f</span>, <span class="val">30.0f</span>));
+        ground-><span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="nm">StaticGeometry</span>);
+
+        <span class="cm">// Four wall obstacles arranged to create a winding path through the arena.
+        // Wall centers sit at y = 1.5 so the base rests on the ground (y = 0.25)
+        // and the top reaches y = 2.75.</span>
+        <span class="fn">MakeWall</span>(<span class="st">"WallA"</span>, <span class="ty">Vector3</span>(-<span class="val">5.0f</span>, <span class="val">1.5f</span>,  <span class="val">2.0f</span>), <span class="ty">Vector3</span>(<span class="val">8.0f</span>, <span class="val">2.5f</span>, <span class="val">1.0f</span>));
+        <span class="fn">MakeWall</span>(<span class="st">"WallB"</span>, <span class="ty">Vector3</span>( <span class="val">4.0f</span>, <span class="val">1.5f</span>, -<span class="val">2.0f</span>), <span class="ty">Vector3</span>(<span class="val">1.0f</span>, <span class="val">2.5f</span>, <span class="val">8.0f</span>));
+        <span class="fn">MakeWall</span>(<span class="st">"WallC"</span>, <span class="ty">Vector3</span>(-<span class="val">2.0f</span>, <span class="val">1.5f</span>, -<span class="val">5.0f</span>), <span class="ty">Vector3</span>(<span class="val">6.0f</span>, <span class="val">2.5f</span>, <span class="val">1.0f</span>));
+        <span class="fn">MakeWall</span>(<span class="st">"WallD"</span>, <span class="ty">Vector3</span>( <span class="val">6.0f</span>, <span class="val">1.5f</span>,  <span class="val">5.0f</span>), <span class="ty">Vector3</span>(<span class="val">1.0f</span>, <span class="val">2.5f</span>, <span class="val">5.0f</span>));
+
+        <span class="cm">// ── PLAYER — controlled by arrow keys ─────────────────────</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(-<span class="val">8.0f</span>, <span class="val">1.15f</span>, -<span class="val">8.0f</span>));
+        player_-><span class="fn">SetScale</span>(<span class="ty">Vector3</span>(<span class="val">0.7f</span>, <span class="val">1.8f</span>, <span class="val">0.7f</span>));
+        player_-><span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        player_-><span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.55f</span>, <span class="val">0.9f</span>));
+        playerCC_ = player_-><span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+        playerCC_-><span class="fn">SetGravity</span>(<span class="val">22.0f</span>);
+        player_-><span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="nm">Actor</span>);
+        player_-><span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({<span class="ty">CollisionLayer</span>::<span class="nm">StaticGeometry</span>}));
+
+        <span class="cm">// ── ENEMY — auto-navigated by MoveToward each frame ───────
+        // A dynamic RigidBody (mass > 0) is required. MoveToward drives
+        // the body's velocity to follow the computed path.
+        // A CharacterController also works; kinematic bodies use Translate().</span>
+        enemy_ = <span class="fn">CreateEntity</span>(<span class="st">"Enemy"</span>);
+        enemy_-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">8.0f</span>, <span class="val">1.15f</span>, <span class="val">8.0f</span>));
+        enemy_-><span class="fn">SetScale</span>(<span class="ty">Vector3</span>(<span class="val">0.7f</span>, <span class="val">1.8f</span>, <span class="val">0.7f</span>));
+        enemy_-><span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        enemy_-><span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.9f</span>, <span class="val">0.25f</span>, <span class="val">0.2f</span>));
+        enemy_-><span class="fn">AddRigidBody</span>(<span class="val">75.0f</span>);         <span class="cm">// dynamic — nav system sets velocity</span>
+        enemy_-><span class="fn">AddCapsuleCollider</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+        enemy_-><span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="nm">Actor</span>);
+        enemy_-><span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({<span class="ty">CollisionLayer</span>::<span class="nm">StaticGeometry</span>}));
+
+        <span class="cm">// ════════════════════════════════════════════════════════
+        // STEP 2: Build the nav mesh.
+        // Parameters:
+        //   0.4f  — agent radius in metres (clearance from obstacle edges)
+        //   1.8f  — agent height in metres (minimum overhead clearance)
+        //   0.3f  — voxel cell size in metres (resolution; smaller = more
+        //            accurate corners but longer bake time)
+        //
+        // This call is synchronous and typically takes < 100 ms for a small
+        // level. The result is cached in the scene until the next call.
+        // ════════════════════════════════════════════════════════</span>
+        <span class="fn">BuildNavMesh</span>(<span class="val">0.4f</span>, <span class="val">1.8f</span>, <span class="val">0.3f</span>);
+
+        <span class="cm">// ── HUD ───────────────────────────────────────────────────</span>
+        statusLbl_ = <span class="fn">CreateLabel</span>(<span class="st">"Enemy: chasing player"</span>);
+        statusLbl_-><span class="fn">SetPosition</span>(<span class="val">12</span>, <span class="val">12</span>);
+        statusLbl_-><span class="fn">SetFontSize</span>(<span class="val">18</span>);
+        statusLbl_-><span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.92f</span>, <span class="val">0.88f</span>, <span class="val">0.78f</span>));
+
+        <span class="ty">Label</span>* helpLbl = <span class="fn">CreateLabel</span>(
+            <span class="st">"Arrow keys = move  |  C = chase / rally  |  F = debug path  |  ESC = quit"</span>);
+        helpLbl-><span class="fn">SetPosition</span>(<span class="val">12</span>, <span class="val">40</span>);
+        helpLbl-><span class="fn">SetFontSize</span>(<span class="val">14</span>);
+        helpLbl-><span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.6f</span>, <span class="val">0.6f</span>, <span class="val">0.6f</span>));
+
+        <span class="cm">// Enable debug renderer so DrawDebugSphere / DrawDebugLine work.</span>
+        <span class="fn">SetDebugDrawEnabled</span>(<span class="kw">true</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="kw">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="nm">Escape</span>))
+            <span class="fn">Quit</span>();
+
+        <span class="cm">// ── Player movement (arrow keys) ──────────────────────────</span>
+        <span class="ty">Vector3</span> dir;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Up</span>))    dir += <span class="ty">Vector3</span>( <span class="val">0.0f</span>, <span class="val">0.0f</span>,  <span class="val">1.0f</span>);
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Down</span>))  dir += <span class="ty">Vector3</span>( <span class="val">0.0f</span>, <span class="val">0.0f</span>, -<span class="val">1.0f</span>);
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Left</span>))  dir += <span class="ty">Vector3</span>(-<span class="val">1.0f</span>, <span class="val">0.0f</span>,  <span class="val">0.0f</span>);
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Right</span>)) dir += <span class="ty">Vector3</span>( <span class="val">1.0f</span>, <span class="val">0.0f</span>,  <span class="val">0.0f</span>);
+        <span class="kw">if</span> (dir.<span class="fn">LengthSquared</span>() > <span class="val">0.01f</span>)
+            dir.<span class="fn">Normalize</span>();
+        playerCC_-><span class="fn">Move</span>(dir * <span class="val">6.0f</span>, dt);
+
+        <span class="cm">// ── C — toggle between chasing the player and the rally point</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="nm">C</span>)) {
+            chaseMode_ = !chaseMode_;
+            <span class="kw">if</span> (!chaseMode_) {
+                <span class="cm">// Cancel the current path before switching targets.</span>
+                enemy_-><span class="fn">StopMoving</span>();
+            }
+        }
+
+        <span class="cm">// ── F — toggle path debug visualisation</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="nm">F</span>))
+            debugPath_ = !debugPath_;
+
+        <span class="cm">// ════════════════════════════════════════════════════════
+        // STEP 3: Navigate the enemy every frame with MoveToward.
+        //
+        // MoveToward computes a path to the target on the first call,
+        // caches it, and then drives the entity's velocity along the path.
+        // It recomputes automatically when the target moves more than 0.5 m.
+        //
+        // Return value:
+        //   true  — currently navigating (has a valid path, not yet arrived)
+        //   false — arrived at the destination, or no valid path exists
+        // ════════════════════════════════════════════════════════</span>
+        <span class="kw">bool</span> moving;
+        <span class="kw">if</span> (chaseMode_) {
+            <span class="cm">// Pass an Entity* — the nav system tracks the entity's position
+            // and recomputes whenever the player moves significantly.</span>
+            moving = enemy_-><span class="fn">MoveToward</span>(player_, <span class="val">4.0f</span>, dt);
+        } <span class="kw">else</span> {
+            <span class="cm">// Pass a Vector3 — navigate to a fixed world-space point.</span>
+            moving = enemy_-><span class="fn">MoveToward</span>(rallyPoint_, <span class="val">3.0f</span>, dt);
+        }
+
+        <span class="ty">std::string</span> modeStr = chaseMode_ ? <span class="st">"chasing player"</span> : <span class="st">"going to center"</span>;
+        statusLbl_-><span class="fn">SetText</span>(
+            <span class="st">"Enemy: "</span> + modeStr + (moving ? <span class="st">""</span> : <span class="st">"  [arrived]"</span>)
+        );
+
+        <span class="cm">// ── Debug: draw the current path as yellow spheres + lines ──
+        // FindPath queries the nav mesh without starting movement.
+        // It returns the same waypoint list that MoveToward uses internally,
+        // so the visualisation always matches the route being followed.</span>
+        <span class="kw">if</span> (debugPath_) {
+            <span class="ty">Vector3</span> target = chaseMode_
+                ? player_-><span class="fn">GetPosition</span>()
+                : rallyPoint_;
+
+            std::vector&lt;<span class="ty">Vector3</span>&gt; path = enemy_-><span class="fn">FindPath</span>(target);
+
+            <span class="ty">Vector3</span> prev = enemy_-><span class="fn">GetPosition</span>();
+            <span class="kw">for</span> (<span class="kw">const</span> <span class="ty">Vector3</span>&amp; wp : path) {
+                <span class="fn">DrawDebugSphere</span>(wp, <span class="val">0.18f</span>, <span class="ty">Color</span>::<span class="nm">YELLOW</span>);
+                <span class="fn">DrawDebugLine</span>(prev, wp, <span class="ty">Color</span>::<span class="nm">YELLOW</span>);
+                prev = wp;
+            }
+        }
+    }
+};
+
+<span class="kw">int</span> <span class="fn">main</span>() {
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">NavDemo</span>&gt;()-><span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATIONS ─────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<h3>BuildNavMesh(agentRadius, agentHeight, cellSize)</h3>
+<p>
+  <code>BuildNavMesh</code> is a method on the <code>Game</code> class (not on any single entity).
+  It scans the entire scene for static geometry, voxelises it into a grid of the given cell size,
+  erodes the walkable surface inward by the agent radius to ensure agents can pass without clipping
+  obstacle edges, and stores the resulting polygon navmesh in memory.
+</p>
+<p>
+  Call it once in <code>Start()</code>, after every static entity you want included has been
+  created. The call is synchronous &mdash; it blocks the main thread for a moment, which is
+  acceptable in a loading/startup context but should not be called inside <code>Update()</code>
+  unless you explicitly need a runtime rebuild.
+</p>
+<div class="sig"><span class="fn">BuildNavMesh</span>(<span class="kw">float</span> agentRadius = <span class="val">0.4f</span>, <span class="kw">float</span> agentHeight = <span class="val">1.8f</span>, <span class="kw">float</span> cellSize = <span class="val">0.3f</span>);</div>
+
+<h3>Agent radius (SetNavMeshAgentRadius) — the first parameter</h3>
+<p>
+  The <strong>agent radius</strong> (first parameter to <code>BuildNavMesh</code>) is the half-width
+  of your navigating character in metres. Recast erodes the walkable surface by this amount from
+  every obstacle edge, so agents computed by Detour always have at least this much clearance.
+</p>
+<p>
+  A value of <code>0.4f</code> suits a roughly human-sized character. If you make it too small,
+  agents may pathfind through gaps that they would actually clip in 3D space. If you make it too
+  large, agents may refuse to walk through narrow corridors that would realistically fit them.
+</p>
+<div class="callout info">
+  <h4>Match the agent radius to the collision capsule</h4>
+  <p>
+    Set the agent radius equal to (or slightly greater than) the radius of the capsule collider
+    you attach to your enemies. In the example above both the nav mesh agent and the enemy's
+    <code>AddCapsuleCollider</code> use <code>0.35&ndash;0.4&nbsp;m</code>. This prevents the nav
+    system from routing the enemy through openings that the physics capsule would then block.
+  </p>
+</div>
+
+<h3>Cell size (SetNavMeshCellSize) — the third parameter</h3>
+<p>
+  The <strong>cell size</strong> (third parameter) is the edge length of each voxel in the
+  Recast grid. Smaller values produce a more accurate navmesh that tracks the true shape of
+  obstacles more closely, but they also increase bake time and memory use quadratically.
+</p>
+<p>
+  The default <code>0.3f</code> (30&nbsp;cm per voxel) is a good starting point for levels with
+  obstacles at least 1&nbsp;m wide. For very small levels or tight corridors, try
+  <code>0.15f</code>. For large open outdoor levels where exact obstacle fitting is less
+  important, <code>0.5f</code> or even <code>1.0f</code> is usually fine and bakes in
+  milliseconds.
+</p>
+
+<table>
+  <tr>
+    <th>Parameter</th>
+    <th>Smaller value</th>
+    <th>Larger value</th>
+    <th>Typical range</th>
+  </tr>
+  <tr>
+    <td><code>agentRadius</code></td>
+    <td>Agents walk closer to edges; may clip narrow gaps</td>
+    <td>Agents avoid more clearance; narrow gaps blocked</td>
+    <td>0.2&ndash;0.6&nbsp;m</td>
+  </tr>
+  <tr>
+    <td><code>agentHeight</code></td>
+    <td>Agents pass under lower ceilings</td>
+    <td>Agents need more overhead clearance</td>
+    <td>1.5&ndash;2.2&nbsp;m</td>
+  </tr>
+  <tr>
+    <td><code>cellSize</code></td>
+    <td>More accurate corners; slower bake</td>
+    <td>Blockier navmesh; faster bake</td>
+    <td>0.1&ndash;0.5&nbsp;m</td>
+  </tr>
+</table>
+
+<h3>entity-&gt;MoveToward(target, speed, dt)</h3>
+<p>
+  <code>MoveToward</code> is the primary high-level navigation call. On the first call it asks
+  the Detour library to compute a path from the entity's current position to <em>target</em> and
+  caches the resulting waypoint list. On subsequent calls it drives the entity's velocity
+  along the cached path at <em>speed</em> metres per second, automatically advancing to the
+  next waypoint when the current one is reached. When the final waypoint is reached the entity
+  stops and the call returns <code>false</code>.
+</p>
+<p>
+  <strong>Path recomputation:</strong> if the target is an <code>Entity*</code>, the system
+  compares the target's current position to the position recorded when the last path was computed.
+  If the difference is more than 0.5&nbsp;m it recomputes the path. This makes the call suitable
+  for chasing a moving player without incurring a full Detour query every frame.
+</p>
+<div class="sig"><span class="cm">// Chase an entity</span>
+<span class="kw">bool</span> moving = <span class="ty">entity</span>-&gt;<span class="fn">MoveToward</span>(<span class="ty">Entity</span>* target, <span class="kw">float</span> speed, <span class="kw">float</span> dt);
+
+<span class="cm">// Navigate to a fixed world position</span>
+<span class="kw">bool</span> moving = <span class="ty">entity</span>-&gt;<span class="fn">MoveToward</span>(<span class="ty">Vector3</span> targetPos, <span class="kw">float</span> speed, <span class="kw">float</span> dt);</div>
+<p>
+  Return value: <code>true</code> while the entity is actively moving along a path, <code>false</code>
+  when it has arrived at the destination or when no valid path could be found (e.g. the target
+  is surrounded by walls with no reachable route). Always check the return value if you need
+  to trigger logic when the agent arrives.
+</p>
+<p>
+  The entity must have either a <strong>dynamic RigidBody</strong> (mass&nbsp;&gt;&nbsp;0) or a
+  <strong>CharacterController</strong> so that <code>MoveToward</code> has a velocity field to
+  write into. Entities with no physics component are moved via <code>Translate()</code>.
+</p>
+
+<h3>entity-&gt;FindPath(target) &rarr; std::vector&lt;Vector3&gt;</h3>
+<p>
+  <code>FindPath</code> queries Detour for the shortest path from the entity's current position
+  to <em>target</em> and returns the full waypoint list as a <code>std::vector&lt;Vector3&gt;</code>.
+  It does <em>not</em> start movement. Use it when you need to inspect the route (for
+  AI decisions, length calculation, or debug visualisation) before or instead of following it.
+</p>
+<div class="sig"><span class="cm">// Returns waypoints including the destination; empty if no path exists</span>
+std::vector&lt;<span class="ty">Vector3</span>&gt; path = <span class="ty">entity</span>-&gt;<span class="fn">FindPath</span>(<span class="ty">Vector3</span> targetPos);
+std::vector&lt;<span class="ty">Vector3</span>&gt; path = <span class="ty">entity</span>-&gt;<span class="fn">FindPath</span>(<span class="ty">Entity</span>* target);</div>
+<p>
+  The first element of the returned vector is the <em>first turn waypoint</em> on the path;
+  the last element is the destination. If the target is directly reachable without any turns, the
+  vector contains only the destination. An empty vector means the target is not reachable from
+  the entity's current position (for example, it is outside the navmesh boundary, or completely
+  surrounded by obstacles).
+</p>
+<p>
+  Because <code>FindPath</code> calls Detour directly it costs a tiny amount of CPU each frame if
+  called every <code>Update()</code>. For continuous chasing, prefer <code>MoveToward</code> which
+  caches the path internally. Use <code>FindPath</code> for one-shot queries, debug drawing, or
+  periodic AI checks.
+</p>
+
+<h3>entity-&gt;StopMoving()</h3>
+<p>
+  Clears the entity's cached path and sets its horizontal velocity to zero. Call it whenever you
+  want to interrupt navigation early: when the enemy enters an idle state, when the player is
+  caught, or when switching to a new target. Without calling <code>StopMoving()</code>, the entity
+  would continue following the old cached path for another frame before <code>MoveToward</code>
+  computes a new one.
+</p>
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">StopMoving</span>();  <span class="cm">// clears path, zeroes horizontal velocity</span></div>
+
+<!-- ─── STANDALONE FINDPATH ──────────────────────────────────────── -->
+<h2>Manual path following with FindPath</h2>
+<p>
+  Sometimes you need direct control over every step of navigation &mdash; for example, an AI
+  that inspects the path length before deciding whether to chase, or a preview arrow drawn
+  before the player confirms a movement order. <code>FindPath</code> covers both cases:
+</p>
+<pre><span class="cm">// In Update(dt) — example: only chase if the path is shorter than 15 m</span>
+std::vector&lt;<span class="ty">Vector3</span>&gt; path = enemy_-><span class="fn">FindPath</span>(player_);
+
+<span class="kw">if</span> (path.<span class="fn">empty</span>()) {
+    <span class="cm">// No route to the player — stay put</span>
+    enemy_-><span class="fn">StopMoving</span>();
+    <span class="kw">return</span>;
+}
+
+<span class="cm">// Estimate total path length</span>
+<span class="kw">float</span> totalLength = <span class="val">0.0f</span>;
+<span class="ty">Vector3</span> prev = enemy_-><span class="fn">GetPosition</span>();
+<span class="kw">for</span> (<span class="kw">const</span> <span class="ty">Vector3</span>&amp; wp : path) {
+    totalLength += (wp - prev).<span class="fn">Length</span>();
+    prev = wp;
+}
+
+<span class="kw">if</span> (totalLength &lt; <span class="val">15.0f</span>) {
+    <span class="cm">// Player is reachable and close enough — chase</span>
+    enemy_-><span class="fn">MoveToward</span>(player_, <span class="val">4.0f</span>, dt);
+} <span class="kw">else</span> {
+    <span class="cm">// Player is too far away — patrol</span>
+    enemy_-><span class="fn">StopMoving</span>();
+}</pre>
+<p>
+  You can also follow the waypoints yourself if you need custom steering logic. Advance through
+  the vector by tracking the current waypoint index and checking whether the entity is close
+  enough to move to the next one:
+</p>
+<pre><span class="cm">// Manual step-by-step path following</span>
+<span class="kw">static</span> std::vector&lt;<span class="ty">Vector3</span>&gt; s_path;
+<span class="kw">static</span> <span class="kw">int</span> s_wpIndex = <span class="val">0</span>;
+
+<span class="cm">// Re-query once when needed (e.g. on target change)</span>
+<span class="kw">if</span> (recomputeNeeded) {
+    s_path    = enemy_-><span class="fn">FindPath</span>(targetPos);
+    s_wpIndex = <span class="val">0</span>;
+}
+
+<span class="kw">if</span> (s_wpIndex &lt; (<span class="kw">int</span>)s_path.<span class="fn">size</span>()) {
+    <span class="ty">Vector3</span> toWp = s_path[s_wpIndex] - enemy_-><span class="fn">GetPosition</span>();
+    toWp.<span class="nm">y_</span> = <span class="val">0.0f</span>;  <span class="cm">// ignore vertical component</span>
+
+    <span class="kw">if</span> (toWp.<span class="fn">LengthSquared</span>() &lt; <span class="val">0.25f</span>) {
+        ++s_wpIndex;   <span class="cm">// close enough — advance</span>
+    } <span class="kw">else</span> {
+        toWp.<span class="fn">Normalize</span>();
+        enemy_-><span class="fn">SetLinearVelocity</span>(toWp * <span class="val">4.0f</span>);
+    }
+}</pre>
+<p>
+  This is exactly the pattern that <code>MoveToward</code> implements internally. In most games
+  the built-in method is simpler to use and handles edge cases such as path replanning on target
+  drift.
+</p>
+
+<!-- ─── LUA EQUIVALENT ───────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+<p>
+  All navigation functions are exposed to Lua with the same names. <code>BuildNavMesh()</code>
+  is a global function; <code>FindPath</code>, <code>MoveToward</code>, and <code>StopMoving</code>
+  are methods on entity objects. The returned path from <code>FindPath</code> is a Lua table
+  (1-indexed array) of <code>Vector3</code> values.
+</p>
+
+<pre><span class="lua-cm">-- NavDemo.lua — Lua equivalent of the navigation demo
+-- Attach to a "Game" script entity, or use as a standalone Lua game.</span>
+
+<span class="lua-kw">local</span> player, enemy, playerCC, statusLbl
+<span class="lua-kw">local</span> debugPath  = <span class="lua-kw">false</span>
+<span class="lua-kw">local</span> chaseMode  = <span class="lua-kw">true</span>
+<span class="lua-kw">local</span> rallyPoint = <span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+
+<span class="lua-kw">local function</span> <span class="lua-fn">MakeWall</span>(name, pos, size)
+    <span class="lua-kw">local</span> w = <span class="lua-fn">CreateEntity</span>(name)
+    w:<span class="lua-fn">SetPosition</span>(pos)
+    w:<span class="lua-fn">SetScale</span>(size)
+    w:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+    w:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.55</span>, <span class="lua-num">0.50</span>, <span class="lua-num">0.45</span>))
+    w:<span class="lua-fn">AddRigidBody</span>(<span class="lua-num">0.0</span>)           <span class="lua-cm">-- static body: included in nav mesh</span>
+    w:<span class="lua-fn">AddBoxCollider</span>(size)
+    w:<span class="lua-fn">SetCollisionLayer</span>(CollisionLayer.StaticGeometry)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-fn">SetWindowTitle</span>(<span class="lua-str">"Part 14 — Navigation (Lua)"</span>)
+    <span class="lua-fn">SetClearColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.12</span>, <span class="lua-num">0.14</span>, <span class="lua-num">0.18</span>))
+
+    <span class="lua-kw">local</span> cam = <span class="lua-fn">CreateCamera</span>()
+    cam:<span class="lua-fn">SetPosition</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">22</span>, -<span class="lua-num">18</span>))
+    cam:<span class="lua-fn">LookAt</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">3</span>))
+    cam:<span class="lua-fn">SetFOV</span>(<span class="lua-num">50</span>)
+
+    <span class="lua-kw">local</span> sun = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Sun"</span>)
+    sun:<span class="lua-fn">SetRotation</span>(<span class="lua-fn">Quaternion</span>(<span class="lua-num">50</span>, <span class="lua-num">20</span>, <span class="lua-num">0</span>))
+    sun:<span class="lua-fn">AddDirectionalLight</span>(Color.WHITE, <span class="lua-num">1.0</span>)
+
+    <span class="lua-cm">-- Ground (static — baked into nav mesh)</span>
+    <span class="lua-kw">local</span> ground = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Ground"</span>)
+    ground:<span class="lua-fn">SetPosition</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>))
+    ground:<span class="lua-fn">SetScale</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">30</span>, <span class="lua-num">0.5</span>, <span class="lua-num">30</span>))
+    ground:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+    ground:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.28</span>, <span class="lua-num">0.48</span>, <span class="lua-num">0.28</span>))
+    ground:<span class="lua-fn">AddRigidBody</span>(<span class="lua-num">0.0</span>)
+    ground:<span class="lua-fn">AddBoxCollider</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">30</span>, <span class="lua-num">0.5</span>, <span class="lua-num">30</span>))
+    ground:<span class="lua-fn">SetCollisionLayer</span>(CollisionLayer.StaticGeometry)
+
+    <span class="lua-cm">-- Obstacles</span>
+    <span class="lua-fn">MakeWall</span>(<span class="lua-str">"WallA"</span>, <span class="lua-fn">Vector3</span>(-<span class="lua-num">5</span>, <span class="lua-num">1.5</span>,  <span class="lua-num">2</span>), <span class="lua-fn">Vector3</span>(<span class="lua-num">8</span>, <span class="lua-num">2.5</span>, <span class="lua-num">1</span>))
+    <span class="lua-fn">MakeWall</span>(<span class="lua-str">"WallB"</span>, <span class="lua-fn">Vector3</span>( <span class="lua-num">4</span>, <span class="lua-num">1.5</span>, -<span class="lua-num">2</span>), <span class="lua-fn">Vector3</span>(<span class="lua-num">1</span>, <span class="lua-num">2.5</span>, <span class="lua-num">8</span>))
+    <span class="lua-fn">MakeWall</span>(<span class="lua-str">"WallC"</span>, <span class="lua-fn">Vector3</span>(-<span class="lua-num">2</span>, <span class="lua-num">1.5</span>, -<span class="lua-num">5</span>), <span class="lua-fn">Vector3</span>(<span class="lua-num">6</span>, <span class="lua-num">2.5</span>, <span class="lua-num">1</span>))
+    <span class="lua-fn">MakeWall</span>(<span class="lua-str">"WallD"</span>, <span class="lua-fn">Vector3</span>( <span class="lua-num">6</span>, <span class="lua-num">1.5</span>,  <span class="lua-num">5</span>), <span class="lua-fn">Vector3</span>(<span class="lua-num">1</span>, <span class="lua-num">2.5</span>, <span class="lua-num">5</span>))
+
+    <span class="lua-cm">-- Player</span>
+    player = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Player"</span>)
+    player:<span class="lua-fn">SetPosition</span>(<span class="lua-fn">Vector3</span>(-<span class="lua-num">8</span>, <span class="lua-num">1.15</span>, -<span class="lua-num">8</span>))
+    player:<span class="lua-fn">SetScale</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0.7</span>, <span class="lua-num">1.8</span>, <span class="lua-num">0.7</span>))
+    player:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+    player:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.2</span>, <span class="lua-num">0.55</span>, <span class="lua-num">0.9</span>))
+    playerCC = player:<span class="lua-fn">AddCharacterController</span>(<span class="lua-num">0.35</span>, <span class="lua-num">1.8</span>)
+    playerCC:<span class="lua-fn">SetGravity</span>(<span class="lua-num">22.0</span>)
+    player:<span class="lua-fn">SetCollisionLayer</span>(CollisionLayer.Actor)
+    player:<span class="lua-fn">SetCollisionMask</span>(<span class="lua-fn">MakeCollisionMask</span>({CollisionLayer.StaticGeometry}))
+
+    <span class="lua-cm">-- Enemy (dynamic rigid body — MoveToward writes its velocity)</span>
+    enemy = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Enemy"</span>)
+    enemy:<span class="lua-fn">SetPosition</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">8</span>, <span class="lua-num">1.15</span>, <span class="lua-num">8</span>))
+    enemy:<span class="lua-fn">SetScale</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0.7</span>, <span class="lua-num">1.8</span>, <span class="lua-num">0.7</span>))
+    enemy:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+    enemy:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.9</span>, <span class="lua-num">0.25</span>, <span class="lua-num">0.2</span>))
+    enemy:<span class="lua-fn">AddRigidBody</span>(<span class="lua-num">75.0</span>)
+    enemy:<span class="lua-fn">AddCapsuleCollider</span>(<span class="lua-num">0.35</span>, <span class="lua-num">1.8</span>)
+    enemy:<span class="lua-fn">SetCollisionLayer</span>(CollisionLayer.Actor)
+    enemy:<span class="lua-fn">SetCollisionMask</span>(<span class="lua-fn">MakeCollisionMask</span>({CollisionLayer.StaticGeometry}))
+
+    <span class="lua-cm">-- Build nav mesh AFTER all static geometry is placed</span>
+    <span class="lua-fn">BuildNavMesh</span>(<span class="lua-num">0.4</span>, <span class="lua-num">1.8</span>, <span class="lua-num">0.3</span>)
+
+    statusLbl = <span class="lua-fn">CreateLabel</span>(<span class="lua-str">"Enemy: chasing player"</span>)
+    statusLbl:<span class="lua-fn">SetPosition</span>(<span class="lua-num">12</span>, <span class="lua-num">12</span>)
+    statusLbl:<span class="lua-fn">SetFontSize</span>(<span class="lua-num">18</span>)
+    statusLbl:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.92</span>, <span class="lua-num">0.88</span>, <span class="lua-num">0.78</span>))
+
+    <span class="lua-fn">SetDebugDrawEnabled</span>(<span class="lua-kw">true</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyPressed</span>(Key.Escape) <span class="lua-kw">then</span> <span class="lua-fn">Quit</span>() <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Player movement</span>
+    <span class="lua-kw">local</span> dir = <span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyDown</span>(Key.Up)    <span class="lua-kw">then</span> dir = dir + <span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>,  <span class="lua-num">1</span>) <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyDown</span>(Key.Down)  <span class="lua-kw">then</span> dir = dir + <span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, -<span class="lua-num">1</span>) <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyDown</span>(Key.Left)  <span class="lua-kw">then</span> dir = dir + <span class="lua-fn">Vector3</span>(-<span class="lua-num">1</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>) <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyDown</span>(Key.Right) <span class="lua-kw">then</span> dir = dir + <span class="lua-fn">Vector3</span>( <span class="lua-num">1</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>) <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> dir:LengthSquared() > <span class="lua-num">0.01</span> <span class="lua-kw">then</span> dir:Normalize() <span class="lua-kw">end</span>
+    playerCC:<span class="lua-fn">Move</span>(dir * <span class="lua-num">6.0</span>, dt)
+
+    <span class="lua-cm">-- Toggle chase / rally</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyPressed</span>(Key.C) <span class="lua-kw">then</span>
+        chaseMode = <span class="lua-kw">not</span> chaseMode
+        <span class="lua-kw">if not</span> chaseMode <span class="lua-kw">then</span>
+            enemy:<span class="lua-fn">StopMoving</span>()
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyPressed</span>(Key.F) <span class="lua-kw">then</span> debugPath = <span class="lua-kw">not</span> debugPath <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Enemy navigation</span>
+    <span class="lua-kw">local</span> moving
+    <span class="lua-kw">if</span> chaseMode <span class="lua-kw">then</span>
+        moving = enemy:<span class="lua-fn">MoveToward</span>(player, <span class="lua-num">4.0</span>, dt)
+    <span class="lua-kw">else</span>
+        moving = enemy:<span class="lua-fn">MoveToward</span>(rallyPoint, <span class="lua-num">3.0</span>, dt)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-kw">local</span> modeStr = chaseMode <span class="lua-kw">and</span> <span class="lua-str">"chasing player"</span> <span class="lua-kw">or</span> <span class="lua-str">"going to center"</span>
+    statusLbl:<span class="lua-fn">SetText</span>(<span class="lua-str">"Enemy: "</span> .. modeStr .. (moving <span class="lua-kw">and</span> <span class="lua-str">""</span> <span class="lua-kw">or</span> <span class="lua-str">"  [arrived]"</span>))
+
+    <span class="lua-cm">-- Debug path (FindPath returns a Lua table of Vector3)</span>
+    <span class="lua-kw">if</span> debugPath <span class="lua-kw">then</span>
+        <span class="lua-kw">local</span> target = chaseMode <span class="lua-kw">and</span> player:<span class="lua-fn">GetPosition</span>() <span class="lua-kw">or</span> rallyPoint
+        <span class="lua-kw">local</span> path = enemy:<span class="lua-fn">FindPath</span>(target)
+        <span class="lua-kw">local</span> prev = enemy:<span class="lua-fn">GetPosition</span>()
+        <span class="lua-kw">for</span> i = <span class="lua-num">1</span>, #path <span class="lua-kw">do</span>
+            <span class="lua-fn">DrawDebugSphere</span>(path[i], <span class="lua-num">0.18</span>, Color.YELLOW)
+            <span class="lua-fn">DrawDebugLine</span>(prev, path[i], Color.YELLOW)
+            prev = path[i]
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<div class="callout lua">
+  <h4>Lua note</h4>
+  <p>
+    <code>BuildNavMesh()</code> is a global function in Lua &mdash; no colon syntax. Entity
+    navigation methods (<code>MoveToward</code>, <code>FindPath</code>, <code>StopMoving</code>)
+    use the colon (<code>enemy:MoveToward(player, 4.0, dt)</code>).
+    <code>FindPath</code> returns a 1-indexed Lua table, so iterate with
+    <code>for i = 1, #path do</code>. The table is empty (length zero) when no path exists.
+  </p>
+</div>
+
+<!-- ─── NAVIGATION QUICK REFERENCE ──────────────────────────────── -->
+<h2>Navigation API quick reference</h2>
+<table>
+  <tr>
+    <th>Call</th>
+    <th>Where</th>
+    <th>Notes</th>
+  </tr>
+  <tr>
+    <td><code>BuildNavMesh(radius, height, cellSize)</code></td>
+    <td><code>Start()</code></td>
+    <td>Bake navmesh from all <code>StaticGeometry</code> entities. Synchronous. Call again if static geometry changes.</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;MoveToward(target, speed, dt)</code></td>
+    <td><code>Update(dt)</code></td>
+    <td>Auto-navigate every frame. Returns <code>true</code> while moving, <code>false</code> on arrival or no path.</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;FindPath(target)</code></td>
+    <td>Anywhere</td>
+    <td>Returns <code>std::vector&lt;Vector3&gt;</code> waypoints. Empty if unreachable. Does not start movement.</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;StopMoving()</code></td>
+    <td>Anywhere</td>
+    <td>Clears cached path, zeroes horizontal velocity. Call when switching targets or entering idle state.</td>
+  </tr>
+</table>
+
+<!-- ─── COMMON MISTAKES ──────────────────────────────────────────── -->
+<h2>Common mistakes</h2>
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Calling BuildNavMesh() before placing all static geometry.</strong>
+      Any wall or obstacle created after <code>BuildNavMesh()</code> is invisible to the navmesh.
+      Agents will walk through it. Always finalise your level layout first, then call
+      <code>BuildNavMesh()</code> as the last setup step in <code>Start()</code>.
+    </li>
+    <li>
+      <strong>Forgetting to set CollisionLayer::StaticGeometry on obstacles.</strong>
+      Recast only collects entities on layer&nbsp;2 (<code>StaticGeometry</code>). An obstacle
+      on a different layer (or with no layer set at all) will be transparent to the nav mesh
+      even though it physically blocks the player via normal Bullet physics. The result is an
+      enemy that walks straight through walls.
+    </li>
+    <li>
+      <strong>Using a dynamic (mass &gt; 0) rigid body on a wall.</strong>
+      Dynamic bodies can move, so Recast does not include them in the baked navmesh. If a
+      wall has <code>AddRigidBody(5.0f)</code> instead of <code>AddRigidBody(0.0f)</code>, it
+      will be excluded and agents will ignore it during pathfinding.
+    </li>
+    <li>
+      <strong>Calling MoveToward without a rigid body or CharacterController.</strong>
+      <code>MoveToward</code> drives the entity's velocity or translates it. An entity with
+      no physics component will be moved via <code>Translate()</code> which ignores gravity and
+      other forces. Make sure navigated entities have either a dynamic rigid body or a
+      <code>CharacterController</code> attached before calling <code>MoveToward</code>.
+    </li>
+    <li>
+      <strong>Switching targets without calling StopMoving() first.</strong>
+      If you change <code>chaseMode_</code> and immediately call <code>MoveToward</code> with a
+      new target, the enemy will follow the old cached path for one more frame before recomputing.
+      On fast-moving targets or tight level layouts this can cause a visible direction hiccup.
+      Call <code>StopMoving()</code> before switching targets to ensure a clean transition.
+    </li>
+    <li>
+      <strong>Treating a non-empty FindPath result as guaranteed reachability.</strong>
+      Detour snaps the start and end positions to the nearest navmesh polygon before computing
+      the path. If both positions snap to the same polygon, the returned path may be very short
+      even if the target is behind a wall in 3D space. Always verify the path length or use
+      physics line-of-sight checks for game logic decisions.
+    </li>
+    <li>
+      <strong>Setting cellSize too large for narrow corridors.</strong>
+      If your corridors are only 1.5&nbsp;m wide and you set <code>cellSize = 1.0f</code>, Recast
+      may fail to generate any walkable polygon through the corridor at all. As a rule, your
+      corridor width should be at least 3&times; the cell size to guarantee reliable coverage.
+    </li>
+    <li>
+      <strong>Calling BuildNavMesh() inside Update().</strong>
+      Recast baking is synchronous. Calling it every frame will stall the game. Call it once in
+      <code>Start()</code> or explicitly when geometry changes (e.g. after a door opens).
+    </li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ─────────────────────────────────────────── -->
+<h2>What you learned</h2>
+<p>
+  By the end of this part you have a complete working navigation system and understand how each
+  layer of it works:
+</p>
+<ul>
+  <li>simple-3d uses <strong>Recast</strong> to bake a navmesh from static scene geometry and
+  <strong>Detour</strong> to query paths through it at runtime.</li>
+  <li>Every entity you want the navmesh to block must have a <strong>zero-mass rigid body</strong>,
+  a collision shape, and <code>SetCollisionLayer(CollisionLayer::StaticGeometry)</code>.</li>
+  <li><code>BuildNavMesh(agentRadius, agentHeight, cellSize)</code> must be called <strong>once
+  in Start()</strong> after all static geometry is in place. Call it again only when static
+  geometry changes at runtime.</li>
+  <li>The <strong>agent radius</strong> (first parameter) controls how much clearance agents keep
+  from obstacle edges; match it to your enemy's capsule collider radius.</li>
+  <li>The <strong>cell size</strong> (third parameter) trades baking accuracy for speed; smaller
+  values are needed for tight corridors, larger values are fine for open areas.</li>
+  <li><code>entity-&gt;MoveToward(target, speed, dt)</code> is called every frame and drives
+  the entity's velocity along the cached Detour path. It caches the path and recomputes
+  automatically when the target drifts by more than 0.5&nbsp;m. Returns <code>true</code> while
+  moving, <code>false</code> on arrival.</li>
+  <li><code>entity-&gt;FindPath(target)</code> returns the waypoint list as a
+  <code>std::vector&lt;Vector3&gt;</code> without starting movement &mdash; useful for AI
+  decisions, length checks, and debug visualisation.</li>
+  <li><code>entity-&gt;StopMoving()</code> cancels the current path and zeroes horizontal
+  velocity. Call it before switching navigation targets.</li>
+</ul>
+<p>
+  The next part adds gamepad controller support so players can move using an analogue stick instead
+  of the keyboard.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-13.html">&#8592; Part 13: 2D Physics</a>
+  <a href="tutorial-15.html">Part 15: Gamepad Input &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

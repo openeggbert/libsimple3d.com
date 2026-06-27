@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 09: Animation State Machine — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li class="active"><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 09</div>
+
+<h1><span class="tutorial-part">Part 09 of 30</span>Animation State Machine</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>entity-&gt;AddAnimStateMachine()</code> &mdash; attach a declarative animation controller to an entity.<br>
+    <code>asm-&gt;AddState(name, clipPath, loop)</code> &mdash; register a named animation state.<br>
+    <code>asm-&gt;AddTransition(from, to, conditionKey)</code> &mdash; fire on a bool or trigger condition.<br>
+    <code>asm-&gt;AddTransitionBool(from, to, key, expectValue)</code> &mdash; fire when a bool equals a specific value.<br>
+    <code>asm-&gt;AddTransitionFloat(from, to, key, threshold, greaterThan)</code> &mdash; fire on a float comparison.<br>
+    <code>asm-&gt;AddAutoTransition(from, to)</code> &mdash; automatically advance when a non-looped animation finishes.<br>
+    <code>asm-&gt;SetBool(key, value)</code> / <code>SetFloat(key, value)</code> / <code>SetTrigger(key)</code> &mdash; drive condition variables.<br>
+    <code>asm-&gt;GetCurrentState()</code> / <code>asm-&gt;IsInState(name)</code> &mdash; runtime state queries.
+  </p>
+</div>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>Why a declarative <em>Animation State Machine</em> (ASM) is cleaner than manual <code>if/else</code> animation logic.</li>
+  <li>How to register animation states with <code>AddState()</code> and make the first-added state the default.</li>
+  <li>The three transition types: bool/trigger (<code>AddTransition</code>), explicit bool value (<code>AddTransitionBool</code>), and float comparison (<code>AddTransitionFloat</code>).</li>
+  <li>How <code>AddAutoTransition()</code> lets a one-shot animation return to a looping state without any game-logic code.</li>
+  <li>How to drive the machine with <code>SetBool</code>, <code>SetFloat</code>, and <code>SetTrigger</code> — and the key difference between a trigger and a bool.</li>
+  <li>How to query the active state name at runtime for UI feedback, sound cues, or gameplay logic.</li>
+  <li>A complete locomotion + special-action example covering idle, walk, run, jump, and a one-shot custom gesture.</li>
+  <li>The equivalent Lua scripting approach.</li>
+</ul>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>The problem with manual animation logic</h2>
+
+<p>
+  In Part 08 you used <code>AnimationController</code> directly and called
+  <code>anim-&gt;Play()</code> and <code>anim-&gt;Stop()</code> by hand.
+  For a single walk/idle cycle that is fine, but real characters have many more states.
+  Once you add run, jump, attack, hurt, and die, the logic inside <code>Update()</code>
+  grows into a nest of conditionals that is hard to read and even harder to extend.
+</p>
+<p>
+  The <code>AnimStateMachine</code> solves this by separating <em>declaration</em> from
+  <em>execution</em>. You describe the states and the rules for switching between them
+  once in <code>Start()</code>. Every frame you simply update the condition variables
+  and call <code>sm-&gt;Update(dt)</code>. The machine evaluates transitions, picks the
+  new state, and blends the animation — no manual play/stop calls needed.
+</p>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Concepts at a glance</h2>
+
+<table>
+  <thead>
+    <tr><th>Term</th><th>Meaning</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>State</strong></td>
+      <td>A named wrapper around one animation clip. e.g. <code>"idle"</code> plays <code>Anims/Idle.ani</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Transition</strong></td>
+      <td>A directed edge from one state to another, guarded by a condition.</td>
+    </tr>
+    <tr>
+      <td><strong>Condition variable</strong></td>
+      <td>A named bool, float, or trigger stored inside the machine. Transitions test these.</td>
+    </tr>
+    <tr>
+      <td><strong>Trigger</strong></td>
+      <td>Like a bool, but automatically reset to <code>false</code> after the first transition that consumes it fires.</td>
+    </tr>
+    <tr>
+      <td><strong>Auto-transition</strong></td>
+      <td>A conditionless edge that fires automatically when a non-looped clip reaches its end.</td>
+    </tr>
+    <tr>
+      <td><strong>Default state</strong></td>
+      <td>The state the machine starts in — always the first state passed to <code>AddState()</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Complete working example</h2>
+
+<p>
+  The example below builds a character with five animation states: idle, walk, run,
+  jump, and a one-shot tongue gesture. It also displays the current state name on
+  screen so you can observe transitions in real time.
+</p>
+
+<pre><span class="cm">// AnimStateMachineDemo.cpp</span>
+<span class="cm">// Part 09 — Animation State Machine</span>
+<span class="cm">// Build: link against simple-3d, place animation files under Data/Anims/</span>
+
+<span class="kw">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">AnimDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+    <span class="ty">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="cm">// ── Ground plane ─────────────────────────────────────</span>
+        <span class="ty">Entity</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);                        <span class="cm">// static</span>
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">20</span>, <span class="val">0.2f</span>, <span class="val">20</span>));
+        ground-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+        <span class="cm">// ── Player entity ─────────────────────────────────────</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">1</span>, <span class="val">0</span>);
+        player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Hero.mdl"</span>);
+
+        <span class="cm">// Character controller (gravity + slope handling)</span>
+        cc_ = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+        cc_-&gt;<span class="fn">SetGravity</span>(<span class="val">25.0f</span>);
+        player_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+        player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>
+        }));
+
+        <span class="cm">// ── Animation State Machine ───────────────────────────</span>
+        <span class="cm">// AddAnimStateMachine() also creates an AnimationController</span>
+        <span class="cm">// on the entity automatically — no separate call needed.</span>
+        sm_ = player_-&gt;<span class="fn">AddAnimStateMachine</span>();
+
+        <span class="cm">// States — the FIRST state added is always the default.</span>
+        sm_-&gt;<span class="fn">AddState</span>(<span class="st">"idle"</span>,   <span class="st">"Anims/Idle.ani"</span>,   <span class="kw">true</span>);   <span class="cm">// looped</span>
+        sm_-&gt;<span class="fn">AddState</span>(<span class="st">"walk"</span>,   <span class="st">"Anims/Walk.ani"</span>,   <span class="kw">true</span>);   <span class="cm">// looped</span>
+        sm_-&gt;<span class="fn">AddState</span>(<span class="st">"run"</span>,    <span class="st">"Anims/Run.ani"</span>,    <span class="kw">true</span>);   <span class="cm">// looped</span>
+        sm_-&gt;<span class="fn">AddState</span>(<span class="st">"jump"</span>,   <span class="st">"Anims/Jump.ani"</span>,   <span class="kw">false</span>);  <span class="cm">// one-shot</span>
+        sm_-&gt;<span class="fn">AddState</span>(<span class="st">"tongue"</span>, <span class="st">"Anims/Tongue.ani"</span>, <span class="kw">false</span>);  <span class="cm">// one-shot custom gesture</span>
+
+        <span class="cm">// ── Transitions ───────────────────────────────────────</span>
+
+        <span class="cm">// idle -&gt; walk when bool "moving" becomes true</span>
+        sm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"idle"</span>, <span class="st">"walk"</span>, <span class="st">"moving"</span>);
+
+        <span class="cm">// walk -&gt; idle when bool "moving" is false</span>
+        sm_-&gt;<span class="fn">AddTransitionBool</span>(<span class="st">"walk"</span>, <span class="st">"idle"</span>, <span class="st">"moving"</span>, <span class="kw">false</span>);
+
+        <span class="cm">// walk -&gt; run when float "speed" exceeds 4.0 m/s</span>
+        sm_-&gt;<span class="fn">AddTransitionFloat</span>(<span class="st">"walk"</span>, <span class="st">"run"</span>,  <span class="st">"speed"</span>, <span class="val">4.0f</span>, <span class="kw">true</span>);
+
+        <span class="cm">// run -&gt; walk when float "speed" falls below 4.0 m/s</span>
+        sm_-&gt;<span class="fn">AddTransitionFloat</span>(<span class="st">"run"</span>,  <span class="st">"walk"</span>, <span class="st">"speed"</span>, <span class="val">4.0f</span>, <span class="kw">false</span>);
+
+        <span class="cm">// idle or walk -&gt; jump on trigger "jump"</span>
+        sm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"idle"</span>, <span class="st">"jump"</span>, <span class="st">"jump"</span>);
+        sm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"walk"</span>, <span class="st">"jump"</span>, <span class="st">"jump"</span>);
+        sm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"run"</span>,  <span class="st">"jump"</span>, <span class="st">"jump"</span>);
+
+        <span class="cm">// jump automatically returns to idle when the clip finishes</span>
+        sm_-&gt;<span class="fn">AddAutoTransition</span>(<span class="st">"jump"</span>, <span class="st">"idle"</span>);
+
+        <span class="cm">// idle -&gt; tongue on trigger "doTongue"</span>
+        sm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"idle"</span>, <span class="st">"tongue"</span>, <span class="st">"doTongue"</span>);
+
+        <span class="cm">// tongue automatically returns to idle when the clip finishes</span>
+        sm_-&gt;<span class="fn">AddAutoTransition</span>(<span class="st">"tongue"</span>, <span class="st">"idle"</span>);
+
+        <span class="cm">// ── Input bindings ────────────────────────────────────</span>
+        <span class="fn">BindAxis2D</span>(<span class="st">"Move"</span>)
+            .<span class="fn">Keys</span>(<span class="ty">Key</span>::<span class="val">Left</span>, <span class="ty">Key</span>::<span class="val">Right</span>, <span class="ty">Key</span>::<span class="val">Down</span>, <span class="ty">Key</span>::<span class="val">Up</span>)
+            .<span class="fn">GamepadStick</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftX</span>, <span class="ty">GamepadAxis</span>::<span class="val">LeftY</span>)
+            .<span class="fn">InvertY</span>(<span class="kw">true</span>);
+
+        <span class="fn">BindAction</span>(<span class="st">"Jump"</span>)
+            .<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">Space</span>)
+            .<span class="fn">GamepadButton</span>(<span class="ty">GamepadButton</span>::<span class="val">A</span>);
+
+        <span class="fn">BindAction</span>(<span class="st">"Tongue"</span>)
+            .<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">T</span>)
+            .<span class="fn">GamepadButton</span>(<span class="ty">GamepadButton</span>::<span class="val">Y</span>);
+
+        <span class="fn">BindAction</span>(<span class="st">"Sprint"</span>)
+            .<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">LShift</span>)
+            .<span class="fn">GamepadButton</span>(<span class="ty">GamepadButton</span>::<span class="val">LB</span>);
+
+        <span class="fn">BindAction</span>(<span class="st">"Quit"</span>)
+            .<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">Escape</span>);
+
+        <span class="cm">// ── Camera ────────────────────────────────────────────</span>
+        <span class="ty">Camera</span>* cam = <span class="fn">CreateCamera</span>();
+        cam-&gt;<span class="fn">Follow</span>(player_, <span class="val">6.0f</span>, <span class="val">2.0f</span>);
+        cam-&gt;<span class="fn">LookAt</span>(player_);
+        cam-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">5.0f</span>);
+
+        <span class="cm">// ── Light ─────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45</span>, <span class="val">30</span>, <span class="val">0</span>));
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>, <span class="val">1.2f</span>);
+
+        <span class="cm">// ── HUD label ─────────────────────────────────────────</span>
+        stateLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"State: idle"</span>);
+        stateLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">20</span>);
+        stateLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">22</span>);
+        stateLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>);
+
+        hintLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Arrows=move  Shift=sprint  Space=jump  T=tongue  Esc=quit"</span>);
+        hintLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">50</span>);
+        hintLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">16</span>);
+        hintLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.8f</span>, <span class="val">0.8f</span>, <span class="val">0.8f</span>, <span class="val">1</span>));
+    }
+
+    <span class="ty">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="kw">if</span> (<span class="fn">IsActionPressed</span>(<span class="st">"Quit"</span>)) { <span class="fn">Quit</span>(); <span class="kw">return</span>; }
+
+        <span class="cm">// ── Movement ──────────────────────────────────────────</span>
+        <span class="ty">Vector2</span> input = <span class="fn">GetAxis2D</span>(<span class="st">"Move"</span>);
+        <span class="ty">bool</span>    sprint = <span class="fn">IsActionDown</span>(<span class="st">"Sprint"</span>);
+        <span class="ty">float</span>   topSpeed = sprint ? <span class="val">7.0f</span> : <span class="val">3.0f</span>;
+
+        cc_-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(input.x_, <span class="val">0</span>, input.y_) * topSpeed, dt);
+
+        <span class="cm">// Actual horizontal speed from the physics body</span>
+        <span class="ty">Vector3</span> vel   = player_-&gt;<span class="fn">GetLinearVelocity</span>();
+        <span class="ty">float</span>   speed = <span class="ty">Vector2</span>(vel.x_, vel.z_).<span class="fn">Length</span>();
+
+        <span class="cm">// ── Condition variables ───────────────────────────────</span>
+        sm_-&gt;<span class="fn">SetBool</span> (<span class="st">"moving"</span>, speed &gt; <span class="val">0.15f</span>);
+        sm_-&gt;<span class="fn">SetFloat</span>(<span class="st">"speed"</span>,  speed);
+
+        <span class="cm">// Triggers are consumed once (one-shot events)</span>
+        <span class="kw">if</span> (<span class="fn">IsActionPressed</span>(<span class="st">"Jump"</span>))   sm_-&gt;<span class="fn">SetTrigger</span>(<span class="st">"jump"</span>);
+        <span class="kw">if</span> (<span class="fn">IsActionPressed</span>(<span class="st">"Tongue"</span>)) sm_-&gt;<span class="fn">SetTrigger</span>(<span class="st">"doTongue"</span>);
+
+        <span class="cm">// TryJump checks IsOnGround() internally</span>
+        <span class="kw">if</span> (<span class="fn">IsActionPressed</span>(<span class="st">"Jump"</span>)) cc_-&gt;<span class="fn">TryJump</span>(<span class="val">10.0f</span>);
+
+        <span class="cm">// ── Tick the machine ──────────────────────────────────</span>
+        <span class="cm">// This call evaluates all transitions and advances</span>
+        <span class="cm">// the current animation — must be called every frame.</span>
+        sm_-&gt;<span class="fn">Update</span>(dt);
+
+        <span class="cm">// ── HUD refresh ───────────────────────────────────────</span>
+        stateLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"State: "</span> + sm_-&gt;<span class="fn">GetCurrentState</span>());
+    }
+
+<span class="kw">private</span>:
+    <span class="ty">Entity</span>*           player_      = <span class="kw">nullptr</span>;
+    <span class="ty">CharacterController</span>* cc_       = <span class="kw">nullptr</span>;
+    <span class="ty">AnimStateMachine</span>* sm_          = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*            stateLabel_  = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*            hintLabel_   = <span class="kw">nullptr</span>;
+};
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">AnimDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<h3><code>entity-&gt;AddAnimStateMachine()</code></h3>
+<p>
+  Calling <code>AddAnimStateMachine()</code> on an entity does two things at once: it
+  creates an <code>AnimationController</code> component (exactly as in Part 08), and it
+  wraps it inside a new <code>AnimStateMachine</code> that you control declaratively.
+  You should not call <code>AddAnimationController()</code> separately — the state
+  machine sets one up for you. The returned pointer is valid for the lifetime of the
+  entity. After creation you can retrieve it at any time with
+  <code>entity-&gt;GetAnimStateMachine()</code>, which returns <code>nullptr</code> if
+  <code>AddAnimStateMachine()</code> was never called.
+</p>
+
+<h3><code>sm-&gt;AddState(name, clipPath, loop)</code></h3>
+<p>
+  Each call registers one named animation state. The <code>name</code> is a
+  free-form string — it becomes the key used by transitions and by
+  <code>GetCurrentState()</code>. The <code>clipPath</code> is the path to an
+  <code>.ani</code> animation file inside your <code>Data/</code> folder, exactly as
+  you would pass to <code>AnimationController::Play()</code>. Setting <code>loop</code>
+  to <code>true</code> makes the animation repeat indefinitely; <code>false</code>
+  makes it a one-shot clip. The <strong>first state you add becomes the default</strong>
+  — the machine starts in that state as soon as the first <code>Update(dt)</code> runs.
+  If you want a different starting state, call <code>sm-&gt;SetDefaultState(name)</code>
+  after all states are registered.
+</p>
+
+<h3><code>sm-&gt;AddTransition(from, to, conditionKey)</code></h3>
+<p>
+  This is the most common transition type. The machine checks whether
+  <code>conditionKey</code> names a <em>trigger that was set</em> or a <em>bool that
+  is currently <code>true</code></em>. If either is the case and the machine is in
+  state <code>from</code>, it blends into state <code>to</code>. The default blend
+  time is 0.2 seconds; you can pass a fourth argument to override it:
+  <code>sm-&gt;AddTransition("idle", "walk", "moving", 0.1f)</code>.
+</p>
+
+<h3><code>sm-&gt;AddTransitionBool(from, to, key, expectValue)</code></h3>
+<p>
+  Works like <code>AddTransition</code> but fires only when the bool
+  <code>key</code> equals <code>expectValue</code>. The typical use is
+  <code>expectValue = false</code> to transition <em>away</em> from a state when a
+  condition stops being true. In the example, <code>AddTransitionBool("walk", "idle",
+  "moving", false)</code> returns the character to idle the moment the player releases
+  the movement keys.
+</p>
+
+<h3><code>sm-&gt;AddTransitionFloat(from, to, key, threshold, greaterThan)</code></h3>
+<p>
+  Fires when the float condition variable named <code>key</code> crosses
+  <code>threshold</code>. When <code>greaterThan</code> is <code>true</code> the
+  condition is <em>key &gt; threshold</em>; when <code>false</code> it is
+  <em>key &lt; threshold</em>. In the example, <code>AddTransitionFloat("walk",
+  "run", "speed", 4.0f, true)</code> upgrades the character to a run animation as
+  soon as horizontal speed exceeds 4 m/s, and <code>AddTransitionFloat("run", "walk",
+  "speed", 4.0f, false)</code> drops them back to walking below that threshold.
+</p>
+
+<h3><code>sm-&gt;AddAutoTransition(from, to)</code></h3>
+<p>
+  An auto-transition has no condition variable. It fires automatically when the
+  animation in state <code>from</code> reaches its end — but <strong>only</strong> when
+  that state's animation was registered with <code>loop = false</code>. This is the
+  canonical way to return from a one-shot action to a looping base state. In the
+  example, both <code>"jump"</code> and <code>"tongue"</code> are non-looped states,
+  and each has an auto-transition back to <code>"idle"</code>. The optional third
+  parameter controls blend time (default 0.1 s).
+</p>
+
+<h3><code>sm-&gt;SetBool(key, value)</code></h3>
+<p>
+  Sets a persistent named boolean condition inside the machine. The value remains
+  until you explicitly change it. <code>SetBool</code> is the right choice for
+  continuous states like "is the player moving" or "is the player crouching". In the
+  example it is called every frame with the result of a speed threshold check.
+  Read the value back with <code>sm-&gt;GetBool(key)</code>.
+</p>
+
+<h3><code>sm-&gt;SetFloat(key, value)</code></h3>
+<p>
+  Sets a named floating-point condition inside the machine. Any
+  <code>AddTransitionFloat</code> rules that reference this key will re-evaluate on
+  the next <code>sm-&gt;Update(dt)</code>. In the example, the character's actual
+  horizontal speed is written here each frame so the walk/run threshold transition can
+  pick it up. Read the current value with <code>sm-&gt;GetFloat(key)</code>.
+</p>
+
+<h3><code>sm-&gt;SetTrigger(key)</code></h3>
+<p>
+  Marks a named trigger as "set". The trigger behaves like a boolean <code>true</code>
+  but is automatically reset to <code>false</code> after the first transition that
+  tests it actually fires. This makes it perfect for discrete events such as jumping or
+  attacking: even if the player holds the jump key for multiple frames, the jump
+  animation will start only once. You can call <code>SetTrigger</code> before the
+  machine is in the right state — the trigger will wait until a matching transition is
+  applicable.
+</p>
+
+<h3><code>sm-&gt;Update(dt)</code></h3>
+<p>
+  This must be called once per frame, after you have finished writing all condition
+  variables. It evaluates every registered transition in the order they were added,
+  picks the first one whose guard is satisfied, and if the current state changes it
+  starts the crossfade blend. It also advances the underlying
+  <code>AnimationController</code> playback. Forgetting this call means no transition
+  will ever fire and the animation will freeze on the default state.
+</p>
+
+<h3><code>sm-&gt;GetCurrentState()</code> and <code>sm-&gt;IsInState(name)</code></h3>
+<p>
+  <code>GetCurrentState()</code> returns a <code>std::string</code> with the name of
+  the currently active state. Use this to drive UI labels, spawn sound effects on
+  state entry, or make gameplay decisions based on what the character is doing.
+  <code>IsInState(name)</code> is a convenience shortcut that returns <code>true</code>
+  when the active state matches <code>name</code>.
+</p>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Transition evaluation order</h2>
+
+<p>
+  On each <code>Update(dt)</code> call, the machine checks only transitions that
+  originate from the <em>current</em> state. Among those, the first one added whose
+  guard is satisfied wins. Transitions from other states are ignored. This means the
+  order you call <code>AddTransition*</code> matters when multiple guards could be
+  simultaneously true — put higher-priority transitions first.
+</p>
+
+<p>
+  A transition to a state that is already the active state is a no-op; the machine
+  will not restart the animation needlessly.
+</p>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>One-shot pattern in detail</h2>
+
+<p>
+  Non-looped animations that must play to completion and then return to a base state
+  always follow the same three-step pattern:
+</p>
+<ol>
+  <li>Register the state with <code>loop = false</code>.</li>
+  <li>Add an inbound transition (usually a trigger) from the base state.</li>
+  <li>Add an <code>AddAutoTransition</code> back to the base state.</li>
+</ol>
+
+<pre><span class="cm">// One-shot pattern — generalized</span>
+sm_-&gt;<span class="fn">AddState</span>(<span class="st">"myAction"</span>, <span class="st">"Anims/MyAction.ani"</span>, <span class="kw">false</span>); <span class="cm">// step 1</span>
+
+sm_-&gt;<span class="fn">AddTransition</span>(<span class="st">"idle"</span>, <span class="st">"myAction"</span>, <span class="st">"doMyAction"</span>);   <span class="cm">// step 2</span>
+sm_-&gt;<span class="fn">AddAutoTransition</span>(<span class="st">"myAction"</span>, <span class="st">"idle"</span>);             <span class="cm">// step 3</span>
+
+<span class="cm">// In Update(dt):</span>
+<span class="kw">if</span> (<span class="fn">IsActionPressed</span>(<span class="st">"MyKey"</span>)) sm_-&gt;<span class="fn">SetTrigger</span>(<span class="st">"doMyAction"</span>);</pre>
+
+<p>
+  Because <code>AddAutoTransition</code> fires only for non-looped clips, you can mix
+  looped and non-looped states freely in the same machine without them interfering
+  with each other.
+</p>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Querying state for gameplay logic</h2>
+
+<p>
+  The active state name is often useful outside the animation system. For example, you
+  might want to prevent the player from starting a new action while they are mid-jump,
+  or play a sound effect the first time the machine enters the <code>"run"</code> state.
+</p>
+
+<pre><span class="cm">// Prevent tongue during jump</span>
+<span class="kw">if</span> (<span class="fn">IsActionPressed</span>(<span class="st">"Tongue"</span>) &amp;&amp; !sm_-&gt;<span class="fn">IsInState</span>(<span class="st">"jump"</span>))
+    sm_-&gt;<span class="fn">SetTrigger</span>(<span class="st">"doTongue"</span>);
+
+<span class="cm">// Conditional sound on entering run</span>
+<span class="ty">std::string</span> curState = sm_-&gt;<span class="fn">GetCurrentState</span>();
+<span class="kw">if</span> (curState != prevState_ &amp;&amp; curState == <span class="st">"run"</span>)
+    <span class="fn">PlaySound</span>(<span class="st">"Sounds/BreathIn.wav"</span>);
+prevState_ = curState;</pre>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Full transition type reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Fires when…</th>
+      <th>Typical use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>AddTransition(from, to, key)</code></td>
+      <td><code>key</code> is a live trigger <em>or</em> a bool that is <code>true</code></td>
+      <td>Start walking, start jumping, start any action triggered by a key press</td>
+    </tr>
+    <tr>
+      <td><code>AddTransitionBool(from, to, key, expect)</code></td>
+      <td>bool <code>key</code> equals <code>expect</code></td>
+      <td>Return to idle when movement stops (<code>expect = false</code>)</td>
+    </tr>
+    <tr>
+      <td><code>AddTransitionFloat(from, to, key, threshold, gt)</code></td>
+      <td>float <code>key</code> &gt; <code>threshold</code> (or &lt; when <code>gt=false</code>)</td>
+      <td>Walk-to-run speed threshold, health-based state changes</td>
+    </tr>
+    <tr>
+      <td><code>AddAutoTransition(from, to)</code></td>
+      <td>Non-looped animation in <code>from</code> reaches end</td>
+      <td>Jump/attack/gesture return to idle automatically</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Condition variable reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Type</th>
+      <th>Persists?</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>SetBool(key, value)</code> / <code>GetBool(key)</code></td>
+      <td>bool</td>
+      <td>Yes — until you change it</td>
+      <td>Use for continuous states (moving, crouching, armed)</td>
+    </tr>
+    <tr>
+      <td><code>SetFloat(key, value)</code> / <code>GetFloat(key)</code></td>
+      <td>float</td>
+      <td>Yes — until you change it</td>
+      <td>Use for continuous numeric quantities (speed, health, blend weight)</td>
+    </tr>
+    <tr>
+      <td><code>SetTrigger(key)</code></td>
+      <td>one-shot bool</td>
+      <td>No — consumed on first firing transition</td>
+      <td>Use for discrete events (button pressed, hit taken, collectible gathered)</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+
+<p>
+  The Lua scripting API mirrors C++ one-to-one. Attach the script via
+  <code>entity:AddScript("Scripts/player_anim.lua")</code> and implement
+  <code>Start</code> and <code>Update</code> as global functions.
+</p>
+
+<pre><span class="lua-cm">-- Scripts/player_anim.lua</span>
+<span class="lua-cm">-- Demonstrates the Animation State Machine from Lua</span>
+
+<span class="lua-kw">local</span> sm     <span class="lua-cm">-- AnimStateMachine</span>
+<span class="lua-kw">local</span> cc     <span class="lua-cm">-- CharacterController</span>
+<span class="lua-kw">local</span> player <span class="lua-cm">-- Entity</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    player = <span class="lua-fn">GetEntity</span>()
+
+    <span class="lua-cm">-- Character controller</span>
+    cc = player:<span class="lua-fn">AddCharacterController</span>(<span class="lua-num">0.35</span>, <span class="lua-num">1.8</span>)
+    cc:<span class="lua-fn">SetGravity</span>(<span class="lua-num">25.0</span>)
+
+    <span class="lua-cm">-- Animation State Machine</span>
+    sm = player:<span class="lua-fn">AddAnimStateMachine</span>()
+
+    <span class="lua-cm">-- States</span>
+    sm:<span class="lua-fn">AddState</span>(<span class="lua-str">"idle"</span>,   <span class="lua-str">"Anims/Idle.ani"</span>,   <span class="lua-kw">true</span>)
+    sm:<span class="lua-fn">AddState</span>(<span class="lua-str">"walk"</span>,   <span class="lua-str">"Anims/Walk.ani"</span>,   <span class="lua-kw">true</span>)
+    sm:<span class="lua-fn">AddState</span>(<span class="lua-str">"run"</span>,    <span class="lua-str">"Anims/Run.ani"</span>,    <span class="lua-kw">true</span>)
+    sm:<span class="lua-fn">AddState</span>(<span class="lua-str">"jump"</span>,   <span class="lua-str">"Anims/Jump.ani"</span>,   <span class="lua-kw">false</span>)
+    sm:<span class="lua-fn">AddState</span>(<span class="lua-str">"tongue"</span>, <span class="lua-str">"Anims/Tongue.ani"</span>, <span class="lua-kw">false</span>)
+
+    <span class="lua-cm">-- Transitions</span>
+    sm:<span class="lua-fn">AddTransition</span>    (<span class="lua-str">"idle"</span>, <span class="lua-str">"walk"</span>, <span class="lua-str">"moving"</span>)
+    sm:<span class="lua-fn">AddTransitionBool</span> (<span class="lua-str">"walk"</span>, <span class="lua-str">"idle"</span>, <span class="lua-str">"moving"</span>, <span class="lua-kw">false</span>)
+    sm:<span class="lua-fn">AddTransitionFloat</span>(<span class="lua-str">"walk"</span>, <span class="lua-str">"run"</span>,  <span class="lua-str">"speed"</span>, <span class="lua-num">4.0</span>, <span class="lua-kw">true</span>)
+    sm:<span class="lua-fn">AddTransitionFloat</span>(<span class="lua-str">"run"</span>,  <span class="lua-str">"walk"</span>, <span class="lua-str">"speed"</span>, <span class="lua-num">4.0</span>, <span class="lua-kw">false</span>)
+    sm:<span class="lua-fn">AddTransition</span>    (<span class="lua-str">"idle"</span>, <span class="lua-str">"jump"</span>, <span class="lua-str">"jump"</span>)
+    sm:<span class="lua-fn">AddTransition</span>    (<span class="lua-str">"walk"</span>, <span class="lua-str">"jump"</span>, <span class="lua-str">"jump"</span>)
+    sm:<span class="lua-fn">AddTransition</span>    (<span class="lua-str">"run"</span>,  <span class="lua-str">"jump"</span>, <span class="lua-str">"jump"</span>)
+    sm:<span class="lua-fn">AddAutoTransition</span>(<span class="lua-str">"jump"</span>,   <span class="lua-str">"idle"</span>)
+    sm:<span class="lua-fn">AddTransition</span>    (<span class="lua-str">"idle"</span>, <span class="lua-str">"tongue"</span>, <span class="lua-str">"doTongue"</span>)
+    sm:<span class="lua-fn">AddAutoTransition</span>(<span class="lua-str">"tongue"</span>, <span class="lua-str">"idle"</span>)
+
+    <span class="lua-cm">-- Input bindings</span>
+    <span class="lua-fn">BindAxis2D</span>(<span class="lua-str">"Move"</span>)
+        :<span class="lua-fn">Keys</span>(Key.Left, Key.Right, Key.Down, Key.Up)
+        :<span class="lua-fn">GamepadStick</span>(GamepadAxis.LeftX, GamepadAxis.LeftY)
+        :<span class="lua-fn">InvertY</span>(<span class="lua-kw">true</span>)
+
+    <span class="lua-fn">BindAction</span>(<span class="lua-str">"Jump"</span>)  :<span class="lua-fn">Key</span>(Key.Space)   :<span class="lua-fn">GamepadButton</span>(GamepadButton.A)
+    <span class="lua-fn">BindAction</span>(<span class="lua-str">"Tongue"</span>):<span class="lua-fn">Key</span>(Key.T)       :<span class="lua-fn">GamepadButton</span>(GamepadButton.Y)
+    <span class="lua-fn">BindAction</span>(<span class="lua-str">"Sprint"</span>):<span class="lua-fn">Key</span>(Key.LShift)  :<span class="lua-fn">GamepadButton</span>(GamepadButton.LB)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">local</span> input   = <span class="lua-fn">GetAxis2D</span>(<span class="lua-str">"Move"</span>)
+    <span class="lua-kw">local</span> topSpeed = <span class="lua-fn">IsActionDown</span>(<span class="lua-str">"Sprint"</span>) <span class="lua-kw">and</span> <span class="lua-num">7.0</span> <span class="lua-kw">or</span> <span class="lua-num">3.0</span>
+
+    cc:<span class="lua-fn">Move</span>(Vector3(input.x, <span class="lua-num">0</span>, input.y) * topSpeed, dt)
+
+    <span class="lua-kw">local</span> vel   = player:<span class="lua-fn">GetLinearVelocity</span>()
+    <span class="lua-kw">local</span> speed = Vector2(vel.x, vel.z):<span class="lua-fn">Length</span>()
+
+    sm:<span class="lua-fn">SetBool</span> (<span class="lua-str">"moving"</span>, speed &gt; <span class="lua-num">0.15</span>)
+    sm:<span class="lua-fn">SetFloat</span>(<span class="lua-str">"speed"</span>,  speed)
+
+    <span class="lua-kw">if</span> <span class="lua-fn">IsActionPressed</span>(<span class="lua-str">"Jump"</span>)   <span class="lua-kw">then</span>
+        sm:<span class="lua-fn">SetTrigger</span>(<span class="lua-str">"jump"</span>)
+        cc:<span class="lua-fn">TryJump</span>(<span class="lua-num">10.0</span>)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-kw">if</span> <span class="lua-fn">IsActionPressed</span>(<span class="lua-str">"Tongue"</span>) <span class="lua-kw">then</span>
+        sm:<span class="lua-fn">SetTrigger</span>(<span class="lua-str">"doTongue"</span>)
+    <span class="lua-kw">end</span>
+
+    sm:<span class="lua-fn">Update</span>(dt)   <span class="lua-cm">-- must be last, after all conditions are set</span>
+
+    <span class="lua-cm">-- Print state name to a label or the console for debugging</span>
+    <span class="lua-cm">-- Log("Current state: " .. sm:GetCurrentState())</span>
+<span class="lua-kw">end</span></pre>
+
+<div class="callout new">
+  <h4>Lua tip: <code>GetEntity()</code></h4>
+  <p>
+    Inside a Lua script attached with <code>entity:AddScript()</code>, the global
+    function <code>GetEntity()</code> returns the <code>Entity</code> the script
+    is attached to. This is the standard way to get a self-reference in simple-3d
+    Lua scripts.
+  </p>
+</div>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Common mistakes</h2>
+
+<div class="callout warn">
+  <h4>Common mistakes to avoid</h4>
+  <ul>
+    <li>
+      <strong>Forgetting <code>sm-&gt;Update(dt)</code>.</strong>
+      Without this call no transition will ever evaluate and the animation will stay
+      frozen in the default state. Always put it at the end of your <code>Update()</code>
+      method, after all condition variables have been set.
+    </li>
+    <li>
+      <strong>Using a trigger when you need a bool.</strong>
+      Triggers are consumed after the first matching transition fires. If you use a
+      trigger for a continuous condition like "is moving", it will flip the state once
+      and then stop working. Use <code>SetBool</code> for anything that should remain
+      true across multiple frames.
+    </li>
+    <li>
+      <strong>Adding an <code>AddAutoTransition</code> on a looped state.</strong>
+      Auto-transitions only fire when a non-looped animation reaches its end.
+      On a looped clip the animation never "ends", so the auto-transition will never
+      fire. Always pair <code>AddAutoTransition</code> with <code>loop = false</code>.
+    </li>
+    <li>
+      <strong>Setting condition variables after <code>sm-&gt;Update(dt)</code>.</strong>
+      Values written after the Update call will not be evaluated until the <em>next</em>
+      frame. Write all <code>SetBool</code>, <code>SetFloat</code>, and
+      <code>SetTrigger</code> calls <em>before</em> the final <code>Update</code>.
+    </li>
+    <li>
+      <strong>Calling <code>AddAnimationController()</code> separately.</strong>
+      <code>AddAnimStateMachine()</code> creates the <code>AnimationController</code>
+      internally. If you call <code>AddAnimationController()</code> beforehand, you
+      will end up with two controllers competing, leading to incorrect blending.
+    </li>
+    <li>
+      <strong>Transition from a state that does not exist.</strong>
+      State names are arbitrary strings — a typo in <code>AddTransition("idel", ...)</code>
+      will silently register a transition from a non-existent state. It will never fire.
+      Double-check spellings, especially when copying from another state.
+    </li>
+    <li>
+      <strong>Expecting transitions to fire immediately in <code>Start()</code>.</strong>
+      Transitions are evaluated inside <code>Update(dt)</code>. Any condition you set
+      in <code>Start()</code> will take effect on the first frame's <code>Update</code>
+      call, not before.
+    </li>
+  </ul>
+</div>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Diagram: state graph for the example</h2>
+
+<p>
+  The diagram below shows the complete transition graph built in the C++ example.
+  Arrows are labeled with the guard that fires them; auto-transitions are labeled
+  <em>(auto)</em>.
+</p>
+
+<pre style="font-size:0.82em; line-height:1.6;">
+                    moving=true
+          ┌─────────────────────────────┐
+          │                             ▼
+       [idle] ──jump──────────────► [jump] ──(auto)──► [idle]
+          │                                                  ▲
+          │ doTongue                                         │
+          ▼                                                  │
+       [tongue] ──────────────────────(auto)─────────────────┘
+
+       [idle] ──moving=true──► [walk] ──speed&gt;4──► [run]
+                                  ▲                   │
+                                  └────speed&lt;4────────┘
+                                  ▲
+                              moving=false
+                                  │
+                               [walk]
+</pre>
+
+<p>
+  Keeping a diagram like this — even as a hand-drawn sketch — helps enormously when
+  debugging unexpected transitions in a complex character controller.
+</p>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Retrieving the state machine after creation</h2>
+
+<p>
+  If you create the state machine in one place (e.g. a factory function or a
+  Lua script) but need to drive it from another (e.g. a different C++ component),
+  use <code>entity-&gt;GetAnimStateMachine()</code>. It returns <code>nullptr</code>
+  if <code>AddAnimStateMachine()</code> was never called, so always null-check the
+  result in code paths where the entity might not have one.
+</p>
+
+<pre><span class="ty">AnimStateMachine</span>* sm = someEntity-&gt;<span class="fn">GetAnimStateMachine</span>();
+<span class="kw">if</span> (sm) {
+    sm-&gt;<span class="fn">SetTrigger</span>(<span class="st">"hit"</span>);
+}</pre>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>What you learned</h2>
+
+<ul>
+  <li>
+    <code>entity-&gt;AddAnimStateMachine()</code> creates a declarative animation
+    controller that replaces manual play/stop calls with a rules-based graph.
+  </li>
+  <li>
+    <code>AddState(name, clipPath, loop)</code> registers a named state. The first
+    state added is the default; use <code>SetDefaultState(name)</code> to override.
+  </li>
+  <li>
+    Three transition methods cover every common case: <code>AddTransition</code> (bool
+    or trigger), <code>AddTransitionBool</code> (explicit bool value), and
+    <code>AddTransitionFloat</code> (threshold comparison).
+  </li>
+  <li>
+    <code>AddAutoTransition(from, to)</code> returns from a non-looped one-shot
+    animation automatically without any game-code condition check.
+  </li>
+  <li>
+    <code>SetBool</code> and <code>SetFloat</code> set persistent condition variables;
+    <code>SetTrigger</code> sets a one-shot event that is consumed after it fires.
+  </li>
+  <li>
+    <code>sm-&gt;Update(dt)</code> must be called every frame, after all condition
+    variables are written, to evaluate transitions.
+  </li>
+  <li>
+    <code>GetCurrentState()</code> returns the active state name; <code>IsInState(name)</code>
+    is a convenience predicate — both are useful for sound cues, UI display, and
+    gameplay gating.
+  </li>
+  <li>
+    The Lua API is identical: call the same methods on the same objects using the
+    <code>sm:MethodName()</code> colon syntax.
+  </li>
+</ul>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-08.html">&#8592; Part 08: Skeletal Animation</a>
+  <a href="tutorial-10.html">Part 10: Audio &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

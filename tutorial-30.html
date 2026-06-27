@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 30: Networking Basics — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li class="active"><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 30</div>
+
+<h1><span class="tutorial-part">Part 30 of 30</span>Networking Basics</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>CreateNetworkManager()</code> &mdash;
+    <code>GetNetworkManager()</code> &mdash;
+    <code>net-&gt;StartServer(port, maxClients)</code> &mdash;
+    <code>net-&gt;StopServer()</code> &mdash;
+    <code>net-&gt;Connect(host, port)</code> &mdash;
+    <code>net-&gt;Disconnect()</code> &mdash;
+    <code>net-&gt;IsServer()</code> &mdash;
+    <code>net-&gt;IsClient()</code> &mdash;
+    <code>net-&gt;IsConnected()</code> &mdash;
+    <code>net-&gt;Broadcast(msgId, data)</code> &mdash;
+    <code>net-&gt;SendToClient(clientId, msgId, data)</code> &mdash;
+    <code>net-&gt;SendToServer(msgId, data)</code> &mdash;
+    <code>net-&gt;SetOnMessage(callback)</code> &mdash;
+    <code>net-&gt;SetOnClientConnected(callback)</code> &mdash;
+    <code>net-&gt;SetOnClientDisconnected(callback)</code> &mdash;
+    <code>net-&gt;SetOnServerConnected(callback)</code> &mdash;
+    <code>net-&gt;SetOnServerDisconnected(callback)</code> &mdash;
+    user message IDs in range 100&ndash;32767, manual game-state synchronisation.
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ──────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How the client/server networking model works in simple-3d and what ENet provides under the hood.</li>
+  <li>How to create and retrieve the <code>NetworkManager</code> with <code>CreateNetworkManager()</code> and <code>GetNetworkManager()</code>.</li>
+  <li>How to host a game session with <code>net-&gt;StartServer(port, maxClients)</code> and shut it down with <code>net-&gt;StopServer()</code>.</li>
+  <li>How clients connect to a host with <code>net-&gt;Connect(host, port)</code> and disconnect cleanly with <code>net-&gt;Disconnect()</code>.</li>
+  <li>How to query the current role and connection state with <code>IsServer()</code>, <code>IsClient()</code>, and <code>IsConnected()</code>.</li>
+  <li>Why entity replication is <em>not</em> automatic and how to synchronise game state manually using custom binary messages.</li>
+  <li>How to send messages to all clients with <code>Broadcast</code>, to a single client with <code>SendToClient</code>, and to the server with <code>SendToServer</code>.</li>
+  <li>How to define your own message ID constants in the reserved range 100&ndash;32767.</li>
+  <li>How to receive messages on both server and client sides with <code>SetOnMessage</code>.</li>
+  <li>How to handle player join and leave events with <code>SetOnClientConnected</code> and <code>SetOnClientDisconnected</code>.</li>
+  <li>How to pack and unpack position data into raw byte buffers using <code>memcpy</code>.</li>
+  <li>Best practices for authoritative-server design and avoiding common pitfalls.</li>
+</ul>
+
+<!-- ─── BACKGROUND ───────────────────────────────────────────────── -->
+<h2>Background: networking in simple-3d</h2>
+
+<p>
+  simple-3d provides client/server multiplayer through <strong>ENet</strong>, a thin
+  UDP library that adds reliable and sequenced delivery on top of raw datagrams.
+  The <code>NetworkManager</code> class wraps ENet's connection primitives and gives
+  you callbacks for connection events and incoming messages.
+</p>
+
+<p>
+  One crucial point distinguishes simple-3d from engines that have built-in network
+  replication: <strong>entity replication is not automatic</strong>.  No entity
+  position, velocity, model, or component state is ever sent to another machine
+  on your behalf.  Every piece of game state that clients need to know about
+  must be serialised into a byte buffer and sent explicitly using the messaging API.
+  This gives you complete control over bandwidth and update frequency, at the cost
+  of writing the serialisation code yourself.
+</p>
+
+<div class="grid2">
+  <div class="card card-green">
+    <h3>Server role</h3>
+    <p>
+      The server is authoritative.  It runs the physics simulation, validates
+      player input, and broadcasts authoritative state to all connected clients
+      every frame (or at a fixed network tick rate).  One instance of your game
+      binary calls <code>StartServer()</code>.
+    </p>
+  </div>
+  <div class="card card-blue">
+    <h3>Client role</h3>
+    <p>
+      Each client connects with <code>Connect()</code>, sends local player input
+      to the server each frame, and receives authoritative state updates to render.
+      Remote entities on the client are moved by applying the received positions
+      rather than by local physics.
+    </p>
+  </div>
+</div>
+
+<p>
+  A single binary can decide its role at startup based on a command-line argument,
+  a configuration file, or a menu choice.  The example in this part uses a simple
+  boolean flag <code>isServer_</code>.
+</p>
+
+<!-- ─── MESSAGE ID RANGES ─────────────────────────────────────────── -->
+<h2>Message ID ranges</h2>
+
+<p>
+  Every message carries an integer ID so the receiver knows what the payload contains.
+  IDs 0&ndash;99 are reserved internally by Urho3D's network layer.
+  <strong>Your game must use IDs in the range 100&ndash;32767.</strong>
+  A good practice is to define an <code>enum class</code> so the IDs are named and
+  self-documenting:
+</p>
+
+<pre><span class="cm">// Define all game message types in one place.</span>
+<span class="kw">enum class</span> <span class="ty">MsgId</span> : <span class="ty">int</span>
+{
+    PlayerInput  = <span class="val">100</span>,  <span class="cm">// client -&gt; server: local movement input</span>
+    PlayerState  = <span class="val">101</span>,  <span class="cm">// server -&gt; all:    authoritative position</span>
+    PlayerSpawn  = <span class="val">102</span>,  <span class="cm">// server -&gt; all:    a new peer joined</span>
+    PlayerLeave  = <span class="val">103</span>,  <span class="cm">// server -&gt; all:    a peer disconnected</span>
+    ChatMessage  = <span class="val">104</span>,  <span class="cm">// either direction:  text string</span>
+};</pre>
+
+<!-- ─── COMPLETE EXAMPLE ──────────────────────────────────────────── -->
+<h2>Complete working example</h2>
+
+<p>
+  The example below builds a minimal networked session where up to eight players
+  move coloured boxes around a flat arena.  The server runs the simulation and
+  broadcasts each player's position every frame.  Clients send their WASD input
+  and render the positions they receive.  Both roles run in the same binary,
+  selected by the boolean <code>isServer_</code> member.
+</p>
+
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;cstring&gt;</span>   <span class="cm">// memcpy</span>
+<span class="pp">#include</span> <span class="st">&lt;map&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="cm">// ─────────────────────────────────────────────────────────────────────────────
+// Message IDs — must be in range [100, 32767].
+// ─────────────────────────────────────────────────────────────────────────────</span>
+<span class="kw">enum class</span> <span class="ty">MsgId</span> : <span class="ty">int</span>
+{
+    PlayerInput  = <span class="val">100</span>,   <span class="cm">// client -&gt; server: 2 floats (dx, dz)</span>
+    PlayerState  = <span class="val">101</span>,   <span class="cm">// server -&gt; all:    int id + 3 floats (x,y,z) per player</span>
+    PlayerSpawn  = <span class="val">102</span>,   <span class="cm">// server -&gt; all:    int clientId joined</span>
+    PlayerLeave  = <span class="val">103</span>,   <span class="cm">// server -&gt; all:    int clientId left</span>
+};
+
+<span class="kw">static constexpr</span> <span class="ty">int</span>   NET_PORT     = <span class="val">27015</span>;
+<span class="kw">static constexpr</span> <span class="ty">int</span>   MAX_CLIENTS  = <span class="val">8</span>;
+<span class="kw">static constexpr</span> <span class="ty">float</span> MOVE_SPEED   = <span class="val">5.0f</span>;
+
+<span class="cm">// ─────────────────────────────────────────────────────────────────────────────
+// Helper: pack a float into a byte vector at a given offset.
+// ─────────────────────────────────────────────────────────────────────────────</span>
+<span class="kw">static</span> <span class="ty">void</span> <span class="fn">PackFloat</span>(<span class="ty">std::vector</span>&lt;<span class="ty">uint8_t</span>&gt;&amp; buf, <span class="ty">size_t</span> offset, <span class="ty">float</span> v)
+{
+    <span class="fn">memcpy</span>(buf.<span class="fn">data</span>() + offset, &amp;v, <span class="kw">sizeof</span>(<span class="ty">float</span>));
+}
+
+<span class="kw">static</span> <span class="ty">float</span> <span class="fn">UnpackFloat</span>(<span class="kw">const</span> <span class="ty">std::vector</span>&lt;<span class="ty">uint8_t</span>&gt;&amp; buf, <span class="ty">size_t</span> offset)
+{
+    <span class="ty">float</span> v;
+    <span class="fn">memcpy</span>(&amp;v, buf.<span class="fn">data</span>() + offset, <span class="kw">sizeof</span>(<span class="ty">float</span>));
+    <span class="kw">return</span> v;
+}
+
+<span class="kw">static</span> <span class="ty">void</span> <span class="fn">PackInt</span>(<span class="ty">std::vector</span>&lt;<span class="ty">uint8_t</span>&gt;&amp; buf, <span class="ty">size_t</span> offset, <span class="ty">int</span> v)
+{
+    <span class="fn">memcpy</span>(buf.<span class="fn">data</span>() + offset, &amp;v, <span class="kw">sizeof</span>(<span class="ty">int</span>));
+}
+
+<span class="kw">static</span> <span class="ty">int</span> <span class="fn">UnpackInt</span>(<span class="kw">const</span> <span class="ty">std::vector</span>&lt;<span class="ty">uint8_t</span>&gt;&amp; buf, <span class="ty">size_t</span> offset)
+{
+    <span class="ty">int</span> v;
+    <span class="fn">memcpy</span>(&amp;v, buf.<span class="fn">data</span>() + offset, <span class="kw">sizeof</span>(<span class="ty">int</span>));
+    <span class="kw">return</span> v;
+}
+
+<span class="cm">// ─────────────────────────────────────────────────────────────────────────────
+// NetArenaGame — demonstrates the full NetworkManager API.
+//
+// Run with isServer_ = true on one machine and false on clients.
+// In a real game you would read this from argv[] or a start screen.
+// ─────────────────────────────────────────────────────────────────────────────</span>
+<span class="kw">class</span> <span class="ty">NetArenaGame</span> : <span class="kw">public</span> <span class="ty">Game</span>
+{
+<span class="kw">public</span>:
+    <span class="cm">// ── Role ──────────────────────────────────────────────────────────────</span>
+    <span class="ty">bool</span>             isServer_  = <span class="kw">true</span>;   <span class="cm">// set false for client instances</span>
+
+    <span class="cm">// ── Networking ────────────────────────────────────────────────────────</span>
+    <span class="ty">NetworkManager</span>*  net_       = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── Scene ─────────────────────────────────────────────────────────────</span>
+    <span class="cm">// Server: one entity per connected client, keyed by client id.</span>
+    <span class="cm">// Client: one entity for the local player + one per remote player.</span>
+    <span class="ty">Entity</span>*                         localPlayer_  = <span class="kw">nullptr</span>;
+    <span class="ty">std::map</span>&lt;<span class="ty">int</span>, <span class="ty">Entity</span>*&gt;          remotePlayers_;   <span class="cm">// clientId -&gt; entity</span>
+
+    <span class="cm">// Server only: track positions received from clients this frame.</span>
+    <span class="ty">std::map</span>&lt;<span class="ty">int</span>, <span class="ty">Vector3</span>&gt;          serverPositions_;
+
+    <span class="cm">// ── UI ────────────────────────────────────────────────────────────────</span>
+    <span class="ty">Label</span>*           statusLabel_ = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*           countLabel_  = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*           hintLabel_   = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── Camera ────────────────────────────────────────────────────────────</span>
+    <span class="ty">Camera</span>*          cam_         = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────────
+    // Start() — initialise networking and scene.
+    // ─────────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="fn">SetAppName</span>(<span class="st">"NetArena"</span>);
+        <span class="fn">SetWindowTitle</span>(isServer_ ? <span class="st">"NetArena — Server"</span> : <span class="st">"NetArena — Client"</span>);
+
+        <span class="cm">// ── Ground ────────────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground-&gt;<span class="fn">SetScale</span>(<span class="val">20.0f</span>);
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">20.0f</span>, <span class="val">0.5f</span>, <span class="val">20.0f</span>));
+        ground-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+        <span class="cm">// ── Light ─────────────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* light = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        light-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>, <span class="val">1.0f</span>);
+        light-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45.0f</span>, <span class="val">45.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── Camera ────────────────────────────────────────────────────</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+
+        <span class="cm">// ── Local player entity ───────────────────────────────────────
+        // On the server, "local player" is a dummy observer.
+        // On a client, it is the player the user controls.</span>
+        localPlayer_ = <span class="fn">CreateEntity</span>(<span class="st">"LocalPlayer"</span>);
+        localPlayer_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        localPlayer_-&gt;<span class="fn">SetScale</span>(<span class="val">0.8f</span>);
+        localPlayer_-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.6f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>));  <span class="cm">// blue = local</span>
+        localPlayer_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.5f</span>, <span class="val">0.0f</span>);
+
+        <span class="kw">if</span> (!isServer_)
+        {
+            <span class="ty">CharacterController</span>* cc = localPlayer_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.6f</span>);
+            cc-&gt;<span class="fn">SetGravity</span>(<span class="val">20.0f</span>);
+            localPlayer_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+            localPlayer_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+                <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>
+            }));
+
+            cam_-&gt;<span class="fn">Follow</span>(localPlayer_, <span class="val">8.0f</span>, <span class="val">5.0f</span>);
+            cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">6.0f</span>);
+        }
+        <span class="kw">else</span>
+        {
+            <span class="cm">// Server observer camera — fixed overhead view.</span>
+            localPlayer_-&gt;<span class="fn">SetActive</span>(<span class="kw">false</span>);
+            cam_-&gt;<span class="fn">LookAt</span>(<span class="ty">Vector3</span>::<span class="val">ZERO</span>);
+        }
+
+        <span class="cm">// ── UI ────────────────────────────────────────────────────────</span>
+        statusLabel_ = <span class="fn">CreateLabel</span>(isServer_ ? <span class="st">"Server starting..."</span>
+                                               : <span class="st">"Connecting..."</span>);
+        statusLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">10</span>);
+        statusLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">18</span>);
+        statusLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>);
+
+        countLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Players: 0"</span>);
+        countLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">38</span>);
+        countLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">14</span>);
+        countLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.8f</span>, <span class="val">0.8f</span>, <span class="val">0.8f</span>, <span class="val">1.0f</span>));
+
+        hintLabel_ = <span class="fn">CreateLabel</span>(isServer_ ? <span class="st">"Waiting for clients on port 27015"</span>
+                                             : <span class="st">"WASD / Arrow keys to move"</span>);
+        hintLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">60</span>);
+        hintLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">13</span>);
+        hintLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.65f</span>, <span class="val">0.65f</span>, <span class="val">0.65f</span>, <span class="val">1.0f</span>));
+
+        <span class="cm">// ── NetworkManager ────────────────────────────────────────────
+        // Call CreateNetworkManager() once in Start().
+        // Retrieve it later with GetNetworkManager() from any method.</span>
+        net_ = <span class="fn">CreateNetworkManager</span>();
+
+        <span class="cm">// ── Wire callbacks (both sides register the message handler) ──</span>
+        net_-&gt;<span class="fn">SetOnMessage</span>([<span class="kw">this</span>](<span class="ty">int</span> sender, <span class="ty">int</span> msgId,
+                                   <span class="kw">const</span> <span class="ty">std::vector</span>&lt;<span class="ty">uint8_t</span>&gt;&amp; data)
+        {
+            <span class="fn">OnNetMessage</span>(sender, msgId, data);
+        });
+
+        <span class="kw">if</span> (isServer_)
+        {
+            <span class="cm">// Server-only: client lifecycle callbacks.</span>
+            net_-&gt;<span class="fn">SetOnClientConnected</span>([<span class="kw">this</span>](<span class="ty">int</span> id)
+            {
+                <span class="fn">OnClientJoined</span>(id);
+            });
+
+            net_-&gt;<span class="fn">SetOnClientDisconnected</span>([<span class="kw">this</span>](<span class="ty">int</span> id)
+            {
+                <span class="fn">OnClientLeft</span>(id);
+            });
+
+            <span class="cm">// Start listening.  Simple3D assigns each connecting client a
+            // stable integer id that persists until they disconnect.</span>
+            net_-&gt;<span class="fn">StartServer</span>(NET_PORT, MAX_CLIENTS);
+            statusLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Server listening on port 27015"</span>);
+        }
+        <span class="kw">else</span>
+        {
+            <span class="cm">// Client-only: server lifecycle callbacks.</span>
+            net_-&gt;<span class="fn">SetOnServerConnected</span>([<span class="kw">this</span>]()
+            {
+                statusLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Connected to server"</span>);
+                hintLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.4f</span>, <span class="val">1.0f</span>, <span class="val">0.4f</span>, <span class="val">1.0f</span>));
+            });
+
+            net_-&gt;<span class="fn">SetOnServerDisconnected</span>([<span class="kw">this</span>]()
+            {
+                statusLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Disconnected from server"</span>);
+                hintLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.4f</span>, <span class="val">0.4f</span>, <span class="val">1.0f</span>));
+
+                <span class="cm">// Remove all remote player entities on disconnect.</span>
+                <span class="fn">RemoveAllRemotePlayers</span>();
+            });
+
+            <span class="cm">// Initiate connection.  The OnServerConnected callback fires
+            // asynchronously once the handshake succeeds.</span>
+            net_-&gt;<span class="fn">Connect</span>(<span class="st">"127.0.0.1"</span>, NET_PORT);
+        }
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────────
+    // Update() — per-frame logic.
+    // ─────────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Escape</span>))
+        {
+            <span class="cm">// Graceful shutdown: disconnect before quitting.</span>
+            <span class="kw">if</span> (net_-&gt;<span class="fn">IsServer</span>())
+                net_-&gt;<span class="fn">StopServer</span>();
+            <span class="kw">else if</span> (net_-&gt;<span class="fn">IsConnected</span>())
+                net_-&gt;<span class="fn">Disconnect</span>();
+            <span class="fn">Quit</span>();
+        }
+
+        <span class="kw">if</span> (isServer_)
+        {
+            <span class="fn">ServerUpdate</span>(dt);
+        }
+        <span class="kw">else</span>
+        {
+            <span class="fn">ClientUpdate</span>(dt);
+        }
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────────
+    // ServerUpdate() — runs on the hosting machine each frame.
+    // Moves player entities based on received input, then broadcasts
+    // all positions back to every connected client.
+    // ─────────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">ServerUpdate</span>(<span class="ty">float</span> dt)
+    {
+        <span class="cm">// Move each server-side player entity according to the most recently
+        // received input deltas (set inside OnNetMessage for MsgId::PlayerInput).</span>
+        <span class="kw">for</span> (<span class="kw">auto</span>&amp; [clientId, entity] : remotePlayers_)
+        {
+            <span class="ty">Vector3</span> vel = entity-&gt;<span class="fn">GetLinearVelocity</span>();
+            <span class="cm">// XZ velocity was set when we received PlayerInput; let physics handle Y.</span>
+            entity-&gt;<span class="fn">SetLinearVelocity</span>(<span class="ty">Vector3</span>(vel.x_, vel.y_, vel.z_));
+        }
+
+        <span class="cm">// Broadcast authoritative positions to all clients.
+        // Packet layout: [4 bytes: count] then per-player: [4 bytes id][12 bytes pos]</span>
+        <span class="ty">int</span> count = <span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(remotePlayers_.<span class="fn">size</span>());
+        <span class="ty">std::vector</span>&lt;<span class="ty">uint8_t</span>&gt; buf(<span class="val">4</span> + count * (<span class="val">4</span> + <span class="val">12</span>));
+
+        <span class="fn">PackInt</span>(buf, <span class="val">0</span>, count);
+        <span class="ty">size_t</span> offset = <span class="val">4</span>;
+        <span class="kw">for</span> (<span class="kw">auto</span>&amp; [clientId, entity] : remotePlayers_)
+        {
+            <span class="ty">Vector3</span> pos = entity-&gt;<span class="fn">GetPosition</span>();
+            <span class="fn">PackInt</span>  (buf, offset,      clientId);
+            <span class="fn">PackFloat</span>(buf, offset + <span class="val">4</span>,  pos.x_);
+            <span class="fn">PackFloat</span>(buf, offset + <span class="val">8</span>,  pos.y_);
+            <span class="fn">PackFloat</span>(buf, offset + <span class="val">12</span>, pos.z_);
+            offset += <span class="val">16</span>;
+        }
+
+        <span class="cm">// Broadcast sends to every currently connected client.</span>
+        net_-&gt;<span class="fn">Broadcast</span>(<span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerState</span>), buf);
+
+        <span class="cm">// Update player count HUD.</span>
+        countLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Players: "</span> + <span class="ty">std::string</span>(<span class="fn">std::to_string</span>(count)));
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────────
+    // ClientUpdate() — runs on each client machine each frame.
+    // Reads local input and sends it to the server.
+    // ─────────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">ClientUpdate</span>(<span class="ty">float</span> dt)
+    {
+        <span class="kw">if</span> (!net_-&gt;<span class="fn">IsConnected</span>())
+            <span class="kw">return</span>;   <span class="cm">// not yet connected — do nothing</span>
+
+        <span class="cm">// Read WASD / arrow key input into a movement direction.</span>
+        <span class="ty">float</span> dx = <span class="val">0.0f</span>, dz = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Left</span>)  || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">A</span>))  dx -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Right</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">D</span>))  dx += <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Up</span>)    || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">W</span>))  dz -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Down</span>)  || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">S</span>))  dz += <span class="val">1.0f</span>;
+
+        <span class="cm">// Apply movement locally for immediate responsiveness
+        // (client-side prediction).</span>
+        <span class="kw">auto</span>* cc = localPlayer_-&gt;<span class="fn">GetComponent</span>&lt;<span class="ty">CharacterController</span>&gt;();
+        <span class="kw">if</span> (cc)
+            cc-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(dx, <span class="val">0.0f</span>, dz) * MOVE_SPEED, dt);
+
+        <span class="cm">// Send our input to the server.
+        // Packet: [4 bytes float dx][4 bytes float dz]</span>
+        <span class="ty">std::vector</span>&lt;<span class="ty">uint8_t</span>&gt; buf(<span class="val">8</span>);
+        <span class="fn">PackFloat</span>(buf, <span class="val">0</span>, dx * MOVE_SPEED);
+        <span class="fn">PackFloat</span>(buf, <span class="val">4</span>, dz * MOVE_SPEED);
+
+        <span class="cm">// SendToServer delivers the message to the server from this client.</span>
+        net_-&gt;<span class="fn">SendToServer</span>(<span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerInput</span>), buf);
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────────
+    // OnNetMessage() — fired on both server and client whenever a
+    // message arrives.  Dispatch by msgId.
+    //
+    //   On the server side:  sender = the client's integer id
+    //   On the client side:  sender = 0  (the server)
+    // ─────────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">OnNetMessage</span>(<span class="ty">int</span> sender, <span class="ty">int</span> msgId,
+                       <span class="kw">const</span> <span class="ty">std::vector</span>&lt;<span class="ty">uint8_t</span>&gt;&amp; data)
+    {
+        <span class="kw">if</span> (isServer_ &amp;&amp; msgId == <span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerInput</span>))
+        {
+            <span class="cm">// Server received movement input from a client.
+            // Apply the velocity to that client's server-side entity.</span>
+            <span class="kw">auto</span> it = remotePlayers_.<span class="fn">find</span>(sender);
+            <span class="kw">if</span> (it == remotePlayers_.<span class="fn">end</span>()) <span class="kw">return</span>;
+
+            <span class="ty">float</span> vx = <span class="fn">UnpackFloat</span>(data, <span class="val">0</span>);
+            <span class="ty">float</span> vz = <span class="fn">UnpackFloat</span>(data, <span class="val">4</span>);
+
+            <span class="ty">Entity</span>* e   = it-&gt;second;
+            <span class="ty">Vector3</span> vel = e-&gt;<span class="fn">GetLinearVelocity</span>();
+            e-&gt;<span class="fn">SetLinearVelocity</span>(<span class="ty">Vector3</span>(vx, vel.y_, vz));
+        }
+        <span class="kw">else if</span> (!isServer_ &amp;&amp; msgId == <span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerState</span>))
+        {
+            <span class="cm">// Client received authoritative positions from the server.
+            // Move all remote player entities to match.</span>
+            <span class="ty">int</span>    count  = <span class="fn">UnpackInt</span>(data, <span class="val">0</span>);
+            <span class="ty">size_t</span> offset = <span class="val">4</span>;
+            <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i &lt; count; ++i)
+            {
+                <span class="ty">int</span>   id = <span class="fn">UnpackInt</span>  (data, offset);
+                <span class="ty">float</span>  x = <span class="fn">UnpackFloat</span>(data, offset + <span class="val">4</span>);
+                <span class="ty">float</span>  y = <span class="fn">UnpackFloat</span>(data, offset + <span class="val">8</span>);
+                <span class="ty">float</span>  z = <span class="fn">UnpackFloat</span>(data, offset + <span class="val">12</span>);
+                offset += <span class="val">16</span>;
+
+                <span class="kw">auto</span> it = remotePlayers_.<span class="fn">find</span>(id);
+                <span class="kw">if</span> (it != remotePlayers_.<span class="fn">end</span>())
+                    it-&gt;second-&gt;<span class="fn">SetPosition</span>(x, y, z);
+            }
+        }
+        <span class="kw">else if</span> (!isServer_ &amp;&amp; msgId == <span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerSpawn</span>))
+        {
+            <span class="cm">// Server announced a new peer — create a remote player entity.</span>
+            <span class="ty">int</span> newId = <span class="fn">UnpackInt</span>(data, <span class="val">0</span>);
+            <span class="fn">SpawnRemotePlayer</span>(newId);
+            countLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Players: "</span> +
+                <span class="ty">std::string</span>(<span class="fn">std::to_string</span>((<span class="ty">int</span>)remotePlayers_.<span class="fn">size</span>() + <span class="val">1</span>)));
+        }
+        <span class="kw">else if</span> (!isServer_ &amp;&amp; msgId == <span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerLeave</span>))
+        {
+            <span class="cm">// Server announced a departing peer — remove their entity.</span>
+            <span class="ty">int</span> goneId = <span class="fn">UnpackInt</span>(data, <span class="val">0</span>);
+            <span class="fn">DespawnRemotePlayer</span>(goneId);
+            countLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Players: "</span> +
+                <span class="ty">std::string</span>(<span class="fn">std::to_string</span>((<span class="ty">int</span>)remotePlayers_.<span class="fn">size</span>() + <span class="val">1</span>)));
+        }
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────────
+    // Server-side connection event handlers.
+    // ─────────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">OnClientJoined</span>(<span class="ty">int</span> clientId)
+    {
+        <span class="cm">// Create a server-side physics entity for the new client.</span>
+        <span class="ty">Entity</span>* e = <span class="fn">CreateEntity</span>(<span class="st">"Remote_"</span> + <span class="fn">std::to_string</span>(clientId));
+        e-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        e-&gt;<span class="fn">SetScale</span>(<span class="val">0.8f</span>);
+        e-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.45f</span>, <span class="val">0.1f</span>, <span class="val">1.0f</span>));   <span class="cm">// orange = remote</span>
+        e-&gt;<span class="fn">AddRigidBody</span>(<span class="val">1.0f</span>);
+        e-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">0.8f</span>, <span class="val">0.8f</span>, <span class="val">0.8f</span>));
+        e-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+        e-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>}));
+        e-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>);
+        remotePlayers_[clientId] = e;
+
+        <span class="cm">// Tell all clients that a new player spawned.
+        // Packet: [4 bytes: the new client id]</span>
+        <span class="ty">std::vector</span>&lt;<span class="ty">uint8_t</span>&gt; buf(<span class="val">4</span>);
+        <span class="fn">PackInt</span>(buf, <span class="val">0</span>, clientId);
+        net_-&gt;<span class="fn">Broadcast</span>(<span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerSpawn</span>), buf);
+
+        countLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Players: "</span> +
+            <span class="ty">std::string</span>(<span class="fn">std::to_string</span>((<span class="ty">int</span>)remotePlayers_.<span class="fn">size</span>())));
+        statusLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Client "</span> + <span class="fn">std::to_string</span>(clientId) + <span class="st">" joined"</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">OnClientLeft</span>(<span class="ty">int</span> clientId)
+    {
+        <span class="cm">// Destroy the server-side entity for this client.</span>
+        <span class="kw">auto</span> it = remotePlayers_.<span class="fn">find</span>(clientId);
+        <span class="kw">if</span> (it != remotePlayers_.<span class="fn">end</span>())
+        {
+            <span class="fn">DestroyEntity</span>(it-&gt;second);
+            remotePlayers_.<span class="fn">erase</span>(it);
+        }
+
+        <span class="cm">// Tell remaining clients to remove their copy of this player.</span>
+        <span class="ty">std::vector</span>&lt;<span class="ty">uint8_t</span>&gt; buf(<span class="val">4</span>);
+        <span class="fn">PackInt</span>(buf, <span class="val">0</span>, clientId);
+        net_-&gt;<span class="fn">Broadcast</span>(<span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerLeave</span>), buf);
+
+        countLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Players: "</span> +
+            <span class="ty">std::string</span>(<span class="fn">std::to_string</span>((<span class="ty">int</span>)remotePlayers_.<span class="fn">size</span>())));
+        statusLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Client "</span> + <span class="fn">std::to_string</span>(clientId) + <span class="st">" left"</span>);
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────────
+    // Client-side helpers: create / destroy visual entities for peers.
+    // ─────────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">SpawnRemotePlayer</span>(<span class="ty">int</span> id)
+    {
+        <span class="kw">if</span> (remotePlayers_.<span class="fn">count</span>(id)) <span class="kw">return</span>;  <span class="cm">// already exists</span>
+        <span class="ty">Entity</span>* e = <span class="fn">CreateEntity</span>(<span class="st">"Remote_"</span> + <span class="fn">std::to_string</span>(id));
+        e-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        e-&gt;<span class="fn">SetScale</span>(<span class="val">0.8f</span>);
+        e-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.45f</span>, <span class="val">0.1f</span>, <span class="val">1.0f</span>));  <span class="cm">// orange = remote</span>
+        e-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.5f</span>, <span class="val">0.0f</span>);
+        remotePlayers_[id] = e;
+    }
+
+    <span class="kw">void</span> <span class="fn">DespawnRemotePlayer</span>(<span class="ty">int</span> id)
+    {
+        <span class="kw">auto</span> it = remotePlayers_.<span class="fn">find</span>(id);
+        <span class="kw">if</span> (it != remotePlayers_.<span class="fn">end</span>())
+        {
+            <span class="fn">DestroyEntity</span>(it-&gt;second);
+            remotePlayers_.<span class="fn">erase</span>(it);
+        }
+    }
+
+    <span class="kw">void</span> <span class="fn">RemoveAllRemotePlayers</span>()
+    {
+        <span class="kw">for</span> (<span class="kw">auto</span>&amp; [id, e] : remotePlayers_)
+            <span class="fn">DestroyEntity</span>(e);
+        remotePlayers_.<span class="fn">clear</span>();
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Stop</span>() <span class="kw">override</span>
+    {
+        <span class="cm">// Always clean up the networking layer on exit.</span>
+        <span class="kw">if</span> (net_ &amp;&amp; net_-&gt;<span class="fn">IsServer</span>())
+            net_-&gt;<span class="fn">StopServer</span>();
+        <span class="kw">else if</span> (net_ &amp;&amp; net_-&gt;<span class="fn">IsConnected</span>())
+            net_-&gt;<span class="fn">Disconnect</span>();
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">NetArenaGame</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ──────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<h3>CreateNetworkManager() and GetNetworkManager()</h3>
+<p>
+  <code>CreateNetworkManager()</code> initialises ENet on the current machine and
+  returns a pointer to the <code>NetworkManager</code> instance.  Call it exactly
+  once in <code>Start()</code>.  From any other method &mdash; including callbacks
+  registered later &mdash; you can retrieve the same object with
+  <code>GetNetworkManager()</code> without needing to store the pointer in a member
+  variable:
+</p>
+
+<pre><span class="cm">// In Start():</span>
+<span class="ty">NetworkManager</span>* net = <span class="fn">CreateNetworkManager</span>();
+
+<span class="cm">// From any other method, once created:</span>
+<span class="ty">NetworkManager</span>* net = <span class="fn">GetNetworkManager</span>();   <span class="cm">// returns nullptr if not yet created</span></pre>
+
+<p>
+  Storing the returned pointer in a member variable (as in the example, <code>net_</code>)
+  is the most convenient pattern, since <code>GetNetworkManager()</code> has a small
+  look-up cost compared to a member access.  Either approach is correct.
+</p>
+
+<h3>net-&gt;StartServer(port, maxClients)</h3>
+<p>
+  <code>StartServer</code> opens a UDP socket on the given port and begins listening
+  for incoming ENet connections.  The second argument caps how many clients can be
+  connected simultaneously; defaults to 128 if omitted.  The call returns
+  immediately; the server begins accepting connections on the next engine tick.
+</p>
+
+<pre><span class="cm">// Listen on port 27015, allow up to 8 simultaneous clients.</span>
+net_-&gt;<span class="fn">StartServer</span>(<span class="val">27015</span>, <span class="val">8</span>);
+
+<span class="cm">// Default max clients (128):</span>
+net_-&gt;<span class="fn">StartServer</span>(<span class="val">7777</span>);
+
+<span class="cm">// Shut down the server (closes the socket, disconnects all clients):</span>
+net_-&gt;<span class="fn">StopServer</span>();
+
+<span class="cm">// Query whether this instance is currently running as a server:</span>
+<span class="kw">if</span> (net_-&gt;<span class="fn">IsServer</span>()) { <span class="cm">/* ... */</span> }</pre>
+
+<p>
+  After calling <code>StartServer</code>, <code>IsServer()</code> returns
+  <code>true</code>.  <code>IsConnected()</code> and <code>IsClient()</code> both
+  return <code>false</code> on the hosting machine.
+</p>
+
+<h3>net-&gt;Connect(host, port)</h3>
+<p>
+  <code>Connect</code> initiates an ENet handshake with the specified host address
+  (IPv4 string or hostname) and port.  The connection attempt is asynchronous;
+  the <code>SetOnServerConnected</code> callback fires once the handshake succeeds,
+  and <code>SetOnServerDisconnected</code> fires if the host drops the connection
+  later.  <code>IsConnected()</code> becomes <code>true</code> only after the
+  handshake completes.
+</p>
+
+<pre><span class="cm">// Connect to a local server:</span>
+net_-&gt;<span class="fn">Connect</span>(<span class="st">"127.0.0.1"</span>, <span class="val">27015</span>);
+
+<span class="cm">// Connect to a LAN host:</span>
+net_-&gt;<span class="fn">Connect</span>(<span class="st">"192.168.1.10"</span>, <span class="val">27015</span>);
+
+<span class="cm">// Poll state before sending — IsConnected() is false until handshake:</span>
+<span class="kw">if</span> (net_-&gt;<span class="fn">IsConnected</span>())
+    net_-&gt;<span class="fn">SendToServer</span>(<span class="val">100</span>, payload);</pre>
+
+<h3>net-&gt;Disconnect()</h3>
+<p>
+  <code>Disconnect</code> sends ENet's graceful disconnect packet and closes the
+  client connection.  The server receives the corresponding
+  <code>SetOnClientDisconnected</code> event.  Call <code>Disconnect()</code> before
+  quitting or before presenting the main menu so the server can clean up the
+  slot immediately rather than timing out.
+</p>
+
+<pre><span class="cm">// Graceful client shutdown:</span>
+<span class="kw">if</span> (net_-&gt;<span class="fn">IsConnected</span>())
+    net_-&gt;<span class="fn">Disconnect</span>();
+<span class="fn">Quit</span>();</pre>
+
+<h3>net-&gt;IsServer(), net-&gt;IsClient(), net-&gt;IsConnected()</h3>
+<p>
+  These three predicates let you branch on the current networking role at any
+  point in your code:
+</p>
+
+<pre><span class="kw">if</span> (net_-&gt;<span class="fn">IsServer</span>())
+{
+    <span class="cm">// This instance is hosting — may or may not have clients yet.</span>
+}
+<span class="kw">if</span> (net_-&gt;<span class="fn">IsClient</span>())
+{
+    <span class="cm">// This instance is a client — call Connect() was made.</span>
+    <span class="cm">// IsConnected() may still be false if the handshake is in progress.</span>
+}
+<span class="kw">if</span> (net_-&gt;<span class="fn">IsConnected</span>())
+{
+    <span class="cm">// Client: handshake is complete and the connection is alive.</span>
+    <span class="cm">// Safe to call SendToServer().</span>
+}</pre>
+
+<p>
+  <code>IsClient()</code> returns <code>true</code> as soon as <code>Connect()</code>
+  is called, even before the handshake completes.  Use <code>IsConnected()</code>
+  when you need to confirm that messages can actually be sent.
+</p>
+
+<h3>Sending messages: Broadcast, SendToClient, SendToServer</h3>
+<p>
+  simple-3d does not replicate entity state automatically.  Every piece of game
+  state that needs to reach other machines must be packed into a
+  <code>std::vector&lt;uint8_t&gt;</code> and sent with one of three methods:
+</p>
+
+<pre><span class="cm">// Server -&gt; all connected clients:</span>
+net_-&gt;<span class="fn">Broadcast</span>(<span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerState</span>), positionBuffer);
+
+<span class="cm">// Server -&gt; one specific client (by id assigned at connect time):</span>
+net_-&gt;<span class="fn">SendToClient</span>(clientId, <span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerSpawn</span>), buf);
+
+<span class="cm">// Client -&gt; server:</span>
+net_-&gt;<span class="fn">SendToServer</span>(<span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerInput</span>), inputBuffer);</pre>
+
+<p>
+  All three methods deliver messages reliably and in sequence using ENet's reliable
+  delivery channel by default.  Message IDs 0&ndash;99 are reserved by Urho3D
+  internals; always use IDs in the range <strong>100&ndash;32767</strong> for your
+  own messages.
+</p>
+
+<h3>net-&gt;SetOnMessage(callback)</h3>
+<p>
+  <code>SetOnMessage</code> registers a single callback that fires on both the server
+  and the client whenever any user message arrives.  The callback receives three
+  arguments:
+</p>
+<ul>
+  <li><strong>sender</strong> &mdash; on the server side, the integer id of the client
+      that sent the message; on the client side, always <code>0</code> (representing
+      the server).</li>
+  <li><strong>msgId</strong> &mdash; the integer ID passed to <code>Broadcast</code>,
+      <code>SendToClient</code>, or <code>SendToServer</code>.</li>
+  <li><strong>data</strong> &mdash; the raw byte payload as a
+      <code>const std::vector&lt;uint8_t&gt;&amp;</code>.</li>
+</ul>
+
+<pre>net_-&gt;<span class="fn">SetOnMessage</span>([<span class="kw">this</span>](<span class="ty">int</span> sender, <span class="ty">int</span> msgId,
+                           <span class="kw">const</span> <span class="ty">std::vector</span>&lt;<span class="ty">uint8_t</span>&gt;&amp; data)
+{
+    <span class="cm">// Dispatch by message id:</span>
+    <span class="kw">if</span> (msgId == <span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerInput</span>))
+    {
+        <span class="ty">float</span> vx = <span class="fn">UnpackFloat</span>(data, <span class="val">0</span>);
+        <span class="ty">float</span> vz = <span class="fn">UnpackFloat</span>(data, <span class="val">4</span>);
+        <span class="cm">// Apply velocity to client's server-side entity (sender = clientId here).</span>
+        remotePlayers_[sender]-&gt;<span class="fn">SetLinearVelocity</span>(<span class="ty">Vector3</span>(vx, <span class="val">0.0f</span>, vz));
+    }
+    <span class="kw">else if</span> (msgId == <span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerState</span>))
+    {
+        <span class="cm">// Apply authoritative positions (sender = 0 = server on client side).</span>
+        <span class="fn">ApplyPositionUpdate</span>(data);
+    }
+});</pre>
+
+<h3>SetOnClientConnected and SetOnClientDisconnected</h3>
+<p>
+  These server-only callbacks fire when a client completes or terminates its
+  connection.  The argument is the integer <em>client id</em> &mdash; a stable value
+  assigned by simple-3d on connection that remains unique until the client
+  disconnects.  The same id is used as the first argument of
+  <code>SendToClient</code> and appears as the <code>sender</code> in
+  <code>SetOnMessage</code> callbacks.
+</p>
+
+<pre><span class="cm">// Called once when a new client finishes its handshake:</span>
+net_-&gt;<span class="fn">SetOnClientConnected</span>([<span class="kw">this</span>](<span class="ty">int</span> id)
+{
+    <span class="cm">// Spawn a server-side entity for this client, then notify all clients.</span>
+    <span class="fn">OnClientJoined</span>(id);
+});
+
+<span class="cm">// Called once when a client sends a disconnect or times out:</span>
+net_-&gt;<span class="fn">SetOnClientDisconnected</span>([<span class="kw">this</span>](<span class="ty">int</span> id)
+{
+    <span class="cm">// Destroy server-side entity and tell remaining clients to remove it.</span>
+    <span class="fn">OnClientLeft</span>(id);
+});</pre>
+
+<h3>SetOnServerConnected and SetOnServerDisconnected</h3>
+<p>
+  These client-only callbacks fire when the connection to the server changes state.
+  <code>SetOnServerConnected</code> fires after a successful handshake;
+  <code>SetOnServerDisconnected</code> fires when the server closes the connection
+  or when a network timeout is detected.
+</p>
+
+<pre><span class="cm">// Wire these before calling Connect():</span>
+net_-&gt;<span class="fn">SetOnServerConnected</span>([<span class="kw">this</span>]()
+{
+    <span class="cm">// Connection confirmed — safe to send messages and show the game UI.</span>
+    statusLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Connected!"</span>);
+});
+
+net_-&gt;<span class="fn">SetOnServerDisconnected</span>([<span class="kw">this</span>]()
+{
+    <span class="cm">// Clean up remote player visuals; present a reconnect UI.</span>
+    <span class="fn">RemoveAllRemotePlayers</span>();
+    statusLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Lost connection to server"</span>);
+});</pre>
+
+<h3>Manual game-state synchronisation</h3>
+<p>
+  Because simple-3d does not replicate entities automatically, the server is
+  responsible for gathering the state of all player objects each frame, packing
+  the data into a byte buffer, and broadcasting it.  Clients receive the buffer,
+  unpack it, and set the positions of their local "remote player" display entities.
+  The pattern used in this tutorial packs data with raw <code>memcpy</code>:
+</p>
+
+<pre><span class="cm">// Pack: write a float at a byte offset inside a buffer.</span>
+<span class="kw">void</span> <span class="fn">PackFloat</span>(<span class="ty">std::vector</span>&lt;<span class="ty">uint8_t</span>&gt;&amp; buf, <span class="ty">size_t</span> offset, <span class="ty">float</span> v)
+{
+    <span class="fn">memcpy</span>(buf.<span class="fn">data</span>() + offset, &amp;v, <span class="kw">sizeof</span>(<span class="ty">float</span>));
+}
+
+<span class="cm">// Broadcast all player positions (server, called every Update frame):</span>
+<span class="ty">int</span> count = <span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(remotePlayers_.<span class="fn">size</span>());
+<span class="ty">std::vector</span>&lt;<span class="ty">uint8_t</span>&gt; buf(<span class="val">4</span> + count * <span class="val">16</span>);  <span class="cm">// 4-byte count + 16 bytes per player</span>
+<span class="fn">PackInt</span>(buf, <span class="val">0</span>, count);
+<span class="ty">size_t</span> off = <span class="val">4</span>;
+<span class="kw">for</span> (<span class="kw">auto</span>&amp; [id, e] : remotePlayers_)
+{
+    <span class="ty">Vector3</span> pos = e-&gt;<span class="fn">GetPosition</span>();
+    <span class="fn">PackInt</span>  (buf, off,      id);
+    <span class="fn">PackFloat</span>(buf, off + <span class="val">4</span>,  pos.x_);
+    <span class="fn">PackFloat</span>(buf, off + <span class="val">8</span>,  pos.y_);
+    <span class="fn">PackFloat</span>(buf, off + <span class="val">12</span>, pos.z_);
+    off += <span class="val">16</span>;
+}
+net_-&gt;<span class="fn">Broadcast</span>(<span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerState</span>), buf);</pre>
+
+<p>
+  simple-3d does not ship a higher-level serialiser.  For larger projects you can
+  integrate any byte-packing library (such as flatbuffers, cereal, or a hand-written
+  bit-packing scheme) and pass the resulting <code>std::vector&lt;uint8_t&gt;</code>
+  directly to the send methods.
+</p>
+
+<!-- ─── QUICK REFERENCE TABLE ─────────────────────────────────────── -->
+<h2>NetworkManager quick reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Side</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>CreateNetworkManager()</code></td>
+      <td>Either</td>
+      <td>Call once in <code>Start()</code>; returns <code>NetworkManager*</code>.</td>
+    </tr>
+    <tr>
+      <td><code>GetNetworkManager()</code></td>
+      <td>Either</td>
+      <td>Returns the existing instance; <code>nullptr</code> before creation.</td>
+    </tr>
+    <tr>
+      <td><code>net-&gt;StartServer(port, maxClients=128)</code></td>
+      <td>Server</td>
+      <td>Binds UDP socket and listens for connections.</td>
+    </tr>
+    <tr>
+      <td><code>net-&gt;StopServer()</code></td>
+      <td>Server</td>
+      <td>Closes socket; disconnects all clients.</td>
+    </tr>
+    <tr>
+      <td><code>net-&gt;IsServer()</code></td>
+      <td>Either</td>
+      <td><code>true</code> after <code>StartServer()</code>.</td>
+    </tr>
+    <tr>
+      <td><code>net-&gt;Connect(host, port)</code></td>
+      <td>Client</td>
+      <td>Initiates async handshake; fires <code>OnServerConnected</code> on success.</td>
+    </tr>
+    <tr>
+      <td><code>net-&gt;Disconnect()</code></td>
+      <td>Client</td>
+      <td>Graceful disconnect; server receives <code>OnClientDisconnected</code>.</td>
+    </tr>
+    <tr>
+      <td><code>net-&gt;IsClient()</code></td>
+      <td>Either</td>
+      <td><code>true</code> after <code>Connect()</code> is called.</td>
+    </tr>
+    <tr>
+      <td><code>net-&gt;IsConnected()</code></td>
+      <td>Client</td>
+      <td><code>true</code> only after handshake completes.</td>
+    </tr>
+    <tr>
+      <td><code>net-&gt;Broadcast(msgId, data)</code></td>
+      <td>Server</td>
+      <td>Sends to all connected clients.</td>
+    </tr>
+    <tr>
+      <td><code>net-&gt;SendToClient(clientId, msgId, data)</code></td>
+      <td>Server</td>
+      <td>Sends to one specific client by id.</td>
+    </tr>
+    <tr>
+      <td><code>net-&gt;SendToServer(msgId, data)</code></td>
+      <td>Client</td>
+      <td>Sends to the server; safe only when <code>IsConnected()</code>.</td>
+    </tr>
+    <tr>
+      <td><code>net-&gt;SetOnMessage(cb)</code></td>
+      <td>Either</td>
+      <td><code>cb(int sender, int msgId, const vector&lt;uint8_t&gt;&amp; data)</code>.</td>
+    </tr>
+    <tr>
+      <td><code>net-&gt;SetOnClientConnected(cb)</code></td>
+      <td>Server</td>
+      <td><code>cb(int clientId)</code> &mdash; fires on successful handshake.</td>
+    </tr>
+    <tr>
+      <td><code>net-&gt;SetOnClientDisconnected(cb)</code></td>
+      <td>Server</td>
+      <td><code>cb(int clientId)</code> &mdash; fires on disconnect or timeout.</td>
+    </tr>
+    <tr>
+      <td><code>net-&gt;SetOnServerConnected(cb)</code></td>
+      <td>Client</td>
+      <td><code>cb()</code> &mdash; fires when handshake with server completes.</td>
+    </tr>
+    <tr>
+      <td><code>net-&gt;SetOnServerDisconnected(cb)</code></td>
+      <td>Client</td>
+      <td><code>cb()</code> &mdash; fires on server drop or timeout.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ─── LUA EQUIVALENT ───────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+
+<p>
+  All networking methods are accessible through the <code>game</code> global inside
+  any Lua script.  The Lua API mirrors the C++ signatures exactly.
+  The example below is a minimal client-only script that connects, sends WASD input,
+  and updates a remote-player label when messages arrive.  Attach it to any
+  persistent entity.
+</p>
+
+<pre><span class="lua-cm">-- Scripts/net_client.lua
+-- Attach to a persistent entity (marked in C++ with SetPersistentEntity).
+-- Assumes the server is running on 127.0.0.1:27015.</span>
+
+<span class="lua-kw">local</span> NET_PORT    = <span class="lua-num">27015</span>
+<span class="lua-kw">local</span> MSG_INPUT   = <span class="lua-num">100</span>
+<span class="lua-kw">local</span> MSG_STATE   = <span class="lua-num">101</span>
+<span class="lua-kw">local</span> MSG_SPAWN   = <span class="lua-num">102</span>
+<span class="lua-kw">local</span> MSG_LEAVE   = <span class="lua-num">103</span>
+<span class="lua-kw">local</span> MOVE_SPEED  = <span class="lua-num">5.0</span>
+
+<span class="lua-kw">local</span> net         = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> statusLabel = <span class="lua-kw">nil</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-cm">-- Create the network manager once in Start().</span>
+    net = game:<span class="lua-fn">CreateNetworkManager</span>()
+
+    statusLabel = game:<span class="lua-fn">CreateLabel</span>(<span class="lua-str">"Connecting..."</span>)
+    statusLabel:<span class="lua-fn">SetPosition</span>(<span class="lua-num">10</span>, <span class="lua-num">10</span>)
+    statusLabel:<span class="lua-fn">SetFontSize</span>(<span class="lua-num">18</span>)
+    statusLabel:<span class="lua-fn">SetColor</span>(Color(1, 1, 1, 1))
+
+    <span class="lua-cm">-- Register the unified message handler.</span>
+    net:<span class="lua-fn">SetOnMessage</span>(<span class="lua-kw">function</span>(sender, msgId, data)
+        <span class="lua-kw">if</span> msgId == MSG_STATE <span class="lua-kw">then</span>
+            <span class="lua-cm">-- Apply authoritative positions broadcast by the server.</span>
+            <span class="lua-kw">local</span> count  = data:<span class="lua-fn">UnpackInt</span>(<span class="lua-num">0</span>)
+            <span class="lua-kw">local</span> offset = <span class="lua-num">4</span>
+            <span class="lua-kw">for</span> i = <span class="lua-num">1</span>, count <span class="lua-kw">do</span>
+                <span class="lua-kw">local</span> id = data:<span class="lua-fn">UnpackInt</span>(offset)
+                <span class="lua-kw">local</span> x  = data:<span class="lua-fn">UnpackFloat</span>(offset + <span class="lua-num">4</span>)
+                <span class="lua-kw">local</span> y  = data:<span class="lua-fn">UnpackFloat</span>(offset + <span class="lua-num">8</span>)
+                <span class="lua-kw">local</span> z  = data:<span class="lua-fn">UnpackFloat</span>(offset + <span class="lua-num">12</span>)
+                offset = offset + <span class="lua-num">16</span>
+                <span class="lua-kw">local</span> e = game:<span class="lua-fn">FindEntity</span>(<span class="lua-str">"Remote_"</span> .. id)
+                <span class="lua-kw">if</span> e <span class="lua-kw">then</span> e:<span class="lua-fn">SetPosition</span>(x, y, z) <span class="lua-kw">end</span>
+            <span class="lua-kw">end</span>
+        <span class="lua-kw">elseif</span> msgId == MSG_SPAWN <span class="lua-kw">then</span>
+            <span class="lua-kw">local</span> newId = data:<span class="lua-fn">UnpackInt</span>(<span class="lua-num">0</span>)
+            <span class="lua-kw">local</span> e = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Remote_"</span> .. newId)
+            e:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+            e:<span class="lua-fn">SetScale</span>(<span class="lua-num">0.8</span>)
+            e:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">0.5</span>, <span class="lua-num">0</span>)
+        <span class="lua-kw">elseif</span> msgId == MSG_LEAVE <span class="lua-kw">then</span>
+            <span class="lua-kw">local</span> goneId = data:<span class="lua-fn">UnpackInt</span>(<span class="lua-num">0</span>)
+            <span class="lua-kw">local</span> e = game:<span class="lua-fn">FindEntity</span>(<span class="lua-str">"Remote_"</span> .. goneId)
+            <span class="lua-kw">if</span> e <span class="lua-kw">then</span> game:<span class="lua-fn">DestroyEntity</span>(e) <span class="lua-kw">end</span>
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>)
+
+    <span class="lua-cm">-- Connection state callbacks.</span>
+    net:<span class="lua-fn">SetOnServerConnected</span>(<span class="lua-kw">function</span>()
+        statusLabel:<span class="lua-fn">SetText</span>(<span class="lua-str">"Connected to server"</span>)
+    <span class="lua-kw">end</span>)
+
+    net:<span class="lua-fn">SetOnServerDisconnected</span>(<span class="lua-kw">function</span>()
+        statusLabel:<span class="lua-fn">SetText</span>(<span class="lua-str">"Disconnected from server"</span>)
+    <span class="lua-kw">end</span>)
+
+    <span class="lua-cm">-- Connect.  IsConnected() is false until the handshake succeeds.</span>
+    net:<span class="lua-fn">Connect</span>(<span class="lua-str">"127.0.0.1"</span>, NET_PORT)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> <span class="lua-kw">not</span> net:<span class="lua-fn">IsConnected</span>() <span class="lua-kw">then</span> <span class="lua-kw">return</span> <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Sample movement keys and send input to the server.</span>
+    <span class="lua-kw">local</span> dx = <span class="lua-num">0.0</span>
+    <span class="lua-kw">local</span> dz = <span class="lua-num">0.0</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyDown</span>(Key.A)    <span class="lua-kw">or</span> game:<span class="lua-fn">IsKeyDown</span>(Key.Left)  <span class="lua-kw">then</span> dx = dx - MOVE_SPEED <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyDown</span>(Key.D)    <span class="lua-kw">or</span> game:<span class="lua-fn">IsKeyDown</span>(Key.Right) <span class="lua-kw">then</span> dx = dx + MOVE_SPEED <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyDown</span>(Key.W)    <span class="lua-kw">or</span> game:<span class="lua-fn">IsKeyDown</span>(Key.Up)    <span class="lua-kw">then</span> dz = dz - MOVE_SPEED <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyDown</span>(Key.S)    <span class="lua-kw">or</span> game:<span class="lua-fn">IsKeyDown</span>(Key.Down)  <span class="lua-kw">then</span> dz = dz + MOVE_SPEED <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Build a small 8-byte buffer: float dx, float dz.</span>
+    <span class="lua-kw">local</span> buf = ByteBuffer.<span class="lua-fn">New</span>(<span class="lua-num">8</span>)
+    buf:<span class="lua-fn">PackFloat</span>(<span class="lua-num">0</span>, dx)
+    buf:<span class="lua-fn">PackFloat</span>(<span class="lua-num">4</span>, dz)
+
+    net:<span class="lua-fn">SendToServer</span>(MSG_INPUT, buf)
+
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.Escape) <span class="lua-kw">then</span>
+        net:<span class="lua-fn">Disconnect</span>()
+        game:<span class="lua-fn">Quit</span>()
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── PATTERNS ───────────────────────────────────────────────────── -->
+<h2>Design patterns and tips</h2>
+
+<h3>Authoritative server model</h3>
+<p>
+  The pattern in this tutorial is the most common approach for competitive or
+  cheat-resistant games.  The server owns all simulation state: it moves player
+  entities based on received inputs, runs physics, and sends the results back to
+  clients.  Clients predict their own movement locally to hide latency, but accept
+  server corrections when the authoritative position differs significantly.
+</p>
+
+<h3>Choosing a network tick rate</h3>
+<p>
+  Broadcasting full game state every frame can waste bandwidth for games with many
+  players or slow connections.  A common strategy is to accumulate input every frame
+  but send state at a fixed network tick rate (e.g. 20&ndash;30 Hz):
+</p>
+
+<pre><span class="ty">float</span> netTimer_ = <span class="val">0.0f</span>;
+<span class="kw">static constexpr</span> <span class="ty">float</span> NET_TICK = <span class="val">1.0f</span> / <span class="val">20.0f</span>;   <span class="cm">// 20 Hz</span>
+
+<span class="kw">void</span> <span class="fn">ServerUpdate</span>(<span class="ty">float</span> dt)
+{
+    netTimer_ += dt;
+    <span class="kw">if</span> (netTimer_ &gt;= NET_TICK)
+    {
+        netTimer_ -= NET_TICK;
+        <span class="fn">BroadcastPositions</span>();   <span class="cm">// only send 20 times per second</span>
+    }
+}</pre>
+
+<h3>Sending to a single client versus broadcasting</h3>
+<p>
+  Use <code>SendToClient(clientId, ...)</code> for messages that only one peer needs
+  &mdash; for example, sending the full world state to a newly joined client (other
+  clients already have it) or sending a private notification such as "you were
+  voted off".  Use <code>Broadcast(...)</code> for state that every client must know,
+  such as position updates or chat messages.
+</p>
+
+<pre><span class="cm">// Server: welcome packet sent only to the newly joined client.</span>
+<span class="kw">void</span> <span class="fn">OnClientJoined</span>(<span class="ty">int</span> id)
+{
+    <span class="ty">std::vector</span>&lt;<span class="ty">uint8_t</span>&gt; worldSnapshot = <span class="fn">SerialiseFullWorldState</span>();
+    net_-&gt;<span class="fn">SendToClient</span>(id, <span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerState</span>), worldSnapshot);
+
+    <span class="cm">// Then announce the newcomer to everyone (including themselves).</span>
+    <span class="ty">std::vector</span>&lt;<span class="ty">uint8_t</span>&gt; spawnMsg(<span class="val">4</span>);
+    <span class="fn">PackInt</span>(spawnMsg, <span class="val">0</span>, id);
+    net_-&gt;<span class="fn">Broadcast</span>(<span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(<span class="ty">MsgId</span>::<span class="val">PlayerSpawn</span>), spawnMsg);
+}</pre>
+
+<h3>Using the same binary for server and client</h3>
+<p>
+  For convenience during development, keep server and client code in one binary
+  and select the role via a command-line argument or a startup menu.  In a shipped
+  game you might separate them into a dedicated server build and a client build using
+  preprocessor flags.
+</p>
+
+<pre><span class="ty">int</span> <span class="fn">main</span>(<span class="ty">int</span> argc, <span class="ty">char</span>* argv[])
+{
+    <span class="kw">auto</span>* game = <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">NetArenaGame</span>&gt;();
+
+    <span class="cm">// Pass "--server" on the command line to run as the host.</span>
+    <span class="kw">auto</span>* g = <span class="kw">static_cast</span>&lt;<span class="ty">NetArenaGame</span>*&gt;(game);
+    <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">1</span>; i &lt; argc; ++i)
+        <span class="kw">if</span> (<span class="ty">std::string</span>(argv[i]) == <span class="st">"--server"</span>)
+            g-&gt;isServer_ = <span class="kw">true</span>;
+
+    <span class="kw">return</span> game-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── COMMON MISTAKES ───────────────────────────────────────────── -->
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Calling SendToServer() before IsConnected() is true.</strong>
+      <code>Connect()</code> starts an async handshake.  Sending a message before
+      the handshake completes is a no-op and the data is silently dropped.  Always
+      check <code>IsConnected()</code> or send inside the <code>SetOnServerConnected</code>
+      callback.
+    </li>
+    <li>
+      <strong>Using message IDs below 100.</strong>
+      IDs 0&ndash;99 are reserved by Urho3D's network layer.  Using them for your
+      own messages will conflict with internal packets and produce erratic behaviour.
+      Always start your enum at 100 or higher, and keep all IDs below 32768.
+    </li>
+    <li>
+      <strong>Forgetting that entity replication is not automatic.</strong>
+      Creating an entity on the server does not create it on any client.  You must
+      explicitly send a spawn message to every client and have each client create the
+      entity when it receives that message.  Likewise, destroying a server-side entity
+      requires sending a despawn message so clients can remove their copies.
+    </li>
+    <li>
+      <strong>Reading data beyond the end of the payload buffer.</strong>
+      If you try to <code>UnpackFloat</code> at an offset past the end of
+      <code>data</code>, you get undefined behaviour.  Always design your packets
+      so the receiver can compute exactly how many bytes to read before iterating,
+      and add a size guard if the sender might send variable-length payloads.
+    </li>
+    <li>
+      <strong>Not calling StopServer() or Disconnect() before Quit().</strong>
+      Simply quitting without cleaning up leaves the ENet socket open briefly.
+      On the server side, clients will time out rather than receiving a clean
+      disconnect event.  Always call <code>StopServer()</code> or
+      <code>Disconnect()</code> &mdash; ideally in <code>Stop()</code> and also
+      when Escape is pressed &mdash; for a graceful shutdown.
+    </li>
+    <li>
+      <strong>Calling CreateNetworkManager() more than once.</strong>
+      Call it exactly once in <code>Start()</code>.  Calling it a second time has
+      undefined results.  Use <code>GetNetworkManager()</code> to retrieve the
+      already-created instance from other parts of your code.
+    </li>
+    <li>
+      <strong>Storing stale client ids after a disconnect.</strong>
+      Client ids are assigned at connect time and become invalid the moment the
+      client disconnects.  Do not cache a client id in a data structure and attempt
+      to call <code>SendToClient</code> with it after receiving an
+      <code>OnClientDisconnected</code> event for that id.
+    </li>
+    <li>
+      <strong>Broadcasting at full frame rate on a slow connection.</strong>
+      Sending a full position snapshot every frame at 60 Hz for many players can
+      saturate a consumer broadband link.  Use a fixed network tick rate (20&ndash;30 Hz
+      is typical) and only send deltas or prioritised updates for entities that moved
+      significantly.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ─────────────────────────────────────────── -->
+<h2>What you learned</h2>
+
+<p>
+  In this final part of the tutorial series you learned how to add multiplayer
+  networking to a simple-3d game using the <code>NetworkManager</code> API:
+</p>
+<ul>
+  <li>
+    <strong>Creating the manager:</strong> call <code>CreateNetworkManager()</code>
+    once in <code>Start()</code>; retrieve it later with <code>GetNetworkManager()</code>.
+  </li>
+  <li>
+    <strong>Hosting:</strong> <code>StartServer(port, maxClients)</code> opens a
+    UDP port and begins accepting connections.  <code>StopServer()</code> closes it
+    cleanly.  <code>IsServer()</code> confirms the hosting role.
+  </li>
+  <li>
+    <strong>Connecting:</strong> <code>Connect(host, port)</code> initiates an async
+    handshake.  <code>IsConnected()</code> becomes <code>true</code> only after
+    success.  <code>Disconnect()</code> sends a graceful goodbye before quitting.
+  </li>
+  <li>
+    <strong>Querying state:</strong> <code>IsServer()</code>, <code>IsClient()</code>,
+    and <code>IsConnected()</code> let you branch logic correctly regardless of which
+    role the current instance is playing.
+  </li>
+  <li>
+    <strong>Sending messages:</strong> <code>Broadcast</code> reaches all clients;
+    <code>SendToClient</code> reaches one; <code>SendToServer</code> sends from a
+    client to the host.  Message IDs must be in the range 100&ndash;32767.
+  </li>
+  <li>
+    <strong>Receiving messages:</strong> <code>SetOnMessage</code> registers a unified
+    callback on both sides; the <code>sender</code> argument is the client id on the
+    server or <code>0</code> (the server) on the client.
+  </li>
+  <li>
+    <strong>Connection events:</strong> <code>SetOnClientConnected</code> and
+    <code>SetOnClientDisconnected</code> give the server per-peer lifecycle hooks;
+    <code>SetOnServerConnected</code> and <code>SetOnServerDisconnected</code> give
+    the client equivalent notifications.
+  </li>
+  <li>
+    <strong>Manual replication:</strong> entity state is never sent automatically;
+    pack positions and events into byte buffers with <code>memcpy</code> and send
+    them on a fixed network tick rate for efficient use of bandwidth.
+  </li>
+</ul>
+
+<p>
+  This concludes the simple-3d tutorial series.  You have now covered every major
+  subsystem: rendering, physics, animation, audio, input, UI, AI, scripting, scene
+  management, visual effects, and networking.  The
+  <a href="api.html">C++ API Reference</a> and <a href="lua-api.html">Lua API</a>
+  pages contain the full method listings for every topic covered here.  The
+  <a href="examples.html">Examples</a> page provides complete projects that combine
+  multiple systems, and <a href="samples.html">Samples</a> demonstrates individual
+  features in isolation.  Good luck building your game!
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-29.html">&#8592; Part 29: Sky and Atmosphere</a>
+  <span class="placeholder">(last part) &#8594;</span>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

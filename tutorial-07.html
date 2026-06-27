@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 07: Character Controller — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li class="active"><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 07</div>
+
+<h1><span class="tutorial-part">Part 07 of 30</span>Character Controller</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>entity-&gt;AddCharacterController(radius, height)</code> &mdash;
+    <code>cc-&gt;SetGravity(float)</code> &mdash;
+    <code>cc-&gt;SetMaxSlope(float)</code> &mdash;
+    <code>cc-&gt;Move(velocity, dt)</code> &mdash;
+    <code>cc-&gt;TryJump(speed)</code> &mdash;
+    <code>cc-&gt;Jump(speed)</code> &mdash;
+    <code>cc-&gt;IsOnGround()</code> &mdash;
+    <code>CollisionLayer::Actor</code> &mdash;
+    <code>MakeCollisionMask({...})</code> &mdash;
+    the visual child entity pattern (root = physics node, child = model node)
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ──────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How to create a player entity with a capsule-shaped <strong>character controller</strong> instead of a plain rigid body.</li>
+  <li>Why the root entity holds physics while a separate <strong>visual child entity</strong> carries the model.</li>
+  <li>How to drive movement each frame using <code>cc-&gt;Move(velocity, dt)</code> so the engine handles friction and collision response.</li>
+  <li>How to implement <strong>safe jumping</strong> with <code>cc-&gt;TryJump(speed)</code>, which checks ground contact internally and prevents infinite mid-air jumps.</li>
+  <li>How to query ground contact yourself with <code>cc-&gt;IsOnGround()</code> and what the engine actually tests behind that call.</li>
+  <li>How to dial in a snappy <strong>platformer feel</strong> by overriding per-body gravity with <code>cc-&gt;SetGravity()</code>.</li>
+  <li>How <strong>collision layers</strong> work and why the player must live on <code>CollisionLayer::Actor</code> for triggers to fire correctly.</li>
+  <li>How to limit which slopes the character can walk up using <code>cc-&gt;SetMaxSlope()</code>.</li>
+</ul>
+
+<!-- ─── BACKGROUND ───────────────────────────────────────────────── -->
+<h2>Background: why not just use a RigidBody?</h2>
+<p>
+  In Part 04 you gave entities a <code>RigidBody</code> and shaped colliders to participate in physics simulation.
+  That is fine for crates and balls, but it causes two well-known problems for a player character:
+</p>
+<ul>
+  <li><strong>Tipping over.</strong> An unconstrained rigid body falls sideways if it touches a wall at an angle. You need to lock the angular factor on all axes manually and keep re-locking it every frame.</li>
+  <li><strong>Stairs and ramps.</strong> Physics solvers push the body smoothly up a slope only if the slope angle and simulation step are tuned carefully. In practice, a character walking into a low step launches into the air.</li>
+</ul>
+<p>
+  <code>CharacterController</code> wraps a capsule rigid body and handles both problems for you.
+  Internally it locks angular rotation so the capsule never tips, fires a short downward ray each frame to
+  detect ground, and filters out slopes steeper than your configured limit.
+  The public API is intentionally minimal: <code>Move()</code>, <code>TryJump()</code>, and <code>IsOnGround()</code>.
+</p>
+
+<!-- ─── THE BODY / VISUAL SPLIT ─────────────────────────────────── -->
+<h2>The root/visual entity split</h2>
+<p>
+  A character controller entity is positioned at the <em>centre</em> of the capsule, not at the feet.
+  If your character is 1.8 m tall and the capsule centre is at half that height (0.9 m), the entity
+  origin floats 0.9 m above the ground. Placing a model on the same entity with no offset would have
+  the mesh floating or sinking relative to its feet.
+</p>
+<p>
+  The solution used throughout simple-3d is called the <strong>body/visual split</strong>:
+</p>
+<ul>
+  <li>The <strong>root entity</strong> holds the physics (CharacterController) and moves under simulation.</li>
+  <li>A <strong>child entity</strong> created with <code>root-&gt;CreateChild("PlayerVisual")</code> holds the rendered model, set to <code>SetLocalPosition(Vector3::ZERO)</code>. Because the child inherits the root's world position, it tracks the capsule centre exactly.</li>
+</ul>
+<p>
+  Rotations work cleanly too: when you rotate the root entity to turn the player, the visual child
+  turns with it automatically because child transforms are parent-relative.
+</p>
+
+<div class="arch-diagram">PlayerEntity  (root)
+  position = capsule centre (e.g. 0.9 m above floor)
+  CharacterController &lt;- physics drives this
+  CollisionLayer::Actor
+
+  └── "PlayerVisual"  (child)
+        SetLocalPosition(Vector3::ZERO)
+        AddModel("Models/Character.mdl")
+        &lt;- model positioned at same world point as root
+</div>
+
+<!-- ─── COMPLETE EXAMPLE ─────────────────────────────────────────── -->
+<h2>Complete example</h2>
+<p>
+  The game below builds a small platformer arena: a large flat ground, two raised platforms,
+  a player with a character controller, a third-person camera, and a HUD showing the ground state.
+  Arrow keys or WASD steer the character; <kbd>Space</kbd> or <kbd>Ctrl</kbd> jumps.
+</p>
+
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;cmath&gt;</span>
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">PlatformerGame</span> : <span class="kw">public</span> <span class="ty">Game</span>
+{
+<span class="kw">public</span>:
+
+    <span class="cm">// ── scene objects ──────────────────────────────────────────────</span>
+    <span class="ty">Entity</span>*              player_  = <span class="kw">nullptr</span>;   <span class="cm">// root physics node</span>
+    <span class="ty">Entity</span>*              visual_  = <span class="kw">nullptr</span>;   <span class="cm">// child model node</span>
+    <span class="ty">CharacterController</span>* cc_      = <span class="kw">nullptr</span>;
+    <span class="ty">Camera</span>*              cam_     = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*               hudLabel_= <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── runtime state ──────────────────────────────────────────────</span>
+    <span class="ty">float</span> yaw_ = <span class="val">0.0f</span>;   <span class="cm">// accumulated player rotation in degrees</span>
+
+    <span class="cm">// ───────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Part 07 — Character Controller"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.35f</span>, <span class="val">0.55f</span>, <span class="val">0.85f</span>));  <span class="cm">// sky blue</span>
+
+        <span class="cm">// ── Lighting ─────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.95f</span>, <span class="val">0.85f</span>), <span class="val">1.1f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50.0f</span>, -<span class="val">30.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="ty">Entity</span>* fill = <span class="fn">CreateEntity</span>(<span class="st">"Fill"</span>);
+        fill-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">0.35f</span>, <span class="val">0.4f</span>, <span class="val">0.6f</span>), <span class="val">0.35f</span>);
+        fill-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(-<span class="val">40.0f</span>, <span class="val">140.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── Ground platform ───────────────────────────────────────</span>
+        <span class="ty">Entity</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground-&gt;<span class="fn">SetScale</span>(<span class="val">16.0f</span>);
+        ground-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.25f</span>, <span class="val">0.55f</span>, <span class="val">0.25f</span>));  <span class="cm">// grass green</span>
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);                 <span class="cm">// mass 0 = static</span>
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">16.0f</span>, <span class="val">0.2f</span>, <span class="val">16.0f</span>));
+        ground-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, -<span class="val">0.1f</span>, <span class="val">0.0f</span>);  <span class="cm">// just below Y=0</span>
+        ground-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::StaticGeometry);
+
+        <span class="cm">// ── Raised platforms ─────────────────────────────────────</span>
+        <span class="fn">MakePlatform</span>(<span class="ty">Vector3</span>( <span class="val">5.0f</span>, <span class="val">1.5f</span>,  <span class="val">3.0f</span>), <span class="ty">Vector3</span>(<span class="val">3.0f</span>, <span class="val">0.4f</span>, <span class="val">2.0f</span>));
+        <span class="fn">MakePlatform</span>(<span class="ty">Vector3</span>(-<span class="val">4.0f</span>, <span class="val">3.0f</span>, -<span class="val">2.0f</span>), <span class="ty">Vector3</span>(<span class="val">2.5f</span>, <span class="val">0.4f</span>, <span class="val">2.5f</span>));
+
+        <span class="cm">// ── Player ────────────────────────────────────────────────</span>
+        <span class="cm">//</span>
+        <span class="cm">// The player root entity is positioned at the *capsule centre*.</span>
+        <span class="cm">// For a 1.8 m tall capsule the centre sits 0.9 m above the floor.</span>
+        <span class="cm">// We add a tiny 0.05 m clearance so the capsule does not start</span>
+        <span class="cm">// intersecting the ground collider.</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.95f</span>, <span class="val">0.0f</span>);
+
+        <span class="cm">// AddCharacterController creates a capsule rigid body (radius=0.35 m,</span>
+        <span class="cm">// height=1.8 m) with locked angular factor so the capsule never tips.</span>
+        <span class="cm">// The call is idempotent — calling it again returns the same pointer.</span>
+        cc_ = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+
+        <span class="cm">// Override gravity to 25 m/s² downward for a snappier platformer feel.</span>
+        <span class="cm">// The default physics world gravity (typically 9.81 m/s²) is too floaty</span>
+        <span class="cm">// for tight jump arcs.  This override applies only to this body.</span>
+        cc_-&gt;<span class="fn">SetGravity</span>(<span class="val">25.0f</span>);
+
+        <span class="cm">// Reject slopes steeper than 45°. The character will stop and</span>
+        <span class="cm">// slide back down if it walks into a wall steeper than this.</span>
+        cc_-&gt;<span class="fn">SetMaxSlope</span>(<span class="val">45.0f</span>);
+
+        <span class="cm">// Put the player on the Actor layer so trigger volumes can detect it.</span>
+        <span class="cm">// The mask makes the player collide with StaticGeometry AND Trigger</span>
+        <span class="cm">// volumes — both are required for full interaction.</span>
+        player_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::Actor);
+        player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::StaticGeometry,
+            <span class="ty">CollisionLayer</span>::Trigger
+        }));
+
+        <span class="cm">// ── Visual child ─────────────────────────────────────────</span>
+        <span class="cm">//</span>
+        <span class="cm">// The model is attached to a child entity at local-space origin.</span>
+        <span class="cm">// Because child transforms inherit the parent's world transform,</span>
+        <span class="cm">// the mesh follows the capsule centre exactly.  Rotations applied</span>
+        <span class="cm">// to the root also automatically rotate the visual child.</span>
+        visual_ = player_-&gt;<span class="fn">CreateChild</span>(<span class="st">"PlayerVisual"</span>);
+        visual_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Character.mdl"</span>);
+        visual_-&gt;<span class="fn">SetLocalPosition</span>(<span class="ty">Vector3</span>::ZERO);
+
+        <span class="cm">// ── Camera ────────────────────────────────────────────────</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">Follow</span>(player_, <span class="val">6.0f</span>, <span class="val">2.5f</span>);   <span class="cm">// distance, height</span>
+        cam_-&gt;<span class="fn">LookAt</span>(player_);
+        cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">6.0f</span>);
+
+        <span class="cm">// ── HUD ───────────────────────────────────────────────────</span>
+        hudLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"WASD / Arrows: move  |  Space / Ctrl: jump"</span>);
+        hudLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">16</span>, <span class="val">16</span>);
+        hudLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">15</span>);
+        hudLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>));
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) { <span class="fn">Quit</span>(); <span class="kw">return</span>; }
+
+        <span class="cm">// ── Turning ───────────────────────────────────────────────</span>
+        <span class="cm">// Accumulate a yaw angle from Left/Right arrows (or A/D keys).</span>
+        <span class="ty">float</span> turn = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Right) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::D)) turn += <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Left)  || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::A)) turn -= <span class="val">1.0f</span>;
+        yaw_ += turn * <span class="val">120.0f</span> * dt;
+
+        <span class="cm">// ── Forward / backward ───────────────────────────────────</span>
+        <span class="ty">float</span> fwd = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Up) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::W)) fwd += <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Down) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::S)) fwd -= <span class="val">1.0f</span>;
+
+        <span class="cm">// Convert yaw to a world-space horizontal direction vector.</span>
+        <span class="ty">float</span> rad = yaw_ * (<span class="val">3.14159265f</span> / <span class="val">180.0f</span>);
+        <span class="ty">Vector3</span> dir(std::<span class="fn">sin</span>(rad) * fwd, <span class="val">0.0f</span>, std::<span class="fn">cos</span>(rad) * fwd);
+
+        <span class="cm">// Move() sets the capsule's horizontal (X/Z) linear velocity each</span>
+        <span class="cm">// frame.  The vertical (Y) component is left entirely to gravity</span>
+        <span class="cm">// so jump arcs are not disrupted by movement input.</span>
+        cc_-&gt;<span class="fn">Move</span>(dir * <span class="val">6.0f</span>, dt);
+
+        <span class="cm">// ── Jump ─────────────────────────────────────────────────</span>
+        <span class="cm">// TryJump() calls IsOnGround() internally before applying the</span>
+        <span class="cm">// vertical impulse, so holding Space never triggers a second jump</span>
+        <span class="cm">// while the player is already airborne.</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::Space)
+         || <span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::LCtrl)
+         || <span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::RCtrl))
+        {
+            cc_-&gt;<span class="fn">TryJump</span>(<span class="val">12.0f</span>);
+        }
+
+        <span class="cm">// ── Rotate player to face movement direction ──────────────</span>
+        <span class="kw">if</span> (fwd != <span class="val">0.0f</span> || turn != <span class="val">0.0f</span>)
+            player_-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">0.0f</span>, yaw_, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── HUD ───────────────────────────────────────────────────</span>
+        <span class="kw">bool</span> grounded = cc_-&gt;<span class="fn">IsOnGround</span>();
+        <span class="ty">std::string</span> statusText = grounded
+            ? <span class="st">"Status: ON GROUND  |  Space/Ctrl to jump"</span>
+            : <span class="st">"Status: AIRBORNE"</span>;
+        hudLabel_-&gt;<span class="fn">SetText</span>(statusText);
+    }
+
+    <span class="cm">// ── Helper: build a static coloured platform ─────────────────</span>
+    <span class="kw">void</span> <span class="fn">MakePlatform</span>(<span class="ty">Vector3</span> pos, <span class="ty">Vector3</span> size)
+    {
+        <span class="kw">static</span> <span class="ty">int</span> id = <span class="val">0</span>;
+        <span class="ty">Entity</span>* p = <span class="fn">CreateEntity</span>(<span class="st">"Platform"</span> + std::<span class="fn">to_string</span>(id++));
+        p-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        p-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.6f</span>, <span class="val">0.45f</span>, <span class="val">0.3f</span>));
+        p-&gt;<span class="fn">SetPosition</span>(pos);
+        p-&gt;<span class="fn">SetScale</span>(<span class="val">1.0f</span>);  <span class="cm">// scale via collider size, not entity scale</span>
+        p-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        p-&gt;<span class="fn">AddBoxCollider</span>(size);
+        p-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::StaticGeometry);
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="fn">CreateGame</span>&lt;<span class="ty">PlatformerGame</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── API EXPLANATIONS ──────────────────────────────────────────── -->
+<h2>Step-by-step API explanation</h2>
+
+<h3><code>entity-&gt;AddCharacterController(radius, height)</code></h3>
+<p>
+  This one call replaces the combination of <code>AddRigidBody</code>, <code>AddCapsuleCollider</code>,
+  and manual angular-factor locking you would otherwise need.
+  Internally it creates a capsule rigid body whose angular motion on all three axes is locked
+  so the capsule never tips sideways.
+</p>
+<p>
+  The <strong>radius</strong> is the capsule's cross-section in metres (typically 0.3 to 0.5 for a humanoid).
+  The <strong>height</strong> is the total capsule height including both hemispherical end-caps
+  (so a 1.8 m character fits in <code>AddCharacterController(0.35f, 1.8f)</code>).
+</p>
+<p>
+  The call is <em>idempotent</em> &mdash; calling it a second time on the same entity returns
+  the already-existing <code>CharacterController</code> without creating a duplicate, so you can
+  safely call it from a helper function without tracking whether it was already called.
+</p>
+<div class="sig">
+  <span class="ty">CharacterController</span>* <span class="fn">AddCharacterController</span>(<span class="ty">float</span> radius, <span class="ty">float</span> height)
+</div>
+<p>
+  You can also retrieve an existing character controller later without re-adding it:
+</p>
+<pre><span class="ty">CharacterController</span>* cc = player_-&gt;<span class="fn">GetCharacterController</span>();  <span class="cm">// nullptr if not added</span></pre>
+
+<h3><code>cc-&gt;SetGravity(float g)</code></h3>
+<p>
+  Overrides the global physics world gravity for this body only.
+  The value is the downward acceleration in m/s&sup2;.
+  The global default is typically 9.81 m/s&sup2;, which feels floaty for platformers with
+  short jump arcs. A value of <strong>25.0</strong> gives tight, responsive jumps more akin to
+  classic 2D platformers.
+</p>
+<p>
+  Call this immediately after <code>AddCharacterController</code>, before the first physics tick.
+  You can change it at runtime to produce gravity-reversal effects, low-gravity zones, and similar.
+</p>
+<div class="sig">
+  <span class="kw">void</span> <span class="fn">SetGravity</span>(<span class="ty">float</span> gravityDownward)
+</div>
+
+<h3><code>cc-&gt;SetMaxSlope(float degrees)</code></h3>
+<p>
+  Sets the steepest surface the character can walk on. Surfaces whose normal deviates more than
+  <code>degrees</code> from the world UP vector are treated as walls: the character slides back
+  down and <code>IsOnGround()</code> returns <code>false</code> while in contact with them.
+  The default is 45&deg;, which allows comfortable ramps while rejecting cliff faces.
+</p>
+<div class="sig">
+  <span class="kw">void</span> <span class="fn">SetMaxSlope</span>(<span class="ty">float</span> degrees)
+</div>
+
+<h3><code>CollisionLayer::Actor</code> and <code>MakeCollisionMask</code></h3>
+<p>
+  simple-3d ships three named collision layers that form a conventional system:
+</p>
+<table>
+  <tr><th>Layer</th><th>Value</th><th>Typical use</th></tr>
+  <tr><td><code>CollisionLayer::Actor</code></td><td>1</td><td>The player, NPCs, projectiles — anything dynamic</td></tr>
+  <tr><td><code>CollisionLayer::StaticGeometry</code></td><td>2</td><td>Ground, platforms, walls, crates — everything static</td></tr>
+  <tr><td><code>CollisionLayer::Trigger</code></td><td>4</td><td>Trigger volumes added via <code>AddTriggerBox</code> etc.</td></tr>
+</table>
+<p>
+  <code>SetCollisionLayer</code> declares which layer <em>this</em> entity belongs to.
+  <code>SetCollisionMask</code> declares which layers this entity is interested in hitting.
+  The player must include <code>StaticGeometry</code> in its mask (to land on floors) and
+  <code>Trigger</code> (so <code>SetOnTriggerEnter</code> callbacks reach the player).
+</p>
+<p>
+  <code>MakeCollisionMask({...})</code> takes an initializer list of layers and ORs their values
+  together, removing the need to remember the raw bit values yourself:
+</p>
+<pre>player_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::Actor);
+player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+    <span class="ty">CollisionLayer</span>::StaticGeometry,
+    <span class="ty">CollisionLayer</span>::Trigger
+}));</pre>
+<p>
+  The IsOnGround() raycast fires on layer 2 (StaticGeometry) only, which is why the player
+  ground entity must be on <code>StaticGeometry</code> for jumping to work.
+</p>
+
+<h3>Visual child entity pattern</h3>
+<p>
+  Create the visual child immediately after setting up the physics root.
+  <code>CreateChild(name)</code> returns a new entity that is parented to the caller and
+  whose local-space origin coincides with the parent's origin by default.
+</p>
+<pre><span class="cm">// Physics root entity</span>
+player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.95f</span>, <span class="val">0.0f</span>);   <span class="cm">// capsule centre height</span>
+cc_ = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+
+<span class="cm">// Visual child — model floats at the same world point as the capsule centre</span>
+visual_ = player_-&gt;<span class="fn">CreateChild</span>(<span class="st">"PlayerVisual"</span>);
+visual_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Character.mdl"</span>);
+visual_-&gt;<span class="fn">SetLocalPosition</span>(<span class="ty">Vector3</span>::ZERO);</pre>
+<p>
+  Key rule: always use <code>SetLocalPosition</code> (not <code>SetPosition</code>) to offset child entities.
+  <code>SetPosition</code> on a child would set its <em>world</em> position, which gets immediately
+  overridden by the parent transform every frame.
+</p>
+<p>
+  If you need to offset the mesh downward so the character's feet touch the ground, shift the
+  visual child: <code>visual_-&gt;SetLocalPosition(0, -0.9f, 0)</code> moves the mesh 0.9 m below the
+  capsule centre, placing the feet at Y=0.
+</p>
+
+<h3><code>cc-&gt;Move(velocity, dt)</code></h3>
+<p>
+  Sets the capsule rigid body's <em>horizontal</em> linear velocity each frame.
+  Critically, it only touches the X and Z components &mdash; the Y velocity (controlled by
+  gravity and jump impulses) is left unchanged. This separation prevents movement input from
+  interfering with airborne arcs.
+</p>
+<div class="sig">
+  <span class="kw">void</span> <span class="fn">Move</span>(<span class="ty">Vector3</span> velocity, <span class="ty">float</span> dt)
+</div>
+<p>
+  Pass the desired world-space velocity vector, not a delta. If you want 6 m/s forward,
+  pass <code>Vector3(0, 0, 6)</code> (or whatever the character's current facing direction).
+  Setting it to <code>Vector3::ZERO</code> brings the character to a stop horizontally.
+  The <code>dt</code> parameter is passed through for future interpolation; pass the frame
+  delta time received in <code>Update(float dt)</code>.
+</p>
+<pre><span class="cm">// Compute a forward direction from accumulated yaw</span>
+<span class="ty">float</span> rad = yaw_ * (<span class="val">3.14159265f</span> / <span class="val">180.0f</span>);
+<span class="ty">Vector3</span> dir(std::<span class="fn">sin</span>(rad) * fwd, <span class="val">0.0f</span>, std::<span class="fn">cos</span>(rad) * fwd);
+
+<span class="cm">// Set 6 m/s in that direction; Y is untouched</span>
+cc_-&gt;<span class="fn">Move</span>(dir * <span class="val">6.0f</span>, dt);</pre>
+
+<h3><code>cc-&gt;TryJump(speed)</code></h3>
+<p>
+  The safe way to initiate a jump. Before applying the vertical impulse, this method
+  calls <code>IsOnGround()</code> internally. If the character is airborne, the call is a no-op.
+  If it is grounded, the Y velocity is set to <code>speed</code> m/s upward and the method
+  returns <code>true</code>.
+</p>
+<div class="sig">
+  <span class="kw">bool</span> <span class="fn">TryJump</span>(<span class="ty">float</span> speed)
+</div>
+<p>
+  Use <code>TryJump</code> whenever you want standard single-jump behaviour.
+  You can use the return value to trigger a jump sound or animation:
+</p>
+<pre><span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::Space))
+{
+    <span class="kw">if</span> (cc_-&gt;<span class="fn">TryJump</span>(<span class="val">12.0f</span>))
+        <span class="fn">PlaySound</span>(<span class="st">"Sounds/jump.wav"</span>);
+}</pre>
+<p>
+  The lower-level method <code>cc-&gt;Jump(speed)</code> exists too, but it <em>does not</em>
+  check ground contact. Use it only when you need custom grounding logic, such as
+  a coyote-time grace window or a double-jump mechanic:
+</p>
+<pre><span class="cm">// Example: double-jump with a manual jump counter</span>
+<span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::Space) &amp;&amp; jumpCount_ &lt; <span class="val">2</span>)
+{
+    cc_-&gt;<span class="fn">Jump</span>(<span class="val">12.0f</span>);   <span class="cm">// unchecked — fires even in mid-air</span>
+    jumpCount_++;
+}
+<span class="kw">if</span> (cc_-&gt;<span class="fn">IsOnGround</span>()) jumpCount_ = <span class="val">0</span>;</pre>
+
+<h3><code>cc-&gt;IsOnGround()</code></h3>
+<p>
+  Returns <code>true</code> when all three of these conditions hold simultaneously:
+</p>
+<ol>
+  <li>A downward ray of length <code>radius + 0.2 m</code> hits a surface on <code>CollisionLayer::StaticGeometry</code> (layer 2).</li>
+  <li>The surface normal forms an angle less than <code>maxSlope_</code> degrees with world UP.</li>
+  <li>The character's current upward velocity is not greater than 0.5 m/s (prevents the jump impulse frame from immediately re-grounding).</li>
+</ol>
+<div class="sig">
+  <span class="kw">bool</span> <span class="fn">IsOnGround</span>()
+</div>
+<p>
+  You can also call <code>entity-&gt;IsOnGround()</code> directly on the entity. When a
+  <code>CharacterController</code> is attached, the entity method delegates to the CC's
+  grounding check automatically, so legacy code that calls the entity method does not need to change.
+</p>
+<pre><span class="kw">bool</span> grounded = cc_-&gt;<span class="fn">IsOnGround</span>();       <span class="cm">// direct CC call</span>
+<span class="kw">bool</span> same     = player_-&gt;<span class="fn">IsOnGround</span>();  <span class="cm">// identical result via entity delegate</span></pre>
+
+<!-- ─── LUA EQUIVALENT ──────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+<p>
+  The full Lua equivalent of the character controller player setup fits in a single script
+  file. Attach it to the player entity in C++ with <code>player-&gt;AddScript("Scripts/player_cc.lua")</code>.
+  The script expects the parent (C++) code to have already called
+  <code>AddCharacterController</code> on the entity.
+</p>
+<pre><span class="lua-cm">-- Scripts/player_cc.lua
+-- Expects the entity to already have a CharacterController attached in C++.</span>
+
+<span class="lua-kw">local</span> cc        <span class="lua-cm">-- CharacterController pointer</span>
+<span class="lua-kw">local</span> yaw  = <span class="lua-num">0</span>  <span class="lua-cm">-- accumulated Y rotation in degrees</span>
+<span class="lua-kw">local</span> SPEED   = <span class="lua-num">6</span>
+<span class="lua-kw">local</span> TURN_SPEED = <span class="lua-num">120</span>
+<span class="lua-kw">local</span> JUMP_SPEED = <span class="lua-num">12</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node
+    cc = entity:<span class="lua-fn">GetCharacterController</span>()
+    <span class="lua-kw">if</span> cc == <span class="lua-kw">nil</span> <span class="lua-kw">then</span>
+        <span class="lua-fn">print</span>(<span class="lua-str">"[player_cc.lua] ERROR: no CharacterController on entity '"</span>
+              .. entity:GetName() .. <span class="lua-str">"'"</span>)
+        <span class="lua-kw">return</span>
+    <span class="lua-kw">end</span>
+    cc:<span class="lua-fn">SetGravity</span>(<span class="lua-num">25.0</span>)
+    cc:<span class="lua-fn">SetMaxSlope</span>(<span class="lua-num">45.0</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> cc == <span class="lua-kw">nil</span> <span class="lua-kw">then</span> <span class="lua-kw">return</span> <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Turning</span>
+    <span class="lua-kw">local</span> turn = <span class="lua-num">0</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"Right"</span>) <span class="lua-kw">or</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"D"</span>) <span class="lua-kw">then</span> turn = turn + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"Left"</span>)  <span class="lua-kw">or</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"A"</span>) <span class="lua-kw">then</span> turn = turn - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    yaw = yaw + turn * TURN_SPEED * dt
+
+    <span class="lua-cm">-- Forward / backward</span>
+    <span class="lua-kw">local</span> fwd = <span class="lua-num">0</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"Up"</span>)   <span class="lua-kw">or</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"W"</span>) <span class="lua-kw">then</span> fwd = fwd + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"Down"</span>) <span class="lua-kw">or</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"S"</span>) <span class="lua-kw">then</span> fwd = fwd - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Build world-space movement direction from yaw</span>
+    <span class="lua-kw">local</span> rad = yaw * (math.pi / <span class="lua-num">180</span>)
+    <span class="lua-kw">local</span> dir = Vector3(math.<span class="lua-fn">sin</span>(rad) * fwd, <span class="lua-num">0</span>, math.<span class="lua-fn">cos</span>(rad) * fwd)
+
+    <span class="lua-cm">-- Drive the controller; Y velocity is untouched</span>
+    cc:<span class="lua-fn">Move</span>(dir * SPEED, dt)
+
+    <span class="lua-cm">-- Jump (Space or LCtrl) — TryJump checks ground internally</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyPress</span>(<span class="lua-str">"Space"</span>) <span class="lua-kw">or</span> Input:<span class="lua-fn">IsKeyPress</span>(<span class="lua-str">"LCtrl"</span>) <span class="lua-kw">then</span>
+        cc:<span class="lua-fn">TryJump</span>(JUMP_SPEED)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Rotate player to face movement direction</span>
+    <span class="lua-kw">if</span> fwd ~= <span class="lua-num">0</span> <span class="lua-kw">or</span> turn ~= <span class="lua-num">0</span> <span class="lua-kw">then</span>
+        entity:<span class="lua-fn">SetRotation</span>(Quaternion(<span class="lua-num">0</span>, yaw, <span class="lua-num">0</span>))
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Query ground state for animation or debugging</span>
+    <span class="lua-kw">local</span> onGround = cc:<span class="lua-fn">IsOnGround</span>()
+    <span class="lua-cm">-- (In Part 09 you will connect this to an animation state machine)</span>
+<span class="lua-kw">end</span></pre>
+
+<div class="callout info">
+  <h4>Attaching the script in C++</h4>
+  <p>
+    The Lua script above calls <code>entity:GetCharacterController()</code> rather than
+    <code>AddCharacterController</code>.  Create the CC in C++ first during <code>Start()</code>,
+    then attach the script.  This keeps physics setup in C++ (where it is easier to set layer
+    and mask) while moving per-frame movement logic into a hot-reloadable Lua file.
+  </p>
+  <pre><span class="cm">// In Game::Start():</span>
+player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.95f</span>, <span class="val">0.0f</span>);
+cc_ = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+player_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::Actor);
+player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+    <span class="ty">CollisionLayer</span>::StaticGeometry,
+    <span class="ty">CollisionLayer</span>::Trigger
+}));
+player_-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/player_cc.lua"</span>);</pre>
+</div>
+
+<!-- ─── API QUICK REFERENCE ──────────────────────────────────────── -->
+<h2>CharacterController API quick reference</h2>
+<table>
+  <tr>
+    <th>Method</th>
+    <th>Returns</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td><code>AddCharacterController(radius, height)</code></td>
+    <td><code>CharacterController*</code></td>
+    <td>Creates capsule RigidBody with locked rotation; idempotent.</td>
+  </tr>
+  <tr>
+    <td><code>GetCharacterController()</code></td>
+    <td><code>CharacterController*</code></td>
+    <td>Returns existing CC or <code>nullptr</code>.</td>
+  </tr>
+  <tr>
+    <td><code>cc-&gt;Move(velocity, dt)</code></td>
+    <td><code>void</code></td>
+    <td>Sets X/Z linear velocity; Y component left to gravity.</td>
+  </tr>
+  <tr>
+    <td><code>cc-&gt;TryJump(speed)</code></td>
+    <td><code>bool</code></td>
+    <td>Checks <code>IsOnGround()</code> internally; sets Y velocity if grounded. Returns <code>true</code> if jump fired.</td>
+  </tr>
+  <tr>
+    <td><code>cc-&gt;Jump(speed)</code></td>
+    <td><code>void</code></td>
+    <td>Sets Y velocity unconditionally; caller must check ground if needed.</td>
+  </tr>
+  <tr>
+    <td><code>cc-&gt;IsOnGround()</code></td>
+    <td><code>bool</code></td>
+    <td>Slope-filtered downward ray on layer 2; also checks upward velocity.</td>
+  </tr>
+  <tr>
+    <td><code>cc-&gt;SetGravity(g)</code></td>
+    <td><code>void</code></td>
+    <td>Per-body gravity override in m/s&sup2; downward. Default: world gravity (~9.81).</td>
+  </tr>
+  <tr>
+    <td><code>cc-&gt;SetMaxSlope(degrees)</code></td>
+    <td><code>void</code></td>
+    <td>Maximum walkable slope angle. Default 45&deg;.</td>
+  </tr>
+  <tr>
+    <td><code>cc-&gt;SetStepHeight(metres)</code></td>
+    <td><code>void</code></td>
+    <td>Step-up target for small obstacles. Default 0.4 m.</td>
+  </tr>
+  <tr>
+    <td><code>cc-&gt;SetEnabled(bool)</code></td>
+    <td><code>void</code></td>
+    <td>Freeze or unfreeze the controller and its rigid body.</td>
+  </tr>
+</table>
+
+<!-- ─── COMMON MISTAKES ──────────────────────────────────────────── -->
+<h2>Common mistakes</h2>
+
+<div class="callout warn">
+  <h4>Common mistakes to avoid</h4>
+
+  <p>
+    <strong>Placing the player entity at the feet, not the capsule centre.</strong><br>
+    <code>SetPosition(0, 0, 0)</code> puts the capsule centre at Y=0, which means the
+    lower hemisphere intersects the ground and physics pushes the character upward violently
+    on the first frame.  Always spawn at <code>Y = height / 2 + small_clearance</code>
+    (e.g. Y = 0.9 m for a 1.8 m capsule, plus 0.05 m clearance).
+  </p>
+
+  <p>
+    <strong>Calling <code>SetPosition</code> on the visual child instead of <code>SetLocalPosition</code>.</strong><br>
+    <code>SetPosition</code> on a child entity sets its world-space position, but the parent
+    transform overwrites it every frame.  Always use <code>SetLocalPosition</code> to position
+    children relative to their parent.
+  </p>
+
+  <p>
+    <strong>Forgetting <code>CollisionLayer::StaticGeometry</code> on the ground.</strong><br>
+    <code>IsOnGround()</code> fires a ray that only hits layer 2 (<code>StaticGeometry</code>).
+    If you forget to call <code>ground-&gt;SetCollisionLayer(CollisionLayer::StaticGeometry)</code>
+    the character never detects ground contact, <code>TryJump</code> does nothing, and the
+    player falls through.
+  </p>
+
+  <p>
+    <strong>Using <code>Jump</code> instead of <code>TryJump</code> without a ground guard.</strong><br>
+    <code>cc-&gt;Jump(speed)</code> does not check <code>IsOnGround()</code>. Calling it every
+    frame the key is held launches the player into space. Either use <code>TryJump</code>, or
+    pair <code>Jump</code> with <code>IsKeyPressed</code> (single-frame detection) and your
+    own <code>IsOnGround()</code> check.
+  </p>
+
+  <p>
+    <strong>Omitting <code>CollisionLayer::Trigger</code> from the player mask.</strong><br>
+    Trigger callbacks set via <code>entity-&gt;SetOnTriggerEnter</code> only fire when the
+    player collides with something on a layer that is included in the player's collision mask.
+    If you only put <code>StaticGeometry</code> in the mask, trigger volumes are invisible
+    to the player and collectibles, checkpoints, and zone transitions never activate.
+  </p>
+
+  <p>
+    <strong>Calling <code>AddCharacterController</code> after the first physics tick.</strong><br>
+    The internal capsule rigid body must be registered with the physics world before simulation
+    starts. Always call <code>AddCharacterController</code> inside <code>Start()</code>, not
+    inside <code>Update()</code>.
+  </p>
+
+  <p>
+    <strong>Passing a direction instead of a velocity to <code>Move()</code>.</strong><br>
+    <code>Move(dir, dt)</code> expects a velocity in m/s, not a unit direction.
+    If you pass a normalised vector without multiplying by speed, the character crawls at
+    1 m/s. Always scale: <code>cc-&gt;Move(dir.Normalized() * speed, dt)</code>.
+  </p>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ─────────────────────────────────────────── -->
+<h2>What you learned</h2>
+<p>
+  In this part you replaced the raw rigid body and collider setup from Part 04 with a
+  purpose-built <code>CharacterController</code>. The key takeaways are:
+</p>
+<ul>
+  <li>
+    <strong><code>AddCharacterController(radius, height)</code></strong> creates a capsule body
+    with locked rotation in a single idempotent call, returning a <code>CharacterController*</code>
+    you use to drive movement and jumping.
+  </li>
+  <li>
+    <strong><code>cc-&gt;SetGravity(25.0f)</code></strong> overrides the global gravity for this
+    body only, letting you tune platformer feel without touching the global physics world.
+  </li>
+  <li>
+    <strong><code>cc-&gt;SetMaxSlope(45.0f)</code></strong> rejects surfaces steeper than the given
+    angle so the character cannot walk up sheer cliffs.
+  </li>
+  <li>
+    <strong><code>cc-&gt;Move(velocity, dt)</code></strong> sets only X/Z velocity each frame,
+    leaving the Y component to gravity and jump impulses.
+  </li>
+  <li>
+    <strong><code>cc-&gt;TryJump(speed)</code></strong> is the correct way to jump: it checks
+    ground contact internally and prevents double-jumping out of the box.
+  </li>
+  <li>
+    <strong><code>cc-&gt;IsOnGround()</code></strong> performs a slope-filtered, velocity-guarded
+    downward ray against <code>StaticGeometry</code> (layer 2). The entity delegates this call
+    too, so <code>player-&gt;IsOnGround()</code> returns the same result.
+  </li>
+  <li>
+    The <strong>visual child entity pattern</strong> (root = physics, child = model) keeps
+    the rendered mesh exactly aligned with the capsule centre while allowing independent
+    local-space positioning of the model.
+  </li>
+  <li>
+    <strong><code>CollisionLayer::Actor</code></strong> plus a mask of <code>{StaticGeometry, Trigger}</code>
+    is the conventional layer setup for any player entity: it collides with floors and walls, and
+    receives trigger callbacks from collectibles and zone volumes.
+  </li>
+</ul>
+<p>
+  In <strong>Part 08</strong> you will attach skeletal animations to the visual child and
+  blend between idle, walk, and jump clips as the character controller changes state.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-06.html">&#8592; Part 06: Lua Scripting Basics</a>
+  <a href="tutorial-08.html">Part 08: Skeletal Animation &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

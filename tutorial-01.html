@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 01: Hello World — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list" style="list-style:none;padding:0;margin:0;">
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-01.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;background:var(--surface2);color:var(--accent);text-decoration:none;">01. Hello World</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-02.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">02. Lights and Colors</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-03.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">03. Keyboard Input</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-04.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">04. 3D Physics</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-05.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">05. Third-Person Camera</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-06.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">06. Lua Scripting Basics</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-07.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">07. Character Controller</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-08.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">08. Skeletal Animation</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-09.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">09. Animation State Machine</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-10.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">10. Audio</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-11.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">11. Spatial Audio</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-12.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">12. 2D Mode</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-13.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">13. 2D Physics</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-14.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">14. Navigation and Pathfinding</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-15.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">15. Gamepad Input</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-16.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">16. Input Actions</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-17.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">17. UI System</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-18.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">18. UI Advanced</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-19.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">19. Save and Load</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-20.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">20. Scene Management</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-21.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">21. Particle Systems</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-22.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">22. Entity Hierarchy</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-23.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">23. Physics Constraints</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-24.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">24. Collision Triggers</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-25.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">25. AI Behavior FSM</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-26.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">26. Ray Picking</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-27.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">27. Debug Draw</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-28.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">28. Tweens</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-29.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">29. Sky and Atmosphere</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-30.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb" style="font-size:0.85rem;color:var(--muted);margin-bottom:1.2rem;">
+  <a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 01
+</div>
+
+<h1><span class="tutorial-part" style="display:block;font-size:0.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.09em;margin-bottom:0.3rem;">Part 01 of 30</span>Hello World</h1>
+
+<div class="callout ok">
+  <h4>New in this part</h4>
+  <p>
+    <code>Game</code> subclass &nbsp;&bull;&nbsp;
+    <code>Start()</code> / <code>Update(float dt)</code> lifecycle &nbsp;&bull;&nbsp;
+    <code>CreateEntity()</code> &nbsp;&bull;&nbsp;
+    <code>AddModel()</code> &nbsp;&bull;&nbsp;
+    <code>SetPosition()</code> &nbsp;&bull;&nbsp;
+    <code>SetRotation()</code> &nbsp;&bull;&nbsp;
+    <code>CreateCamera()</code> &nbsp;&bull;&nbsp;
+    <code>CreateLabel()</code> &nbsp;&bull;&nbsp;
+    <code>SetClearColor()</code> &nbsp;&bull;&nbsp;
+    <code>SetWindowTitle()</code> &nbsp;&bull;&nbsp;
+    <code>IsKeyPressed()</code> &nbsp;&bull;&nbsp;
+    <code>Quit()</code>
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ─────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How to write a complete simple-3d application from scratch by subclassing <code>Simple3D::Game</code></li>
+  <li>The two lifecycle methods every game uses: <code>Start()</code> for one-time setup and <code>Update(float dt)</code> for per-frame logic</li>
+  <li>How to create scene entities with <code>CreateEntity()</code> and attach a 3D model with <code>AddModel()</code></li>
+  <li>How to position and orient entities in world space using <code>SetPosition()</code> and <code>SetRotation()</code></li>
+  <li>How to create and configure the primary viewport camera with <code>CreateCamera()</code></li>
+  <li>How to display on-screen text (HUD) with <code>CreateLabel()</code></li>
+  <li>How to customise the background colour (<code>SetClearColor()</code>) and window title (<code>SetWindowTitle()</code>)</li>
+  <li>How to poll keyboard input with <code>IsKeyPressed()</code> and exit cleanly with <code>Quit()</code></li>
+  <li>Why <em>delta time</em> matters and how to use it to write framerate-independent animation</li>
+  <li>How to tell the engine where to find its resource files using <code>SetResourcePrefixPaths()</code></li>
+</ul>
+
+<!-- ─── OVERVIEW ──────────────────────────────────────────────────── -->
+<h2>Overview</h2>
+<p>
+  This tutorial builds the simplest meaningful simple-3d application: a single box that spins
+  continuously in the centre of the screen, lit by a directional light, viewed through a stationary
+  perspective camera, with a short HUD text label in the top-left corner. Pressing <kbd>Escape</kbd>
+  exits the program.
+</p>
+<p>
+  By the end you will have working code that exercises all twelve foundational API calls. Every
+  subsequent tutorial in this series builds directly on the patterns established here, so it is worth
+  reading this one carefully even if the result looks simple.
+</p>
+
+<!-- ─── COMPLETE SOURCE ───────────────────────────────────────────── -->
+<h2>Complete source</h2>
+<p>
+  The listing below is the complete, self-contained program. Copy it into <code>main.cpp</code>,
+  adjust the resource path in <code>main()</code>, and build. The step-by-step explanation that
+  follows breaks every section down in detail.
+</p>
+
+<pre><span class="cm">// main.cpp — Part 01: Hello World</span>
+<span class="pp">#include</span> <span class="st">&lt;Simple3D/Core/Game.h&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;Simple3D/Entity/Entity.h&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;Simple3D/Camera/Camera.h&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;Simple3D/UI/Label.h&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="cm">// ─────────────────────────────────────────────────────────────────────────────
+// HelloWorld — the application class
+// Every simple-3d program is a class that inherits from Simple3D::Game.
+// ─────────────────────────────────────────────────────────────────────────────</span>
+<span class="kw">class</span> <span class="ty">HelloWorld</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+
+    <span class="cm">// ── Start() ──────────────────────────────────────────────────────────────
+    // Called once by the engine after the window and renderer are ready.
+    // Use it to build your scene: create entities, set up cameras, load assets.
+    // ─────────────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+
+        <span class="cm">// ── 1. Window and viewport ───────────────────────────────────────────</span>
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Hello World — simple-3d"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.08f</span>, <span class="val">0.08f</span>, <span class="val">0.15f</span>, <span class="val">1.0f</span>));   <span class="cm">// deep navy background</span>
+
+        <span class="cm">// ── 2. Directional light ("the sun") ─────────────────────────────────
+        // Lights are entities too. Rotation determines ray direction.
+        // A Quaternion(pitch, yaw, roll) with pitch=45, yaw=45 points light
+        // downward and to the right — standard three-quarter overhead sun angle.</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.95f</span>, <span class="val">0.8f</span>), <span class="val">1.2f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45.0f</span>, <span class="val">45.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── 3. Rotating box ──────────────────────────────────────────────────
+        // CreateEntity() registers the object with the scene and returns a pointer.
+        // AddModel() loads a .mdl file relative to a Data/ directory.
+        // Box.mdl is bundled with every Urho3D / U3D installation.</span>
+        box_ = <span class="fn">CreateEntity</span>(<span class="st">"Box"</span>);
+        box_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        box_-&gt;<span class="fn">SetScale</span>(<span class="val">1.5f</span>);                  <span class="cm">// make it a bit larger than default</span>
+        box_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);   <span class="cm">// place at world origin</span>
+
+        <span class="cm">// ── 4. Camera ────────────────────────────────────────────────────────
+        // CreateCamera() creates the primary viewport camera.
+        // We position it behind and slightly above the box, then aim it at (0,0,0).</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">2.0f</span>, -<span class="val">6.0f</span>);
+        cam_-&gt;<span class="fn">LookAt</span>(<span class="ty">Vector3</span>::ZERO);
+        cam_-&gt;<span class="fn">SetFOV</span>(<span class="val">60.0f</span>);
+
+        <span class="cm">// ── 5. HUD label ─────────────────────────────────────────────────────
+        // CreateLabel() creates an on-screen text element in pixel coordinates.
+        // Position (16, 16) places it 16 px from the top-left corner.</span>
+        label_ = <span class="fn">CreateLabel</span>(<span class="st">"Hello, simple-3d!"</span>);
+        label_-&gt;<span class="fn">SetPosition</span>(<span class="val">16</span>, <span class="val">16</span>);
+        label_-&gt;<span class="fn">SetFontSize</span>(<span class="val">22</span>);
+        label_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::WHITE);
+    }
+
+    <span class="cm">// ── Update(dt) ───────────────────────────────────────────────────────────
+    // Called every frame. dt is the elapsed time in seconds since the last frame.
+    // Always multiply motion by dt to keep animation framerate-independent.
+    // ─────────────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="kw">float</span> dt) <span class="kw">override</span> {
+
+        <span class="cm">// Accumulate rotation angles (degrees per second × elapsed seconds)</span>
+        yaw_   += <span class="val">40.0f</span> * dt;
+        pitch_ += <span class="val">25.0f</span> * dt;
+        roll_  += <span class="val">15.0f</span> * dt;
+
+        <span class="cm">// Apply the accumulated rotation to the box each frame.
+        // Quaternion(pitch, yaw, roll) converts Euler angles to a rotation.</span>
+        box_-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(pitch_, yaw_, roll_));
+
+        <span class="cm">// IsKeyPressed() is true only on the FIRST frame the key goes down.
+        // Use it for one-shot actions (jump, shoot, quit).
+        // Use IsKeyDown() when you want a held-key behaviour (movement).</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+    }
+
+<span class="kw">private</span>:
+    <span class="ty">Entity</span>* box_   = <span class="kw">nullptr</span>;   <span class="cm">// the spinning box</span>
+    <span class="ty">Camera</span>* cam_   = <span class="kw">nullptr</span>;   <span class="cm">// primary viewport camera</span>
+    <span class="ty">Label</span>*  label_ = <span class="kw">nullptr</span>;   <span class="cm">// HUD text (not animated in this part)</span>
+
+    <span class="kw">float</span> yaw_   = <span class="val">0.0f</span>;
+    <span class="kw">float</span> pitch_ = <span class="val">0.0f</span>;
+    <span class="kw">float</span> roll_  = <span class="val">0.0f</span>;
+};
+
+<span class="cm">// ── main() ────────────────────────────────────────────────────────────────────
+// CreateGame&lt;T&gt;() instantiates your game class and hands it to the engine.
+// SetResourcePrefixPaths() tells the engine where to find Data/ and CoreData/.
+// Run() starts the game loop and returns an exit code when the loop ends.
+// ─────────────────────────────────────────────────────────────────────────────</span>
+<span class="kw">int</span> <span class="fn">main</span>(<span class="kw">int</span>, <span class="kw">char</span>**) {
+    <span class="kw">auto</span> game = <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">HelloWorld</span>&gt;();
+    game-&gt;<span class="fn">SetResourcePrefixPaths</span>(<span class="st">"/path/to/u3d/bin"</span>);  <span class="cm">// adjust to your install</span>
+    <span class="kw">return</span> game-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ──────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<!-- 1. SUBCLASSING GAME -->
+<h3>1. Subclassing <code>Game</code></h3>
+<p>
+  Every simple-3d program starts with a class that inherits publicly from <code>Simple3D::Game</code>:
+</p>
+<pre><span class="kw">class</span> <span class="ty">HelloWorld</span> : <span class="kw">public</span> <span class="ty">Game</span> { ... };</pre>
+<p>
+  <code>Game</code> is the top-level object. It owns the engine context, window, renderer, scene, physics
+  world, audio system, and input manager. You never create any of those directly — the base class manages
+  all of it. Your subclass only overrides the lifecycle callbacks to inject game-specific behaviour.
+</p>
+<p>
+  You launch your game by calling <code>Simple3D::CreateGame&lt;HelloWorld&gt;()</code> in <code>main()</code>.
+  This template function allocates your subclass and returns a raw pointer to its <code>Game</code> base.
+  Calling <code>Run()</code> on that pointer initialises the engine, opens the window, and enters the
+  main loop. When <code>Run()</code> returns, the loop has ended (either via <code>Quit()</code> or the
+  user closing the window) and the return value is the process exit code.
+</p>
+
+<!-- 2. START / UPDATE LIFECYCLE -->
+<h3>2. The <code>Start()</code> and <code>Update()</code> lifecycle</h3>
+<p>
+  <code>Simple3D::Game</code> has three overridable lifecycle callbacks:
+</p>
+
+<table>
+  <tr><th>Method</th><th>Called when</th><th>Typical use</th></tr>
+  <tr>
+    <td><code>void Start()</code></td>
+    <td>Once, after the engine and window are fully ready, before the first rendered frame</td>
+    <td>Create entities, load models, set up camera, configure HUD</td>
+  </tr>
+  <tr>
+    <td><code>void Update(float dt)</code></td>
+    <td>Once per rendered frame, in the game logic thread</td>
+    <td>Move entities, read input, update HUD text, run AI</td>
+  </tr>
+  <tr>
+    <td><code>void Stop()</code></td>
+    <td>Once, just before the engine shuts down</td>
+    <td>Save game data, release any external resources</td>
+  </tr>
+</table>
+
+<p>
+  The <code>dt</code> parameter in <code>Update</code> is the <em>delta time</em>: the number of seconds
+  that elapsed since the previous call. On a 60 fps monitor <code>dt</code> is approximately
+  <code>0.01667</code>; on a 30 fps machine it is approximately <code>0.03333</code>. Multiplying any
+  speed or rate by <code>dt</code> makes your animation <em>framerate-independent</em> — a box that
+  rotates <code>40.0f * dt</code> degrees per call turns at exactly 40 degrees per second regardless of
+  how fast or slow the hardware is.
+</p>
+<p>
+  You never call these methods yourself; the engine calls them automatically at the right moment.
+</p>
+
+<!-- 3. SETWINDOWTITLE AND SETCLEARCOLOR -->
+<h3>3. <code>SetWindowTitle()</code> and <code>SetClearColor()</code></h3>
+<pre><span class="fn">SetWindowTitle</span>(<span class="st">"Hello World — simple-3d"</span>);
+<span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.08f</span>, <span class="val">0.08f</span>, <span class="val">0.15f</span>, <span class="val">1.0f</span>));</pre>
+<p>
+  <code>SetWindowTitle()</code> sets the text shown in the OS title bar. It is safe to call both in
+  <code>Start()</code> and from within <code>Update()</code> at runtime — for example to display the
+  current score or frame rate during development.
+</p>
+<p>
+  <code>SetClearColor()</code> sets the background colour that fills the viewport on each frame before
+  anything is drawn. It takes a <code>Simple3D::Color</code> value whose four components (red, green,
+  blue, alpha) each range from <code>0.0f</code> to <code>1.0f</code>. The values
+  <code>(0.08, 0.08, 0.15, 1.0)</code> produce a deep dark navy that makes the box stand out
+  clearly. The alpha component must be <code>1.0f</code> for an opaque background.
+</p>
+<p>
+  Both calls belong at the top of <code>Start()</code> so the correct colour appears on the very first
+  frame.
+</p>
+
+<!-- 4. CREATEENTITY -->
+<h3>4. <code>CreateEntity()</code></h3>
+<pre><span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+<span class="ty">Entity</span>* box = <span class="fn">CreateEntity</span>(<span class="st">"Box"</span>);</pre>
+<p>
+  <code>CreateEntity(name)</code> is the primary factory method for scene objects. It allocates a new
+  <code>Entity</code>, registers it with the active scene, and returns a raw (non-owning) pointer. The
+  engine owns the entity's lifetime; you should never call <code>delete</code> on the returned pointer.
+  To remove an entity from the scene use <code>DestroyEntity(ptr)</code> instead (introduced in a later
+  tutorial).
+</p>
+<p>
+  The name string is for debugging and for looking up entities by name later with
+  <code>FindEntity("Sun")</code>. Names do not have to be unique, although giving them unique names
+  makes debugging easier.
+</p>
+<p>
+  A fresh entity starts at the world origin with no rotation, unit scale, and no components attached.
+  You add behaviour by calling methods on the returned pointer.
+</p>
+
+<!-- 5. ADDMODEL -->
+<h3>5. <code>AddModel()</code></h3>
+<pre>box_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);</pre>
+<p>
+  <code>AddModel(path)</code> loads a 3D model from a resource file and attaches it to the entity as a
+  <code>StaticModel</code> component. The path is <em>relative to a <code>Data/</code> directory</em>
+  that the engine locates beneath the resource prefix paths you configure (see the note on
+  <code>SetResourcePrefixPaths()</code> below).
+</p>
+<p>
+  <code>Box.mdl</code> is a built-in unit cube that ships with every Urho3D / U3D installation. It
+  lives at <code>&lt;install&gt;/bin/Data/Models/Box.mdl</code>. The model loads with the default
+  material (white unlit). Later tutorials show how to apply textures and custom materials.
+</p>
+<p>
+  Models can also be loaded from other common formats (FBX, OBJ) depending on your build
+  configuration. Always store models under a <code>Models/</code> subfolder inside <code>Data/</code>
+  to keep resources organised.
+</p>
+
+<!-- 6. SETPOSITION AND SETROTATION -->
+<h3>6. <code>SetPosition()</code> and <code>SetRotation()</code></h3>
+<pre>box_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);
+box_-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(pitch_, yaw_, roll_));
+sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45.0f</span>, <span class="val">45.0f</span>, <span class="val">0.0f</span>));</pre>
+<p>
+  Both methods operate in <em>world space</em> — absolute coordinates relative to the scene origin,
+  not relative to any parent object.
+</p>
+<p>
+  <code>SetPosition(x, y, z)</code> accepts three floats or a <code>Vector3</code>. In simple-3d's
+  coordinate system <strong>Y is up</strong>, X is right, and Z is into the screen (right-handed,
+  Y-up). Placing the box at <code>(0, 0, 0)</code> and the camera at <code>(0, 2, -6)</code> puts the
+  camera 2 units above and 6 units in front of the box.
+</p>
+<p>
+  <code>SetRotation()</code> takes a <code>Quaternion</code>. The most convenient constructor is
+  <code>Quaternion(pitch, yaw, roll)</code>, which converts Euler angles (in degrees) to the internal
+  quaternion representation. In this tutorial <code>pitch</code> is rotation around X (nose up/down),
+  <code>yaw</code> is rotation around Y (left/right), and <code>roll</code> is rotation around Z
+  (banking). Each angle is accumulated over time in <code>Update()</code> and re-applied every frame to
+  create the spinning animation.
+</p>
+<p>
+  For the directional light, the rotation determines which direction the parallel rays travel.
+  <code>Quaternion(45, 45, 0)</code> tilts the light 45 degrees downward and 45 degrees to the right,
+  producing a classic top-right three-quarter sun angle that lights the front and top faces of the box.
+</p>
+
+<!-- 7. CREATECAMERA -->
+<h3>7. <code>CreateCamera()</code></h3>
+<pre>cam_ = <span class="fn">CreateCamera</span>();
+cam_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">2.0f</span>, -<span class="val">6.0f</span>);
+cam_-&gt;<span class="fn">LookAt</span>(<span class="ty">Vector3</span>::ZERO);
+cam_-&gt;<span class="fn">SetFOV</span>(<span class="val">60.0f</span>);</pre>
+<p>
+  <code>CreateCamera()</code> creates and returns a <code>Camera</code> object that represents the
+  player's viewpoint. simple-3d automatically assigns this camera to the full-screen viewport. There
+  can be more than one camera in advanced setups (split-screen, mirrors), but for now one is enough.
+</p>
+<p>
+  After creation the camera is positioned at the world origin with no rotation. We move it to
+  <code>(0, 2, -6)</code> — 2 units up and 6 units in front of the box (remember: Z negative is
+  <em>toward</em> the camera when using a right-handed Y-up system). <code>LookAt(Vector3::ZERO)</code>
+  rotates the camera so it faces the world origin where the box sits.
+</p>
+<p>
+  <code>SetFOV(60.0f)</code> sets the vertical field of view to 60 degrees. This is a comfortable
+  value for desktop games. First-person shooters typically use 90 degrees or more; cinematic cutscenes
+  may go as low as 30 degrees.
+</p>
+<p>
+  Because we do not call <code>cam_-&gt;Follow()</code>, <code>cam_-&gt;SetFPSMode()</code>, or
+  <code>cam_-&gt;SetOrbitMode()</code>, the camera stays exactly where we put it. Later tutorials add
+  follow and orbit behaviour.
+</p>
+
+<!-- 8. CREATELABEL -->
+<h3>8. <code>CreateLabel()</code></h3>
+<pre>label_ = <span class="fn">CreateLabel</span>(<span class="st">"Hello, simple-3d!"</span>);
+label_-&gt;<span class="fn">SetPosition</span>(<span class="val">16</span>, <span class="val">16</span>);
+label_-&gt;<span class="fn">SetFontSize</span>(<span class="val">22</span>);
+label_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::WHITE);</pre>
+<p>
+  <code>CreateLabel(text)</code> creates a 2D text element in screen space (the HUD layer) and returns
+  a <code>Label*</code>. Unlike entities, labels live in the UI layer and are always drawn on top of
+  the 3D scene.
+</p>
+<p>
+  Position coordinates for labels are in pixels, measured from the <strong>top-left corner</strong> of
+  the window. <code>SetPosition(16, 16)</code> places the label's top-left anchor 16 pixels from each
+  edge.
+</p>
+<p>
+  <code>SetFontSize(22)</code> sets the text size in points. The default font is
+  <code>Fonts/Anonymous Pro.ttf</code>, which ships with the engine. You can call
+  <code>label_-&gt;SetFont("Fonts/MyFont.ttf")</code> to use a different font file.
+</p>
+<p>
+  <code>SetColor(Color::WHITE)</code> sets the text colour. <code>Color::WHITE</code> is the named
+  constant <code>Color(1, 1, 1, 1)</code>. You can use any RGBA colour. Labels support full opacity
+  control through the alpha component.
+</p>
+<p>
+  To update the label text at runtime (for a score display, for example) call
+  <code>label_-&gt;SetText("Score: " + std::to_string(score_))</code> from within
+  <code>Update()</code>.
+</p>
+
+<!-- 9. ISKEYPRESSED AND QUIT -->
+<h3>9. <code>IsKeyPressed()</code> and <code>Quit()</code></h3>
+<pre><span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();</pre>
+<p>
+  simple-3d provides two ways to check keyboard state:
+</p>
+<table>
+  <tr><th>Method</th><th>Returns true when</th><th>Typical use</th></tr>
+  <tr>
+    <td><code>IsKeyPressed(Key k)</code></td>
+    <td>Only on the <em>first frame</em> the key transitions from up to down</td>
+    <td>One-shot actions: jump, shoot, open menu, quit</td>
+  </tr>
+  <tr>
+    <td><code>IsKeyDown(Key k)</code></td>
+    <td>Every frame while the key is <em>held</em> down</td>
+    <td>Continuous actions: movement, camera pan, charge-up</td>
+  </tr>
+</table>
+<p>
+  For quitting we use <code>IsKeyPressed</code> — we want the quit to fire exactly once the moment
+  <kbd>Escape</kbd> is pressed, not every frame it remains held. The <code>Key</code> enum lists all
+  keyboard keys: <code>Key::Escape</code>, <code>Key::Space</code>, <code>Key::W</code>,
+  <code>Key::Left</code>, <code>Key::F1</code>, and so on (see the <a href="api.html">C++ API
+  reference</a> for the full list).
+</p>
+<p>
+  <code>Quit()</code> signals the engine to exit the main loop cleanly. The loop finishes the current
+  frame, calls <code>Stop()</code> on your game class, shuts down all subsystems, and then returns from
+  <code>Run()</code>.
+</p>
+
+<!-- 10. RESOURCE PATHS -->
+<h3>10. Resource paths</h3>
+<pre>game-&gt;<span class="fn">SetResourcePrefixPaths</span>(<span class="st">"/path/to/u3d/bin"</span>);</pre>
+<p>
+  The engine searches for assets (models, textures, fonts, shaders) inside <code>Data/</code> and
+  <code>CoreData/</code> subdirectories. <code>SetResourcePrefixPaths()</code> tells the engine where
+  to look for those subdirectories.
+</p>
+<p>
+  In a U3D installation these directories live inside the <code>bin/</code> folder of the build tree,
+  for example <code>/home/user/u3d/build/bin/Data/</code> and
+  <code>/home/user/u3d/build/bin/CoreData/</code>. Pass the <code>bin/</code> path as the prefix and
+  the engine discovers both automatically.
+</p>
+<p>
+  You can pass multiple semicolon-separated paths if assets are spread across several directories.
+  During development it is common to add your own project's <code>GameData/</code> folder alongside
+  the engine's built-in data directories.
+</p>
+<div class="callout info">
+  <h4>Tip — relative paths in shipped games</h4>
+  <p>
+    When packaging a release build, place <code>Data/</code> and <code>CoreData/</code> next to your
+    executable and call <code>game-&gt;SetResourcePrefixPaths(".")</code> so the engine always resolves
+    paths relative to the executable's directory. This makes the package relocatable.
+  </p>
+</div>
+
+<!-- ─── DELTA TIME IN DEPTH ───────────────────────────────────────── -->
+<h2>Delta time in depth</h2>
+<p>
+  The spinning animation in <code>Update()</code> deserves a closer look:
+</p>
+<pre>yaw_   += <span class="val">40.0f</span> * dt;   <span class="cm">// 40 degrees per second around Y</span>
+pitch_ += <span class="val">25.0f</span> * dt;   <span class="cm">// 25 degrees per second around X</span>
+roll_  += <span class="val">15.0f</span> * dt;   <span class="cm">// 15 degrees per second around Z</span>
+box_-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(pitch_, yaw_, roll_));</pre>
+<p>
+  The three angle accumulators are <em>private member variables</em> initialised to zero. Each frame
+  the engine calls <code>Update(dt)</code> and we add a small increment proportional to the time that
+  passed since the last frame. After 1 second the yaw accumulates to exactly 40 degrees. After 9 full
+  seconds it completes exactly one yaw revolution (360 degrees).
+</p>
+<p>
+  If you had written <code>yaw_ += 40.0f</code> without the <code>* dt</code> the animation speed
+  would be tied directly to the frame rate. On a 60 fps display the box would rotate
+  <code>40 * 60 = 2400</code> degrees per second. On a 30 fps display it would rotate only 1200 degrees
+  per second — half as fast. Multiplying by <code>dt</code> eliminates this dependency.
+</p>
+<p>
+  Different rotation speeds for yaw, pitch, and roll (40, 25, 15 degrees per second) create a
+  pleasing tumbling motion that never looks exactly periodic. You can choose any combination of
+  values you like.
+</p>
+
+<!-- ─── LUA EQUIVALENT ────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+<p>
+  The same behaviour can be written entirely in Lua. simple-3d supports per-entity Lua scripts
+  (covered in depth in Part 06), but it also supports a <em>game-level</em> Lua script that maps
+  directly to <code>Start()</code> and <code>Update()</code>. The script below is the Lua equivalent
+  of the C++ program above.
+</p>
+<div class="callout lua">
+  <h4>Lua note</h4>
+  <p>
+    In Lua scripts the <code>Game</code> object is accessed through the global <code>game</code>
+    reference. Entity and camera creation methods are called on <code>game</code>. Input methods are
+    called on the global <code>Input</code> object. The <code>Color</code>, <code>Vector3</code>, and
+    <code>Quaternion</code> types are available as global constructors.
+  </p>
+</div>
+
+<pre><span class="lua-cm">-- game.lua — Lua equivalent of the Hello World C++ program</span>
+
+<span class="lua-kw">local</span> box
+<span class="lua-kw">local</span> cam
+<span class="lua-kw">local</span> label
+<span class="lua-kw">local</span> yaw   = <span class="lua-num">0</span>
+<span class="lua-kw">local</span> pitch = <span class="lua-num">0</span>
+<span class="lua-kw">local</span> roll  = <span class="lua-num">0</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-cm">-- Window and background</span>
+    game:<span class="lua-fn">SetWindowTitle</span>(<span class="lua-str">"Hello World — simple-3d"</span>)
+    game:<span class="lua-fn">SetClearColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.08</span>, <span class="lua-num">0.08</span>, <span class="lua-num">0.15</span>, <span class="lua-num">1.0</span>))
+
+    <span class="lua-cm">-- Directional light</span>
+    <span class="lua-kw">local</span> sun = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Sun"</span>)
+    sun:<span class="lua-fn">AddDirectionalLight</span>(<span class="lua-fn">Color</span>(<span class="lua-num">1.0</span>, <span class="lua-num">0.95</span>, <span class="lua-num">0.8</span>), <span class="lua-num">1.2</span>)
+    sun:<span class="lua-fn">SetRotation</span>(<span class="lua-fn">Quaternion</span>(<span class="lua-num">45</span>, <span class="lua-num">45</span>, <span class="lua-num">0</span>))
+
+    <span class="lua-cm">-- Rotating box</span>
+    box = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Box"</span>)
+    box:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+    box:<span class="lua-fn">SetScale</span>(<span class="lua-num">1.5</span>)
+    box:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+
+    <span class="lua-cm">-- Camera</span>
+    cam = game:<span class="lua-fn">CreateCamera</span>()
+    cam:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">2</span>, <span class="lua-num">-6</span>)
+    cam:<span class="lua-fn">LookAt</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>))
+    cam:<span class="lua-fn">SetFOV</span>(<span class="lua-num">60</span>)
+
+    <span class="lua-cm">-- HUD label</span>
+    label = game:<span class="lua-fn">CreateLabel</span>(<span class="lua-str">"Hello, simple-3d!"</span>)
+    label:<span class="lua-fn">SetPosition</span>(<span class="lua-num">16</span>, <span class="lua-num">16</span>)
+    label:<span class="lua-fn">SetFontSize</span>(<span class="lua-num">22</span>)
+    label:<span class="lua-fn">SetColor</span>(Color.WHITE)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    yaw   = yaw   + <span class="lua-num">40</span> * dt
+    pitch = pitch + <span class="lua-num">25</span> * dt
+    roll  = roll  + <span class="lua-num">15</span> * dt
+    box:<span class="lua-fn">SetRotation</span>(<span class="lua-fn">Quaternion</span>(pitch, yaw, roll))
+
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyPressed</span>(<span class="lua-str">"Escape"</span>) <span class="lua-kw">then</span>
+        game:<span class="lua-fn">Quit</span>()
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+<p>
+  Key differences from C++: in Lua, key names are passed as strings (<code>"Escape"</code>) rather
+  than enum values (<code>Key::Escape</code>). Also, variables are module-level locals rather than
+  class members, and you use the colon operator (<code>:</code>) to call methods on objects.
+</p>
+
+<!-- ─── QUICK REFERENCE TABLE ─────────────────────────────────────── -->
+<h2>API quick reference — this part</h2>
+<table>
+  <tr><th>Method</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>CreateEntity(string name)</code></td>
+    <td><code>Entity*</code></td>
+    <td>Allocates and registers a new scene entity; engine owns the lifetime</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;AddModel(string path)</code></td>
+    <td>—</td>
+    <td>Loads a .mdl (or FBX/OBJ) and attaches it as a StaticModel; path is relative to Data/</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;SetPosition(float x, y, z)</code></td>
+    <td>—</td>
+    <td>Moves entity to absolute world-space coordinates; also accepts <code>Vector3</code></td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;SetRotation(Quaternion)</code></td>
+    <td>—</td>
+    <td>Sets world-space rotation; use <code>Quaternion(pitch, yaw, roll)</code> for Euler angles</td>
+  </tr>
+  <tr>
+    <td><code>CreateCamera()</code></td>
+    <td><code>Camera*</code></td>
+    <td>Creates the primary viewport camera; auto-assigned to the full-screen viewport</td>
+  </tr>
+  <tr>
+    <td><code>cam-&gt;LookAt(Vector3)</code></td>
+    <td>—</td>
+    <td>Rotates the camera to face a world-space point</td>
+  </tr>
+  <tr>
+    <td><code>cam-&gt;SetFOV(float degrees)</code></td>
+    <td>—</td>
+    <td>Vertical field of view in degrees; typical range 45–90</td>
+  </tr>
+  <tr>
+    <td><code>CreateLabel(string text)</code></td>
+    <td><code>Label*</code></td>
+    <td>Creates a screen-space text element; position in pixels from top-left</td>
+  </tr>
+  <tr>
+    <td><code>label-&gt;SetFontSize(int pts)</code></td>
+    <td>—</td>
+    <td>Text point size using the current font</td>
+  </tr>
+  <tr>
+    <td><code>label-&gt;SetText(string)</code></td>
+    <td>—</td>
+    <td>Updates the displayed string at runtime</td>
+  </tr>
+  <tr>
+    <td><code>SetClearColor(Color)</code></td>
+    <td>—</td>
+    <td>Background fill colour; RGBA in [0, 1]</td>
+  </tr>
+  <tr>
+    <td><code>SetWindowTitle(string)</code></td>
+    <td>—</td>
+    <td>OS window title bar text; safe to call from Update()</td>
+  </tr>
+  <tr>
+    <td><code>IsKeyPressed(Key k)</code></td>
+    <td><code>bool</code></td>
+    <td>True only on the first frame the key transitions down; use for one-shot actions</td>
+  </tr>
+  <tr>
+    <td><code>IsKeyDown(Key k)</code></td>
+    <td><code>bool</code></td>
+    <td>True every frame the key is held; use for continuous actions like movement</td>
+  </tr>
+  <tr>
+    <td><code>Quit()</code></td>
+    <td>—</td>
+    <td>Signals the main loop to exit cleanly after the current frame</td>
+  </tr>
+</table>
+
+<!-- ─── COMMON MISTAKES ──────────────────────────────────────────── -->
+<h2>Common mistakes</h2>
+<div class="callout warn">
+  <h4>Common mistakes — Part 01</h4>
+  <ul style="margin-left:1.3rem;margin-top:0.4rem;">
+    <li style="margin-bottom:0.6rem;">
+      <strong>Forgetting <code>override</code> on <code>Start()</code> or <code>Update()</code>.</strong>
+      Without <code>override</code> the compiler will not warn you if you misspell a method name (e.g.
+      <code>start()</code> with a lowercase s). The base class version is called silently, your scene
+      never builds, and the window appears black. Always add <code>override</code>.
+    </li>
+    <li style="margin-bottom:0.6rem;">
+      <strong>Not multiplying speed by <code>dt</code>.</strong>
+      Writing <code>yaw_ += 40.0f</code> instead of <code>yaw_ += 40.0f * dt</code> ties the animation
+      speed to the frame rate. On a 144 Hz monitor the box spins 3.6x faster than on a 40 Hz monitor.
+      Always multiply any per-frame increment by <code>dt</code>.
+    </li>
+    <li style="margin-bottom:0.6rem;">
+      <strong>Storing entity names instead of pointers.</strong>
+      It is tempting to look up entities by name in <code>Update()</code> using
+      <code>FindEntity("Box")</code>. Do not do this — the lookup is O(n) in the number of entities.
+      Store the <code>Entity*</code> returned by <code>CreateEntity()</code> in a member variable
+      instead.
+    </li>
+    <li style="margin-bottom:0.6rem;">
+      <strong>Using <code>IsKeyDown</code> instead of <code>IsKeyPressed</code> for one-shot actions.</strong>
+      If you write <code>if (IsKeyDown(Key::Escape)) Quit()</code>, the quit fires every frame while
+      Escape is held. Although the outcome is the same in this case (the game quits), for actions such
+      as toggling a menu or firing a single bullet <code>IsKeyDown</code> would repeat dozens of times
+      per second. Use <code>IsKeyPressed</code> for one-shot events.
+    </li>
+    <li style="margin-bottom:0.6rem;">
+      <strong>Missing or incorrect <code>SetResourcePrefixPaths()</code>.</strong>
+      If the engine cannot find <code>Data/</code> and <code>CoreData/</code>, models and shaders fail
+      to load and you see either a black screen or the engine exits immediately with an error message.
+      Double-check that the path you pass ends at the <code>bin/</code> directory (the parent of
+      <code>Data/</code>), not inside it.
+    </li>
+    <li style="margin-bottom:0.6rem;">
+      <strong>Calling <code>delete</code> on an <code>Entity*</code>.</strong>
+      The engine owns all entities created through <code>CreateEntity()</code>. Calling
+      <code>delete box_</code> causes a double-free crash. Use <code>DestroyEntity(box_)</code> if you
+      need to remove an entity from the scene.
+    </li>
+    <li style="margin-bottom:0.6rem;">
+      <strong>Placing the camera inside the model.</strong>
+      If the box appears fully dark or invisible, the camera may be inside or very close to the box.
+      Check that the camera Z offset is large enough to be in front of (or behind) the model. With the
+      box at origin and scale 1.5, any camera Z more negative than <code>-0.75</code> is safely outside
+      the box.
+    </li>
+    <li style="margin-bottom:0.0rem;">
+      <strong>Treating label pixel positions as 3D world units.</strong>
+      <code>label-&gt;SetPosition(16, 16)</code> means 16 <em>screen pixels</em>, not 16 world-space
+      metres. These are completely separate coordinate systems. If your label is nowhere to be found,
+      check that the position values are reasonable pixel values for your window size.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── EXERCISES ─────────────────────────────────────────────────── -->
+<h2>Try it yourself</h2>
+<p>
+  Once the example is running, experiment with these small changes to deepen your understanding:
+</p>
+<ol>
+  <li>
+    Change the box colour by calling <code>box_-&gt;SetMaterialColor(Color(0.2f, 0.6f, 1.0f))</code>
+    in <code>Start()</code>. This sets a solid unlit blue colour. Notice that without a light the colour
+    is uniform with no shading. Now add a directional light and observe the difference.
+  </li>
+  <li>
+    Change the three rotation speeds (currently 40, 25, 15 degrees per second) to different values,
+    including negative numbers. Try making one axis negative to spin in the opposite direction.
+  </li>
+  <li>
+    In <code>Update()</code>, update the label text each frame to display the current rotation angle:
+    <code>label_-&gt;SetText("Yaw: " + std::to_string(static_cast&lt;int&gt;(yaw_) % 360))</code>.
+    This makes the label a live readout.
+  </li>
+  <li>
+    Move the camera to several different positions (try <code>(3, 5, -8)</code> or
+    <code>(-4, 1, -5)</code>) and observe how perspective changes. Try different FOV values
+    (30, 60, 90, 120) to see the distortion effect.
+  </li>
+  <li>
+    Replace <code>IsKeyPressed(Key::Escape)</code> with <code>IsKeyDown(Key::Escape)</code> and hold
+    the key down for a moment. Observe that the behaviour is the same for quitting but understand why
+    it would matter for a toggled action.
+  </li>
+</ol>
+
+<!-- ─── WHAT YOU LEARNED ──────────────────────────────────────────── -->
+<h2>What you learned</h2>
+<p>
+  This part established the complete minimal pattern that every simple-3d application follows:
+</p>
+<ul>
+  <li>
+    <strong>Subclassing <code>Game</code></strong> is the entry point for all simple-3d programs.
+    <code>CreateGame&lt;T&gt;()-&gt;Run()</code> launches the application.
+  </li>
+  <li>
+    <strong><code>Start()</code></strong> is called once when the engine is ready. Use it for
+    one-time scene setup: creating entities, attaching models, building cameras, and configuring the
+    HUD.
+  </li>
+  <li>
+    <strong><code>Update(float dt)</code></strong> is called every frame. Multiply all per-frame
+    increments by <code>dt</code> to keep behaviour framerate-independent.
+  </li>
+  <li>
+    <strong><code>CreateEntity()</code></strong> allocates a new scene object. The engine owns
+    its lifetime. Store the returned pointer in a member variable for fast access in
+    <code>Update()</code>.
+  </li>
+  <li>
+    <strong><code>AddModel(path)</code></strong> loads a 3D model from a resource file and
+    attaches it to the entity. Paths are relative to a <code>Data/</code> directory under the
+    resource prefix.
+  </li>
+  <li>
+    <strong><code>SetPosition()</code> and <code>SetRotation()</code></strong> place an entity
+    in the scene. Both operate in world space. Use <code>Quaternion(pitch, yaw, roll)</code>
+    to convert Euler angles to the required rotation type.
+  </li>
+  <li>
+    <strong><code>CreateCamera()</code></strong> creates the primary viewport camera. Use
+    <code>LookAt()</code> and <code>SetFOV()</code> to configure its view.
+  </li>
+  <li>
+    <strong><code>CreateLabel(text)</code></strong> creates a screen-space HUD text element.
+    Position is in pixels from the top-left of the window.
+  </li>
+  <li>
+    <strong><code>SetClearColor()</code></strong> sets the viewport background colour.
+    <strong><code>SetWindowTitle()</code></strong> sets the OS title bar text.
+  </li>
+  <li>
+    <strong><code>IsKeyPressed(Key k)</code></strong> is true only on the first frame a key is
+    pressed. <strong><code>IsKeyDown(Key k)</code></strong> is true every frame the key is held.
+    <strong><code>Quit()</code></strong> exits the main loop cleanly.
+  </li>
+</ul>
+<p>
+  All subsequent tutorials assume this foundation. The next part adds multiple lights, adjusts their
+  colours and intensities, and shows how to change the clear colour at runtime to create a simple
+  day/night effect.
+</p>
+
+<nav class="tutorial-nav" style="display:flex;justify-content:space-between;margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--border);">
+  <span class="placeholder" style="color:var(--muted);font-size:0.9rem;">&#8592; (first part)</span>
+  <a href="tutorial-02.html" style="font-size:0.9rem;">Part 02: Lights and Colors &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

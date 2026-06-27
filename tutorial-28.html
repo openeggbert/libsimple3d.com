@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 28: Tweens — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li class="active"><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 28</div>
+
+<h1><span class="tutorial-part">Part 28 of 30</span>Tweens</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>CreateTween(from, to, duration, onUpdate, onComplete, ease)</code> &mdash;
+    create a one-shot float interpolator owned and ticked by the Game; no manual
+    <code>Update()</code> wiring required.<br>
+    <code>TweenEase::Linear</code> / <code>EaseIn</code> / <code>EaseOut</code> /
+    <code>EaseInOut</code> &mdash; built-in easing curves that change the feel of every
+    animation without altering its duration.<br>
+    <code>Tween::Cancel()</code> &mdash; stop an in-progress tween without firing its
+    completion callback.<br>
+    <code>Tween::IsComplete()</code> &mdash; query whether a tween has finished or been
+    cancelled.<br>
+    Tweening entity position using <code>CreateTween(0, 1, &hellip;)</code> combined
+    with <code>Vector3::Lerp()</code>.<br>
+    Tweening UI element alpha (<code>Panel::SetOpacity</code>) and size
+    (<code>SetSize</code> with a cast).<br>
+    Chaining tweens by starting the next one inside the <code>onComplete</code> callback.
+  </p>
+</div>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>What a tween is and why simple-3d manages tween lifetime automatically.</li>
+  <li>The full signature of <code>CreateTween</code> and the role of each parameter.</li>
+  <li>How the four easing curves (<code>Linear</code>, <code>EaseIn</code>,
+      <code>EaseOut</code>, <code>EaseInOut</code>) change the motion feel without
+      changing duration.</li>
+  <li>How to tween a 3D entity position by combining a 0&rarr;1 tween with
+      <code>Vector3::Lerp()</code>.</li>
+  <li>How to tween UI opacity using <code>Panel::SetOpacity()</code> and UI
+      label scale using <code>Label::SetScale()</code>.</li>
+  <li>How to expand a UI element by tweening <code>SetSize()</code>.</li>
+  <li>How to chain two tweens: start the second one inside the first one&rsquo;s
+      <code>onComplete</code> callback.</li>
+  <li>How to store and cancel a tween with <code>Tween::Cancel()</code>, and when
+      it is safe to call <code>Tween::IsComplete()</code>.</li>
+  <li>A complete coin-collect fly-up example that applies every concept together.</li>
+  <li>The equivalent Lua scripting API.</li>
+</ul>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>What is a tween?</h2>
+
+<p>
+  A <em>tween</em> (from <em>in-between</em>) is a time-limited float interpolator.
+  You give it a start value, an end value, a duration in seconds, and a callback.
+  The engine calls your callback every frame with the current interpolated value until
+  the duration expires. You never write the timer or the lerp math yourself.
+</p>
+<p>
+  In simple-3d, tweens are created with <code>CreateTween()</code> and are
+  <strong>owned and ticked by the Game</strong>. You do not need to store them to keep
+  them alive, and you do not call anything in <code>Update()</code> to advance them
+  &mdash; the engine does that for you. Tweens tick using the scaled frame time, so they
+  automatically slow down or speed up when you call <code>SetTimeScale()</code>.
+</p>
+<p>
+  Common uses: health bar fills, score number pop-ups, menu slide-ins, colour flashes,
+  entity fly-up animations, fade-in / fade-out transitions, and any other smooth
+  value change that you want to fire-and-forget.
+</p>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Easing modes at a glance</h2>
+
+<p>
+  Easing controls the <em>rate of change</em> across the tween duration. All four modes
+  cover the same total range in the same total time; they only differ in which part of
+  the motion is fast or slow.
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Enum value</th>
+      <th>Formula</th>
+      <th>Feel</th>
+      <th>Best for&hellip;</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>TweenEase::Linear</code> (default)</td>
+      <td>constant rate</td>
+      <td>mechanical, robotic</td>
+      <td>progress bars, timers</td>
+    </tr>
+    <tr>
+      <td><code>TweenEase::EaseIn</code></td>
+      <td>t&sup2; &mdash; slow start, fast end</td>
+      <td>gathering momentum</td>
+      <td>objects falling, coin fly-away</td>
+    </tr>
+    <tr>
+      <td><code>TweenEase::EaseOut</code></td>
+      <td>t(2&minus;t) &mdash; fast start, gentle landing</td>
+      <td>natural deceleration</td>
+      <td>UI sliding in, health bar draining</td>
+    </tr>
+    <tr>
+      <td><code>TweenEase::EaseInOut</code></td>
+      <td>smoothstep &mdash; slow at both ends</td>
+      <td>polished, organic</td>
+      <td>camera moves, menu transitions</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Complete working example &mdash; coin collect fly-up</h2>
+
+<p>
+  The example below places five coins in a small arena. Walking into a coin
+  triggers three simultaneous tween effects:
+</p>
+<ol>
+  <li>The coin entity flies upward using a position <code>Lerp</code> tween
+      (<code>EaseIn</code>) and is hidden when it arrives.</li>
+  <li>A &ldquo;+1&rdquo; score label pops in by scaling from 0 to 1.2 (<code>EaseOut</code>),
+      then immediately chains into a scale-out tween so it disappears.</li>
+  <li>Pressing <kbd>H</kbd> simulates taking damage: the health bar drains with
+      <code>EaseOut</code>, any previous health tween is cancelled first,
+      and a red damage-flash overlay fades in then chains to a fade-out.</li>
+</ol>
+
+<pre><span class="cm">// CoinCollectDemo.cpp</span>
+<span class="cm">// Part 28 — Tweens</span>
+<span class="cm">// Build: link against simple-3d. Place model files under Data/Models/.</span>
+
+<span class="kw">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="kw">#include</span> <span class="st">&lt;string&gt;</span>
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">static constexpr int</span>   <span class="val">COIN_COUNT</span>  = <span class="val">5</span>;
+<span class="kw">static constexpr float</span> <span class="val">MAX_HEALTH</span>  = <span class="val">100.0f</span>;
+<span class="kw">static constexpr float</span> <span class="val">MOVE_SPEED</span>  = <span class="val">4.0f</span>;
+
+<span class="kw">class</span> <span class="ty">CoinCollectDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+    <span class="ty">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="cm">// ── Ground ────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground-&gt;<span class="fn">SetScale</span>(<span class="val">5.0f</span>);
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">25</span>, <span class="val">0.2f</span>, <span class="val">25</span>));
+        ground-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+        <span class="cm">// ── Player ────────────────────────────────────────────</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">1</span>, <span class="val">0</span>);
+        player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Capsule.mdl"</span>);
+        player_-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.3f</span>, <span class="val">0.5f</span>, <span class="val">0.9f</span>));
+
+        cc_ = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+        cc_-&gt;<span class="fn">SetGravity</span>(<span class="val">20.0f</span>);
+        player_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+        player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>,
+            <span class="ty">CollisionLayer</span>::<span class="val">Trigger</span>
+        }));
+
+        <span class="cm">// ── Coins ─────────────────────────────────────────────</span>
+        <span class="ty">Vector3</span> positions[<span class="val">COIN_COUNT</span>] = {
+            <span class="ty">Vector3</span>( <span class="val">3.0f</span>, <span class="val">0.5f</span>,  <span class="val">0.0f</span>),
+            <span class="ty">Vector3</span>(-<span class="val">3.0f</span>, <span class="val">0.5f</span>,  <span class="val">2.0f</span>),
+            <span class="ty">Vector3</span>( <span class="val">0.0f</span>, <span class="val">0.5f</span>,  <span class="val">4.0f</span>),
+            <span class="ty">Vector3</span>( <span class="val">4.0f</span>, <span class="val">0.5f</span>, -<span class="val">3.0f</span>),
+            <span class="ty">Vector3</span>(-<span class="val">2.0f</span>, <span class="val">0.5f</span>, -<span class="val">4.0f</span>),
+        };
+
+        <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i &lt; <span class="val">COIN_COUNT</span>; ++i) {
+            coins_[i] = <span class="fn">CreateEntity</span>(<span class="st">"Coin"</span> + std::<span class="fn">to_string</span>(i));
+            coins_[i]-&gt;<span class="fn">SetPosition</span>(positions[i]);
+            coins_[i]-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Sphere.mdl"</span>);
+            coins_[i]-&gt;<span class="fn">SetScale</span>(<span class="val">0.25f</span>);
+            coins_[i]-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.85f</span>, <span class="val">0.0f</span>));
+
+            <span class="cm">// Trigger sphere: fired when the player walks close</span>
+            coins_[i]-&gt;<span class="fn">AddTriggerSphere</span>(<span class="val">0.5f</span>);
+            coins_[i]-&gt;<span class="fn">SetCollisionMask</span>(<span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+
+            <span class="cm">// Capture i by value so each lambda refers to its own coin index</span>
+            coins_[i]-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>, i](<span class="ty">Entity</span>* other) {
+                <span class="kw">if</span> (other == player_ &amp;&amp; coins_[i]-&gt;<span class="fn">IsActive</span>())
+                    <span class="fn">CollectCoin</span>(i);
+            });
+        }
+
+        <span class="cm">// ── Light ─────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45</span>, <span class="val">30</span>, <span class="val">0</span>));
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>, <span class="val">1.2f</span>);
+
+        <span class="cm">// ── Camera ────────────────────────────────────────────</span>
+        <span class="ty">Camera</span>* cam = <span class="fn">CreateCamera</span>();
+        cam-&gt;<span class="fn">Follow</span>(player_, <span class="val">7.0f</span>, <span class="val">3.0f</span>);
+        cam-&gt;<span class="fn">LookAt</span>(player_);
+        cam-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">5.0f</span>);
+
+        <span class="cm">// ── HUD — health bar ──────────────────────────────────</span>
+        healthBar_ = <span class="fn">CreateProgressBar</span>();
+        healthBar_-&gt;<span class="fn">SetSize</span>(<span class="val">200</span>, <span class="val">16</span>);
+        healthBar_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">10</span>);
+        healthBar_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.8f</span>, <span class="val">0.2f</span>, <span class="val">1</span>));
+        healthBar_-&gt;<span class="fn">SetBackgroundColor</span>(<span class="ty">Color</span>(<span class="val">0.1f</span>, <span class="val">0.1f</span>, <span class="val">0.1f</span>, <span class="val">0.8f</span>));
+        healthBar_-&gt;<span class="fn">SetValue</span>(<span class="val">1.0f</span>);  <span class="cm">// full health</span>
+
+        <span class="cm">// ── HUD — score text ──────────────────────────────────</span>
+        scoreLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Coins: 0 / 5"</span>);
+        scoreLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">34</span>);
+        scoreLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">18</span>);
+        scoreLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>);
+
+        <span class="cm">// ── HUD — "+1" pop-up (initially hidden, scale=0) ────</span>
+        popLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"+1"</span>);
+        popLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">220</span>, <span class="val">10</span>);
+        popLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">28</span>);
+        popLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.9f</span>, <span class="val">0.1f</span>, <span class="val">1</span>));
+        popLabel_-&gt;<span class="fn">SetScale</span>(<span class="val">0.0f</span>);
+        popLabel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);
+
+        <span class="cm">// ── HUD — damage flash overlay (full-screen panel) ────</span>
+        flashPanel_ = <span class="fn">CreatePanel</span>();
+        flashPanel_-&gt;<span class="fn">SetSize</span>(<span class="val">4096</span>, <span class="val">4096</span>);
+        flashPanel_-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">0</span>);
+        flashPanel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.8f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">1</span>));
+        flashPanel_-&gt;<span class="fn">SetOpacity</span>(<span class="val">0.0f</span>);
+        flashPanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);
+        flashPanel_-&gt;<span class="fn">SetZOrder</span>(<span class="val">100</span>);  <span class="cm">// above all other UI</span>
+
+        <span class="cm">// ── Hint ──────────────────────────────────────────────</span>
+        hintLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Arrows = move   Space = jump   H = take damage   Esc = quit"</span>);
+        hintLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">58</span>);
+        hintLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">14</span>);
+        hintLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.65f</span>, <span class="val">0.65f</span>, <span class="val">0.65f</span>, <span class="val">1</span>));
+
+        <span class="cm">// ── Input bindings ────────────────────────────────────</span>
+        <span class="fn">BindAxis2D</span>(<span class="st">"Move"</span>)
+            .<span class="fn">Keys</span>(<span class="ty">Key</span>::<span class="val">Left</span>, <span class="ty">Key</span>::<span class="val">Right</span>, <span class="ty">Key</span>::<span class="val">Down</span>, <span class="ty">Key</span>::<span class="val">Up</span>)
+            .<span class="fn">GamepadStick</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftX</span>, <span class="ty">GamepadAxis</span>::<span class="val">LeftY</span>)
+            .<span class="fn">InvertY</span>(<span class="kw">true</span>);
+
+        <span class="fn">BindAction</span>(<span class="st">"Jump"</span>).<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">Space</span>).<span class="fn">GamepadButton</span>(<span class="ty">GamepadButton</span>::<span class="val">A</span>);
+        <span class="fn">BindAction</span>(<span class="st">"Hit"</span>).<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">H</span>);
+        <span class="fn">BindAction</span>(<span class="st">"Quit"</span>).<span class="fn">Key</span>(<span class="ty">Key</span>::<span class="val">Escape</span>);
+    }
+
+    <span class="ty">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="kw">if</span> (<span class="fn">IsActionPressed</span>(<span class="st">"Quit"</span>)) { <span class="fn">Quit</span>(); <span class="kw">return</span>; }
+
+        <span class="ty">Vector2</span> input = <span class="fn">GetAxis2D</span>(<span class="st">"Move"</span>);
+        cc_-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(input.x_, <span class="val">0</span>, input.y_) * <span class="val">MOVE_SPEED</span>, dt);
+        <span class="kw">if</span> (<span class="fn">IsActionPressed</span>(<span class="st">"Jump"</span>)) cc_-&gt;<span class="fn">TryJump</span>(<span class="val">10.0f</span>);
+
+        <span class="cm">// Simulate player taking 25 points of damage</span>
+        <span class="kw">if</span> (<span class="fn">IsActionPressed</span>(<span class="st">"Hit"</span>) &amp;&amp; health_ &gt; <span class="val">0.0f</span>)
+            <span class="fn">TakeDamage</span>(<span class="val">25.0f</span>);
+    }
+
+<span class="kw">private</span>:
+
+    <span class="cm">// ─────────────────────────────────────────────────────</span>
+    <span class="cm">// CollectCoin: called once when the player enters a coin trigger.</span>
+    <span class="cm">// Demonstrates: position Lerp tween, score label pop chain.</span>
+    <span class="cm">// ─────────────────────────────────────────────────────</span>
+    <span class="ty">void</span> <span class="fn">CollectCoin</span>(<span class="ty">int</span> index)
+    {
+        <span class="cm">// Snapshot start and end positions (by value into the lambda)</span>
+        <span class="kw">const</span> <span class="ty">Vector3</span> startPos = coins_[index]-&gt;<span class="fn">GetPosition</span>();
+        <span class="kw">const</span> <span class="ty">Vector3</span> endPos   = startPos + <span class="ty">Vector3</span>(<span class="val">0</span>, <span class="val">5.0f</span>, <span class="val">0</span>);
+
+        <span class="cm">// ── Tween 1: fly the coin upward (EaseIn = slow start, fast end) ──</span>
+        <span class="cm">// We use a 0→1 range so that t maps directly to Lerp's parameter.</span>
+        <span class="cm">// Store the pointer so we can cancel it later if the scene unloads.</span>
+        coinTweens_[index] = <span class="fn">CreateTween</span>(
+            <span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.55f</span>,
+            [<span class="kw">this</span>, index, startPos, endPos](<span class="ty">float</span> t) {
+                <span class="cm">// Lerp between the two world positions using the current t</span>
+                coins_[index]-&gt;<span class="fn">SetPosition</span>(startPos.<span class="fn">Lerp</span>(endPos, t));
+            },
+            [<span class="kw">this</span>, index] {
+                <span class="cm">// onComplete: hide coin and update score</span>
+                coinTweens_[index] = <span class="kw">nullptr</span>;  <span class="cm">// pointer invalid after this callback</span>
+                coins_[index]-&gt;<span class="fn">SetActive</span>(<span class="kw">false</span>);
+
+                score_++;
+                scoreLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Coins: "</span> + std::<span class="fn">to_string</span>(score_) +
+                                      <span class="st">" / "</span> + std::<span class="fn">to_string</span>(<span class="val">COIN_COUNT</span>));
+                <span class="fn">PlaySound</span>(<span class="st">"Sounds/Coin.wav"</span>);
+            },
+            <span class="ty">TweenEase</span>::<span class="val">EaseIn</span>);
+
+        <span class="cm">// ── Tween 2: score pop-up (EaseOut = fast start, soft landing) ──</span>
+        <span class="cm">// Scale the "+1" label from 0 → 1.2 so it visually "pops".</span>
+        popLabel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+        popLabel_-&gt;<span class="fn">SetScale</span>(<span class="val">0.0f</span>);
+
+        <span class="fn">CreateTween</span>(<span class="val">0.0f</span>, <span class="val">1.2f</span>, <span class="val">0.20f</span>,
+            [<span class="kw">this</span>](<span class="ty">float</span> v) { popLabel_-&gt;<span class="fn">SetScale</span>(v); },
+            [<span class="kw">this</span>] {
+                <span class="cm">// Chain: settle back to 1.0 immediately after the overshoot</span>
+                <span class="fn">CreateTween</span>(<span class="val">1.2f</span>, <span class="val">1.0f</span>, <span class="val">0.08f</span>,
+                    [<span class="kw">this</span>](<span class="ty">float</span> v) { popLabel_-&gt;<span class="fn">SetScale</span>(v); },
+                    [<span class="kw">this</span>] {
+                        <span class="cm">// Chain: scale down to 0 over 0.5 s (EaseIn = accelerate out)</span>
+                        <span class="fn">CreateTween</span>(<span class="val">1.0f</span>, <span class="val">0.0f</span>, <span class="val">0.5f</span>,
+                            [<span class="kw">this</span>](<span class="ty">float</span> v) { popLabel_-&gt;<span class="fn">SetScale</span>(v); },
+                            [<span class="kw">this</span>] { popLabel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>); },
+                            <span class="ty">TweenEase</span>::<span class="val">EaseIn</span>);
+                    });
+            },
+            <span class="ty">TweenEase</span>::<span class="val">EaseOut</span>);
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────</span>
+    <span class="cm">// TakeDamage: drain health bar and flash the screen red.</span>
+    <span class="cm">// Demonstrates: Cancel(), IsComplete(), EaseOut tween.</span>
+    <span class="cm">// ─────────────────────────────────────────────────────</span>
+    <span class="ty">void</span> <span class="fn">TakeDamage</span>(<span class="ty">float</span> amount)
+    {
+        health_ -= amount;
+        <span class="kw">if</span> (health_ &lt; <span class="val">0.0f</span>) health_ = <span class="val">0.0f</span>;
+
+        <span class="cm">// Cancel any health tween that is still running so we don't</span>
+        <span class="cm">// have two tweens fighting over the same progress bar.</span>
+        <span class="kw">if</span> (healthTween_ &amp;&amp; !healthTween_-&gt;<span class="fn">IsComplete</span>()) {
+            healthTween_-&gt;<span class="fn">Cancel</span>();
+            healthTween_ = <span class="kw">nullptr</span>;  <span class="cm">// pointer is invalid at end of frame</span>
+        }
+
+        <span class="cm">// Read the current bar value so the drain starts from wherever</span>
+        <span class="cm">// the previous tween stopped, giving a smooth continuation.</span>
+        <span class="ty">float</span> fromValue = healthBar_-&gt;<span class="fn">GetValue</span>();
+        <span class="ty">float</span> toValue   = health_ / <span class="val">MAX_HEALTH</span>;
+
+        <span class="cm">// EaseOut: bar drains quickly at first then slows as it settles</span>
+        healthTween_ = <span class="fn">CreateTween</span>(fromValue, toValue, <span class="val">0.45f</span>,
+            [<span class="kw">this</span>](<span class="ty">float</span> v) { healthBar_-&gt;<span class="fn">SetValue</span>(v); },
+            [<span class="kw">this</span>] {
+                healthTween_ = <span class="kw">nullptr</span>;  <span class="cm">// null out once complete</span>
+                <span class="kw">if</span> (health_ &lt;= <span class="val">0.0f</span>)
+                    scoreLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"You died!"</span>);
+            },
+            <span class="ty">TweenEase</span>::<span class="val">EaseOut</span>);
+
+        <span class="cm">// Turn the bar red when health is critically low</span>
+        <span class="kw">if</span> (health_ &lt; <span class="val">MAX_HEALTH</span> * <span class="val">0.3f</span>)
+            healthBar_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.85f</span>, <span class="val">0.15f</span>, <span class="val">0.15f</span>, <span class="val">1</span>));
+
+        <span class="fn">FlashDamageOverlay</span>();
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────</span>
+    <span class="cm">// FlashDamageOverlay: fade a red panel in, then chain a fade-out.</span>
+    <span class="cm">// Demonstrates: UI opacity tween, chaining via onComplete.</span>
+    <span class="cm">// ─────────────────────────────────────────────────────</span>
+    <span class="ty">void</span> <span class="fn">FlashDamageOverlay</span>()
+    {
+        flashPanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+        flashPanel_-&gt;<span class="fn">SetOpacity</span>(<span class="val">0.0f</span>);
+
+        <span class="cm">// Fade in very fast (0.08 s) — Linear feels punchy for a hit flash</span>
+        <span class="fn">CreateTween</span>(<span class="val">0.0f</span>, <span class="val">0.55f</span>, <span class="val">0.08f</span>,
+            [<span class="kw">this</span>](<span class="ty">float</span> v) { flashPanel_-&gt;<span class="fn">SetOpacity</span>(v); },
+            [<span class="kw">this</span>] {
+                <span class="cm">// onComplete: immediately chain a slower fade-out</span>
+                <span class="fn">CreateTween</span>(<span class="val">0.55f</span>, <span class="val">0.0f</span>, <span class="val">0.40f</span>,
+                    [<span class="kw">this</span>](<span class="ty">float</span> v) { flashPanel_-&gt;<span class="fn">SetOpacity</span>(v); },
+                    [<span class="kw">this</span>] { flashPanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>); },
+                    <span class="ty">TweenEase</span>::<span class="val">EaseOut</span>);
+            });
+    }
+
+    <span class="cm">// Entities</span>
+    <span class="ty">Entity</span>*              player_             = <span class="kw">nullptr</span>;
+    <span class="ty">CharacterController</span>* cc_                 = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*              coins_[<span class="val">COIN_COUNT</span>]  = {};
+
+    <span class="cm">// Game state</span>
+    <span class="ty">int</span>   score_  = <span class="val">0</span>;
+    <span class="ty">float</span> health_ = <span class="val">MAX_HEALTH</span>;
+
+    <span class="cm">// UI elements</span>
+    <span class="ty">UI::ProgressBar</span>* healthBar_  = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*           scoreLabel_ = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*           popLabel_   = <span class="kw">nullptr</span>;
+    <span class="ty">UI::Panel</span>*       flashPanel_ = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*           hintLabel_  = <span class="kw">nullptr</span>;
+
+    <span class="cm">// Tween handles — store pointers so we can Cancel() if needed.</span>
+    <span class="cm">// Always null out after Cancel() or in the onComplete callback.</span>
+    <span class="ty">Tween</span>* coinTweens_[<span class="val">COIN_COUNT</span>] = {};
+    <span class="ty">Tween</span>* healthTween_             = <span class="kw">nullptr</span>;
+};
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">CoinCollectDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<h3><code>CreateTween(from, to, duration, onUpdate, onComplete, ease)</code></h3>
+<p>
+  This is the single entry point for all tweens. The full signature is:
+</p>
+<pre><span class="ty">Tween</span>* <span class="fn">CreateTween</span>(
+    <span class="ty">float</span> from,           <span class="cm">// starting value</span>
+    <span class="ty">float</span> to,             <span class="cm">// ending value</span>
+    <span class="ty">float</span> duration,       <span class="cm">// total time in seconds</span>
+    std::function&lt;<span class="ty">void</span>(<span class="ty">float</span>)&gt; onUpdate,    <span class="cm">// called every frame with interpolated value</span>
+    std::function&lt;<span class="ty">void</span>()&gt;    onComplete = {}, <span class="cm">// called once when done (optional)</span>
+    <span class="ty">TweenEase</span>               ease = <span class="ty">TweenEase</span>::<span class="val">Linear</span>  <span class="cm">// easing curve (optional)</span>
+);</pre>
+<p>
+  <strong>Lifetime:</strong> the returned <code>Tween*</code> pointer is valid from the
+  moment of creation until the tween completes (or is cancelled). At that point the
+  engine destroys the internal tween object; the raw pointer becomes a dangling pointer.
+  You do not need to delete it. If you need to cancel or check completion, store the
+  pointer immediately and null it out inside <code>onComplete</code> (or right after
+  <code>Cancel()</code>).
+</p>
+<p>
+  <strong>Tick source:</strong> tweens advance using the same scaled frame time that is
+  passed to <code>Update(dt)</code>. If you call <code>SetTimeScale(0.5f)</code>, all
+  tweens run at half speed &mdash; they take twice as long to complete. This is usually
+  what you want for slow-motion effects, but be aware of it if you are using tweens for
+  UI animations that should be independent of game speed.
+</p>
+
+<h3>The <code>onUpdate</code> callback</h3>
+<p>
+  The lambda you pass as <code>onUpdate</code> receives the <em>current interpolated
+  value</em> every frame &mdash; not a normalized 0&ndash;1 parameter, but the actual
+  value somewhere between <code>from</code> and <code>to</code>. So:
+</p>
+<ul>
+  <li>
+    <code>CreateTween(100.0f, 0.0f, 1.0f, [&amp;](float v){ bar-&gt;SetValue(v/100.0f); })</code>
+    &mdash; <code>v</code> counts down from 100 to 0.
+  </li>
+  <li>
+    <code>CreateTween(0.0f, 1.0f, 0.3f, [&amp;](float v){ label-&gt;SetScale(v); })</code>
+    &mdash; <code>v</code> climbs from 0 to 1.
+  </li>
+</ul>
+<p>
+  When you want a normalized 0&ndash;1 parameter to use with <code>Lerp</code>
+  or other math functions, simply pass <code>from=0.0f, to=1.0f</code> and the
+  received value <em>is</em> the t parameter.
+</p>
+
+<h3>Easing modes &mdash; <code>TweenEase::Linear / EaseIn / EaseOut / EaseInOut</code></h3>
+<p>
+  Pass the desired easing as the sixth argument. The default when you omit it is
+  <code>TweenEase::Linear</code>. Here are examples with the choice of easing motivated:
+</p>
+
+<pre><span class="cm">// Health bar drains: EaseOut feels natural (fast at first, slows as it settles)</span>
+<span class="fn">CreateTween</span>(<span class="val">1.0f</span>, <span class="val">0.2f</span>, <span class="val">0.45f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> v) { healthBar_-&gt;<span class="fn">SetValue</span>(v); },
+    {}, <span class="ty">TweenEase</span>::<span class="val">EaseOut</span>);
+
+<span class="cm">// Coin fly-up: EaseIn = slow start, object accelerates away (like gravity)</span>
+<span class="fn">CreateTween</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.55f</span>,
+    [=](<span class="ty">float</span> t) { coin-&gt;<span class="fn">SetPosition</span>(start.<span class="fn">Lerp</span>(end, t)); },
+    {}, <span class="ty">TweenEase</span>::<span class="val">EaseIn</span>);
+
+<span class="cm">// Score pop-up label: EaseOut = springs into view with a gentle stop</span>
+<span class="fn">CreateTween</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.2f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> v) { popLabel_-&gt;<span class="fn">SetScale</span>(v); },
+    {}, <span class="ty">TweenEase</span>::<span class="val">EaseOut</span>);
+
+<span class="cm">// Menu panel slides from off-screen: EaseInOut = smooth start and end</span>
+<span class="fn">CreateTween</span>(-<span class="val">400.0f</span>, <span class="val">0.0f</span>, <span class="val">0.3f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> x) { menuPanel_-&gt;<span class="fn">SetPosition</span>((<span class="ty">int</span>)x, <span class="val">100</span>); },
+    {}, <span class="ty">TweenEase</span>::<span class="val">EaseInOut</span>);</pre>
+
+<h3>The <code>onComplete</code> callback</h3>
+<p>
+  The optional fifth argument is called <strong>exactly once</strong>, after the tween
+  delivers the final <code>to</code> value to <code>onUpdate</code>. It receives no
+  arguments. Common uses: hide a UI element after a fade-out, trigger the next event
+  in a sequence, play a sound when a bar fills up, or destroy an entity that has
+  finished its exit animation.
+</p>
+<p>
+  If you pass <code>{}</code> (an empty <code>std::function</code>) or simply omit
+  the argument, no completion logic runs. Either form is valid:
+</p>
+<pre><span class="cm">// With completion callback</span>
+<span class="fn">CreateTween</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.3f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> v) { overlay_-&gt;<span class="fn">SetOpacity</span>(v); },
+    [<span class="kw">this</span>] { <span class="fn">StartNextWave</span>(); });
+
+<span class="cm">// Without completion callback (omit the argument entirely)</span>
+<span class="fn">CreateTween</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.3f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> v) { overlay_-&gt;<span class="fn">SetOpacity</span>(v); });
+
+<span class="cm">// Without completion callback (explicit empty function)</span>
+<span class="fn">CreateTween</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.3f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> v) { overlay_-&gt;<span class="fn">SetOpacity</span>(v); }, {});</pre>
+
+<h3>Tweening entity position with <code>Vector3::Lerp()</code></h3>
+<p>
+  <code>CreateTween</code> interpolates a single <code>float</code>, but you can use it
+  to animate any value type by passing <code>from=0.0f, to=1.0f</code> and doing the
+  multi-dimensional interpolation yourself in the callback. <code>Vector3::Lerp(rhs, t)</code>
+  linearly interpolates between the calling vector and <code>rhs</code> at parameter
+  <code>t</code> (0 = this vector, 1 = rhs).
+</p>
+
+<pre><span class="cm">// Snapshot start and end before the tween runs</span>
+<span class="kw">const</span> <span class="ty">Vector3</span> start = enemy-&gt;<span class="fn">GetPosition</span>();
+<span class="kw">const</span> <span class="ty">Vector3</span> end   = <span class="ty">Vector3</span>(<span class="val">10</span>, <span class="val">0</span>, <span class="val">5</span>);
+
+<span class="cm">// Capture start and end BY VALUE (copy into lambda) — never capture by reference</span>
+<span class="cm">// if the variables live on the stack and the tween outlives the current scope.</span>
+<span class="fn">CreateTween</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">1.5f</span>,
+    [enemy, start, end](<span class="ty">float</span> t) {
+        enemy-&gt;<span class="fn">SetPosition</span>(start.<span class="fn">Lerp</span>(end, t));
+    },
+    {}, <span class="ty">TweenEase</span>::<span class="val">EaseInOut</span>);</pre>
+
+<p>
+  The same pattern works for any other type that provides a Lerp-like function, such as
+  <code>Color</code> (built-in RGBA interpolation) or a custom <code>struct</code> where
+  you write the math inline.
+</p>
+
+<pre><span class="cm">// Tween a point light from dim orange to bright white</span>
+<span class="kw">const</span> <span class="ty">Color</span> warmOrange(<span class="val">1.0f</span>, <span class="val">0.5f</span>, <span class="val">0.1f</span>);
+<span class="kw">const</span> <span class="ty">Color</span> brightWhite(<span class="val">1.0f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>);
+<span class="fn">CreateTween</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">2.0f</span>,
+    [lamp, warmOrange, brightWhite](<span class="ty">float</span> t) {
+        <span class="ty">Color</span> c = warmOrange.<span class="fn">Lerp</span>(brightWhite, t);
+        lamp-&gt;<span class="fn">SetMaterialColor</span>(c);
+    });</pre>
+
+<h3>Tweening UI alpha &mdash; <code>Panel::SetOpacity()</code></h3>
+<p>
+  <code>UI::Panel</code> exposes <code>SetOpacity(float v)</code> where 0.0 is fully
+  transparent and 1.0 is fully opaque. This is the canonical way to fade any panel-based
+  overlay in or out. <code>UI::Button</code> also has <code>SetOpacity</code>.
+</p>
+
+<pre><span class="cm">// Fade a HUD panel in from invisible to fully opaque</span>
+panel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+panel_-&gt;<span class="fn">SetOpacity</span>(<span class="val">0.0f</span>);
+<span class="fn">CreateTween</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.25f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> v) { panel_-&gt;<span class="fn">SetOpacity</span>(v); },
+    {}, <span class="ty">TweenEase</span>::<span class="val">EaseOut</span>);
+
+<span class="cm">// Fade a panel out and hide it when fully transparent</span>
+<span class="fn">CreateTween</span>(<span class="val">1.0f</span>, <span class="val">0.0f</span>, <span class="val">0.3f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> v) { panel_-&gt;<span class="fn">SetOpacity</span>(v); },
+    [<span class="kw">this</span>] { panel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>); },
+    <span class="ty">TweenEase</span>::<span class="val">EaseIn</span>);</pre>
+
+<p>
+  For <code>Label</code>, which does not have <code>SetOpacity</code>, drive the
+  alpha through the color instead: <code>label-&gt;SetColor(Color(r, g, b, alpha))</code>.
+</p>
+
+<h3>Tweening UI size &mdash; <code>Element::SetSize()</code></h3>
+<p>
+  All UI elements accept integer dimensions from <code>SetSize(int w, int h)</code>.
+  You can animate size by tweening a float and casting to <code>int</code> on each
+  frame. This is useful for expanding bars, progress indicators that grow outward, or
+  panels that slide open like a drawer.
+</p>
+
+<pre><span class="cm">// Expand a panel from 0 px wide to 250 px wide (EaseOut for a snappy feel)</span>
+infoPanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+<span class="fn">CreateTween</span>(<span class="val">0.0f</span>, <span class="val">250.0f</span>, <span class="val">0.22f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> v) { infoPanel_-&gt;<span class="fn">SetSize</span>((<span class="ty">int</span>)v, <span class="val">64</span>); },
+    {}, <span class="ty">TweenEase</span>::<span class="val">EaseOut</span>);
+
+<span class="cm">// Collapse the panel closed, then hide it</span>
+<span class="fn">CreateTween</span>(<span class="val">250.0f</span>, <span class="val">0.0f</span>, <span class="val">0.18f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> v) { infoPanel_-&gt;<span class="fn">SetSize</span>((<span class="ty">int</span>)v, <span class="val">64</span>); },
+    [<span class="kw">this</span>] { infoPanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>); },
+    <span class="ty">TweenEase</span>::<span class="val">EaseIn</span>);
+
+<span class="cm">// Grow a score label from small to normal (Label::SetScale is smoother for text)</span>
+scoreLabel_-&gt;<span class="fn">SetScale</span>(<span class="val">0.0f</span>);
+scoreLabel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+<span class="fn">CreateTween</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.25f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> v) { scoreLabel_-&gt;<span class="fn">SetScale</span>(v); },
+    {}, <span class="ty">TweenEase</span>::<span class="val">EaseOut</span>);</pre>
+
+<h3>Chaining tweens in <code>onComplete</code></h3>
+<p>
+  Because <code>onComplete</code> is a plain callback, you can call
+  <code>CreateTween()</code> inside it to start a follow-up tween the moment the
+  current one finishes. This is how multi-stage animations are built without timers
+  or coroutines.
+</p>
+
+<pre><span class="cm">// Three-stage flash: fade in → hold at opacity 1 → fade out</span>
+<span class="ty">void</span> <span class="fn">FlashOverlay</span>()
+{
+    overlay_-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+    overlay_-&gt;<span class="fn">SetOpacity</span>(<span class="val">0.0f</span>);
+
+    <span class="cm">// Stage 1: fade in quickly</span>
+    <span class="fn">CreateTween</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.12f</span>,
+        [<span class="kw">this</span>](<span class="ty">float</span> v) { overlay_-&gt;<span class="fn">SetOpacity</span>(v); },
+        [<span class="kw">this</span>] {
+            <span class="cm">// Stage 2: hold at full opacity for 0.2 s</span>
+            <span class="cm">// (use a trivial tween from 1→1 as a delay)</span>
+            <span class="fn">CreateTween</span>(<span class="val">1.0f</span>, <span class="val">1.0f</span>, <span class="val">0.2f</span>,
+                [<span class="kw">this</span>](<span class="ty">float</span> v) { overlay_-&gt;<span class="fn">SetOpacity</span>(v); },
+                [<span class="kw">this</span>] {
+                    <span class="cm">// Stage 3: fade out slowly</span>
+                    <span class="fn">CreateTween</span>(<span class="val">1.0f</span>, <span class="val">0.0f</span>, <span class="val">0.4f</span>,
+                        [<span class="kw">this</span>](<span class="ty">float</span> v) { overlay_-&gt;<span class="fn">SetOpacity</span>(v); },
+                        [<span class="kw">this</span>] { overlay_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>); },
+                        <span class="ty">TweenEase</span>::<span class="val">EaseOut</span>);
+                });
+        });
+}</pre>
+
+<p>
+  Chains can be as long as needed. Each level of nesting adds one stage with its own
+  easing and duration. If chains grow deep, consider extracting each stage into a named
+  helper function and calling it from the previous stage&rsquo;s <code>onComplete</code>.
+</p>
+
+<h3><code>Tween::Cancel()</code></h3>
+<p>
+  Calling <code>Cancel()</code> on a live tween stops it immediately. The
+  <code>onUpdate</code> callback stops receiving values, and the
+  <code>onComplete</code> callback is <strong>not</strong> called &mdash; the tween
+  simply disappears. After calling <code>Cancel()</code>, the pointer becomes invalid
+  at the end of the current frame. Always null the stored pointer immediately after
+  cancelling:
+</p>
+
+<pre><span class="cm">// Guard: only cancel if the pointer is non-null and not yet done</span>
+<span class="kw">if</span> (healthTween_ &amp;&amp; !healthTween_-&gt;<span class="fn">IsComplete</span>()) {
+    healthTween_-&gt;<span class="fn">Cancel</span>();
+    healthTween_ = <span class="kw">nullptr</span>;
+}
+
+<span class="cm">// If IsComplete() is true, the pointer is already invalid — do not cancel again.</span>
+<span class="cm">// Always null-check before accessing any Tween pointer.</span></pre>
+
+<p>
+  A common pattern is to cancel all tweens associated with a scene object when that
+  object is destroyed or when the scene changes, to prevent dangling callbacks:
+</p>
+
+<pre><span class="ty">void</span> <span class="fn">CancelAllCoinTweens</span>()
+{
+    <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i &lt; <span class="val">COIN_COUNT</span>; ++i) {
+        <span class="kw">if</span> (coinTweens_[i] &amp;&amp; !coinTweens_[i]-&gt;<span class="fn">IsComplete</span>()) {
+            coinTweens_[i]-&gt;<span class="fn">Cancel</span>();
+        }
+        coinTweens_[i] = <span class="kw">nullptr</span>;
+    }
+}</pre>
+
+<h3><code>Tween::IsComplete()</code></h3>
+<p>
+  Returns <code>true</code> when the tween has either finished its full duration or been
+  cancelled. After <code>IsComplete()</code> returns <code>true</code>, the pointer is
+  no longer valid and must not be used again. The primary use cases are:
+</p>
+<ol>
+  <li>
+    <strong>Guard before Cancel():</strong> only cancel if the tween is still running.
+    Calling <code>Cancel()</code> on a completed tween would crash (dangling pointer).
+  </li>
+  <li>
+    <strong>Sequential logic without chaining:</strong> poll <code>IsComplete()</code>
+    in <code>Update()</code> to know when a tween has finished so you can start the
+    next step of a sequence. Using the <code>onComplete</code> chain is cleaner, but
+    polling is sometimes necessary when the next step depends on other conditions.
+  </li>
+</ol>
+
+<pre><span class="cm">// Polling pattern in Update(dt)</span>
+<span class="kw">if</span> (openingTween_ &amp;&amp; openingTween_-&gt;<span class="fn">IsComplete</span>()) {
+    openingTween_ = <span class="kw">nullptr</span>;    <span class="cm">// clear the stale handle</span>
+    <span class="fn">EnablePlayerInput</span>(<span class="kw">true</span>);    <span class="cm">// safe to allow input now</span>
+}</pre>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Additional patterns</h2>
+
+<h3>Health bar fill on level start</h3>
+<p>
+  Use <code>EaseOut</code> to fill a health bar from 0 to full when a level loads.
+  The rapid initial fill communicates &ldquo;you are fully healed&rdquo; clearly, and
+  the soft landing prevents the animation from feeling abrupt.
+</p>
+
+<pre><span class="cm">// Called from Start() after building the HUD</span>
+healthBar_-&gt;<span class="fn">SetValue</span>(<span class="val">0.0f</span>);
+<span class="fn">CreateTween</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.6f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> v) { healthBar_-&gt;<span class="fn">SetValue</span>(v); },
+    {}, <span class="ty">TweenEase</span>::<span class="val">EaseOut</span>);</pre>
+
+<h3>Menu panel slide-in</h3>
+<p>
+  Slide a pause menu panel in from the left by tweening its X position. Use
+  <code>EaseOut</code> so the panel decelerates as it arrives in place &mdash; snapping
+  to a hard stop feels wrong; easing makes it feel like the panel has weight.
+</p>
+
+<pre><span class="cm">// Panel starts at x = −300 (off-screen left) and slides to x = 0</span>
+pausePanel_-&gt;<span class="fn">SetPosition</span>(-<span class="val">300</span>, <span class="val">120</span>);
+pausePanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+
+<span class="fn">CreateTween</span>(-<span class="val">300.0f</span>, <span class="val">0.0f</span>, <span class="val">0.25f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> x) { pausePanel_-&gt;<span class="fn">SetPosition</span>((<span class="ty">int</span>)x, <span class="val">120</span>); },
+    {}, <span class="ty">TweenEase</span>::<span class="val">EaseOut</span>);
+
+<span class="cm">// To close: slide back and hide</span>
+<span class="fn">CreateTween</span>(<span class="val">0.0f</span>, -<span class="val">300.0f</span>, <span class="val">0.2f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> x) { pausePanel_-&gt;<span class="fn">SetPosition</span>((<span class="ty">int</span>)x, <span class="val">120</span>); },
+    [<span class="kw">this</span>] { pausePanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>); },
+    <span class="ty">TweenEase</span>::<span class="val">EaseIn</span>);</pre>
+
+<h3>Score number count-up</h3>
+<p>
+  Tween a float from the old score to the new score and format it as an integer on each
+  frame. This gives the classic arcade &ldquo;counting up&rdquo; effect without any
+  per-frame timer code.
+</p>
+
+<pre><span class="ty">int</span> oldScore = score_;
+score_ += pointsEarned;
+
+<span class="fn">CreateTween</span>((<span class="ty">float</span>)oldScore, (<span class="ty">float</span>)score_, <span class="val">0.8f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> v) {
+        scoreLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Score: "</span> + std::<span class="fn">to_string</span>((<span class="ty">int</span>)v));
+    },
+    {}, <span class="ty">TweenEase</span>::<span class="val">EaseOut</span>);</pre>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+
+<p>
+  The Lua API mirrors C++ one-to-one. Easing is specified as a lowercase string instead
+  of an enum: <code>"linear"</code>, <code>"easein"</code>, <code>"easeout"</code>,
+  or <code>"easeinout"</code>.
+</p>
+
+<pre><span class="lua-cm">-- Basic health drain over 1 s (Linear, no completion callback)</span>
+<span class="lua-fn">CreateTween</span>(<span class="lua-num">100</span>, <span class="lua-num">0</span>, <span class="lua-num">1.0</span>, <span class="lua-kw">function</span>(v)
+    healthLabel:<span class="lua-fn">SetText</span>(string.<span class="lua-fn">format</span>(<span class="lua-str">"HP: %d"</span>, math.<span class="lua-fn">floor</span>(v)))
+<span class="lua-kw">end</span>)
+
+<span class="lua-cm">-- Score pop-up: scale 0 → 1, then hide (EaseOut + completion callback)</span>
+popLabel:<span class="lua-fn">SetVisible</span>(<span class="lua-kw">true</span>)
+popLabel:<span class="lua-fn">SetScale</span>(<span class="lua-num">0</span>)
+<span class="lua-fn">CreateTween</span>(<span class="lua-num">0</span>, <span class="lua-num">1</span>, <span class="lua-num">0.25</span>,
+    <span class="lua-kw">function</span>(v) popLabel:<span class="lua-fn">SetScale</span>(v) <span class="lua-kw">end</span>,
+    <span class="lua-kw">function</span>()
+        <span class="lua-cm">-- Chain: fade out</span>
+        <span class="lua-fn">CreateTween</span>(<span class="lua-num">1</span>, <span class="lua-num">0</span>, <span class="lua-num">0.4</span>,
+            <span class="lua-kw">function</span>(v) popLabel:<span class="lua-fn">SetScale</span>(v) <span class="lua-kw">end</span>,
+            <span class="lua-kw">function</span>() popLabel:<span class="lua-fn">SetVisible</span>(<span class="lua-kw">false</span>) <span class="lua-kw">end</span>,
+            <span class="lua-str">"easein"</span>)
+    <span class="lua-kw">end</span>,
+    <span class="lua-str">"easeout"</span>)
+
+<span class="lua-cm">-- Coin fly-up using Vector3 Lerp</span>
+<span class="lua-kw">local</span> startPos = coin:<span class="lua-fn">GetPosition</span>()
+<span class="lua-kw">local</span> endPos   = Vector3(startPos.x, startPos.y + <span class="lua-num">5</span>, startPos.z)
+
+<span class="lua-kw">local</span> tw = <span class="lua-fn">CreateTween</span>(<span class="lua-num">0</span>, <span class="lua-num">1</span>, <span class="lua-num">0.55</span>,
+    <span class="lua-kw">function</span>(t)
+        coin:<span class="lua-fn">SetPosition</span>(startPos:<span class="lua-fn">Lerp</span>(endPos, t))
+    <span class="lua-kw">end</span>,
+    <span class="lua-kw">function</span>()
+        coin:<span class="lua-fn">SetActive</span>(<span class="lua-kw">false</span>)
+        <span class="lua-fn">PlaySound</span>(<span class="lua-str">"Sounds/Coin.wav"</span>)
+    <span class="lua-kw">end</span>,
+    <span class="lua-str">"easein"</span>)
+
+<span class="lua-cm">-- Cancel the tween if the scene ends before the coin arrives</span>
+<span class="lua-kw">if</span> tw <span class="lua-kw">and</span> <span class="lua-kw">not</span> tw:<span class="lua-fn">IsComplete</span>() <span class="lua-kw">then</span>
+    tw:<span class="lua-fn">Cancel</span>()
+    tw = <span class="lua-kw">nil</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- Panel opacity fade-in with completion callback</span>
+panel:<span class="lua-fn">SetVisible</span>(<span class="lua-kw">true</span>)
+panel:<span class="lua-fn">SetOpacity</span>(<span class="lua-num">0</span>)
+<span class="lua-fn">CreateTween</span>(<span class="lua-num">0</span>, <span class="lua-num">1</span>, <span class="lua-num">0.3</span>,
+    <span class="lua-kw">function</span>(v) panel:<span class="lua-fn">SetOpacity</span>(v) <span class="lua-kw">end</span>,
+    <span class="lua-kw">function</span>() <span class="lua-fn">print</span>(<span class="lua-str">"panel fully visible"</span>) <span class="lua-kw">end</span>,
+    <span class="lua-str">"easeout"</span>)</pre>
+
+<div class="callout new">
+  <h4>Lua note: tween string vs enum</h4>
+  <p>
+    In Lua, pass the easing as a lowercase string: <code>"linear"</code>,
+    <code>"easein"</code>, <code>"easeout"</code>, or <code>"easeinout"</code>.
+    The C++ <code>TweenEase::</code> enum is not accessible from Lua scripts.
+    An unrecognised string silently falls back to <code>Linear</code>.
+  </p>
+</div>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Common mistakes</h2>
+
+<div class="callout warn">
+  <h4>Common mistakes to avoid</h4>
+  <ul>
+    <li>
+      <strong>Using the <code>Tween*</code> pointer after it completes.</strong>
+      The engine destroys the tween object once it finishes or is cancelled. Any pointer
+      you stored before that point is now a dangling pointer. Always null stored handles
+      inside <code>onComplete</code> and right after <code>Cancel()</code>.
+    </li>
+    <li>
+      <strong>Calling <code>Cancel()</code> without checking <code>IsComplete()</code> first.</strong>
+      If the tween has already finished (pointer is stale), calling <code>Cancel()</code>
+      crashes. Guard with <code>if (ptr &amp;&amp; !ptr-&gt;IsComplete()) ptr-&gt;Cancel();</code>.
+    </li>
+    <li>
+      <strong>Capturing stack variables by reference in the <code>onUpdate</code> lambda.</strong>
+      A tween outlives the current function call. If you capture a local variable by
+      <code>&amp;</code>, the tween will reference deallocated memory after the function
+      returns. Always capture local variables that are needed inside the lambda by
+      <strong>value</strong> (<code>[=]</code> or explicit <code>[var]</code>).
+    </li>
+    <li>
+      <strong>Starting multiple tweens on the same property without cancelling the previous one.</strong>
+      Two tweens both writing <code>healthBar_-&gt;SetValue()</code> every frame will
+      race against each other, producing jittery or incorrect animation. Cancel the old
+      tween before starting a new one on the same target.
+    </li>
+    <li>
+      <strong>Forgetting to null the handle inside <code>onComplete</code>.</strong>
+      When <code>onComplete</code> fires, the tween is about to be destroyed. If your
+      stored pointer still points at it and you check <code>IsComplete()</code> on the
+      next frame before nulling it, you are reading freed memory. Set the stored pointer
+      to <code>nullptr</code> as the first line of every <code>onComplete</code> lambda.
+    </li>
+    <li>
+      <strong>Calling <code>SetOpacity()</code> on a <code>UI::Image</code>.</strong>
+      <code>Image</code> does not have <code>SetOpacity</code>. Use <code>UI::Panel</code>
+      for overlays that need opacity control, or use <code>SetColor(Color(r, g, b, alpha))</code>
+      to drive the alpha channel of an Image manually.
+    </li>
+    <li>
+      <strong>Expecting tween callbacks to ignore <code>SetTimeScale(0.0f)</code>.</strong>
+      Tweens tick with scaled time. At time scale 0 all tweens are frozen, including
+      UI animations. If you pause with <code>SetTimeScale(0.0f)</code> while a tween
+      is running, the tween stops advancing until you restore the time scale. This is
+      usually the correct behavior, but keep it in mind for opening or closing menus
+      during a pause state.
+    </li>
+    <li>
+      <strong>Using very short durations (below one frame).</strong>
+      If you pass a <code>duration</code> shorter than a single frame&rsquo;s
+      delta time, the tween will complete in one frame: <code>onUpdate</code> is called
+      once with the <code>to</code> value and then <code>onComplete</code> fires. This
+      is safe but effectively instant &mdash; choose a minimum of 0.05 s if you want
+      the animation to be visible.
+    </li>
+  </ul>
+</div>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Quick reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method / Type</th>
+      <th>Signature</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>CreateTween</code></td>
+      <td><code>(from, to, dur, onUpdate, onComplete={}, ease=Linear)</code> &rarr; <code>Tween*</code></td>
+      <td>Pointer valid until complete or cancelled</td>
+    </tr>
+    <tr>
+      <td><code>Tween::Cancel()</code></td>
+      <td><code>()</code></td>
+      <td>Stops without firing <code>onComplete</code>; pointer invalid at end of frame</td>
+    </tr>
+    <tr>
+      <td><code>Tween::IsComplete()</code></td>
+      <td><code>()</code> &rarr; <code>bool</code></td>
+      <td><code>true</code> once finished or cancelled</td>
+    </tr>
+    <tr>
+      <td><code>TweenEase::Linear</code></td>
+      <td>&mdash;</td>
+      <td>Constant rate (default)</td>
+    </tr>
+    <tr>
+      <td><code>TweenEase::EaseIn</code></td>
+      <td>t&sup2;</td>
+      <td>Slow start, fast end</td>
+    </tr>
+    <tr>
+      <td><code>TweenEase::EaseOut</code></td>
+      <td>t(2&minus;t)</td>
+      <td>Fast start, soft landing</td>
+    </tr>
+    <tr>
+      <td><code>TweenEase::EaseInOut</code></td>
+      <td>smoothstep</td>
+      <td>Smooth at both ends</td>
+    </tr>
+    <tr>
+      <td><code>Panel::SetOpacity(float)</code></td>
+      <td>0.0&ndash;1.0</td>
+      <td>Fade UI panels; also on <code>Button</code></td>
+    </tr>
+    <tr>
+      <td><code>Label::SetScale(float)</code></td>
+      <td>1.0 = normal</td>
+      <td>Scale pop-in / scale-out for labels</td>
+    </tr>
+    <tr>
+      <td><code>Vector3::Lerp(rhs, t)</code></td>
+      <td>0=this, 1=rhs</td>
+      <td>Use with a 0&rarr;1 tween to animate position</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>What you learned</h2>
+
+<ul>
+  <li>
+    <code>CreateTween(from, to, duration, onUpdate, onComplete, ease)</code> creates a
+    one-shot float interpolator owned by the Game. No <code>Update()</code> wiring is
+    needed &mdash; the engine ticks it automatically every frame.
+  </li>
+  <li>
+    The <code>onUpdate</code> lambda receives the actual interpolated value between
+    <code>from</code> and <code>to</code> on each frame. Pass <code>from=0, to=1</code>
+    when you need a normalized 0&ndash;1 parameter (e.g. for <code>Vector3::Lerp</code>).
+  </li>
+  <li>
+    The four easing modes &mdash; <code>Linear</code>, <code>EaseIn</code>,
+    <code>EaseOut</code>, <code>EaseInOut</code> &mdash; alter the rate of change
+    across the duration without changing the total time. Choosing the right easing is
+    what separates a mechanical UI from one that feels responsive and polished.
+  </li>
+  <li>
+    Entity position can be tweened by combining a 0&rarr;1 tween with
+    <code>Vector3::Lerp(target, t)</code> inside the <code>onUpdate</code> callback.
+    Always capture start and end positions by value in the lambda.
+  </li>
+  <li>
+    UI alpha is tweened via <code>Panel::SetOpacity(float)</code> (or
+    <code>Button::SetOpacity</code>). UI label size is best tweened via
+    <code>Label::SetScale(float)</code>; integer panel size via
+    <code>SetSize((int)v, h)</code>.
+  </li>
+  <li>
+    Tweens are chained by calling <code>CreateTween()</code> inside the
+    <code>onComplete</code> callback of the previous tween. Each stage has its own
+    easing and duration; chains can be arbitrarily long.
+  </li>
+  <li>
+    Store a <code>Tween*</code> handle when you need to cancel a tween early.
+    Guard with <code>if (ptr &amp;&amp; !ptr-&gt;IsComplete())</code> before calling
+    <code>Cancel()</code>. Null the pointer inside <code>onComplete</code> and right
+    after <code>Cancel()</code> to prevent accidental access to freed memory.
+  </li>
+  <li>
+    Tweens tick with scaled frame time: <code>SetTimeScale(0.5f)</code> halves the
+    speed of all running tweens. At <code>SetTimeScale(0.0f)</code> tweens freeze
+    completely.
+  </li>
+  <li>
+    In Lua, pass the easing mode as a lowercase string: <code>"linear"</code>,
+    <code>"easein"</code>, <code>"easeout"</code>, or <code>"easeinout"</code>.
+    The rest of the API is identical to C++.
+  </li>
+</ul>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-27.html">&#8592; Part 27: Debug Draw</a>
+  <a href="tutorial-29.html">Part 29: Sky and Atmosphere &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

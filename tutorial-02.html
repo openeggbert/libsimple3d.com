@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 02: Lights and Colors — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  /* "New in this part" callout — green accent like .callout.ok */
+  .callout.new  { border-color: var(--accent); background: #0d1f10; }
+  .callout.new h4 { color: var(--accent); }
+
+  .tutorial-part {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.3rem;
+  }
+
+  .tutorial-breadcrumb {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 1.5rem;
+  }
+  .tutorial-breadcrumb a { color: var(--muted); }
+  .tutorial-breadcrumb a:hover { color: var(--text); }
+
+  .tutorial-nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    gap: 1rem;
+  }
+  .tutorial-nav a {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 1.1rem;
+    font-size: 0.88rem;
+    color: var(--muted);
+    transition: border-color .15s, color .15s;
+  }
+  .tutorial-nav a:hover {
+    border-color: var(--border2);
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  /* Sidebar tutorial list */
+  .tutorial-sidebar-list {
+    list-style: decimal;
+    padding-left: 1.3rem;
+    margin-bottom: 0;
+  }
+  .tutorial-sidebar-list li {
+    margin-bottom: 0;
+  }
+  .tutorial-sidebar-list li a {
+    display: block;
+    padding: 0.22rem 0.4rem;
+    border-radius: 4px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    transition: background .1s, color .1s;
+  }
+  .tutorial-sidebar-list li a:hover {
+    background: var(--surface2);
+    color: var(--text);
+    text-decoration: none;
+  }
+  .tutorial-sidebar-list li.active a {
+    background: var(--surface2);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .api-sig {
+    font-family: "Courier New", Consolas, monospace;
+    font-size: 0.87rem;
+    color: var(--accent2);
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.5rem 1rem;
+    margin: 0.5rem 0 0.9rem;
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+    <li><a href="tutorial-01.html">01. Hello World</a></li>
+    <li class="active"><a href="tutorial-02.html">02. Lights and Colors</a></li>
+    <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+    <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+    <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+    <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+    <li><a href="tutorial-07.html">07. Character Controller</a></li>
+    <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+    <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+    <li><a href="tutorial-10.html">10. Audio</a></li>
+    <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+    <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+    <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+    <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+    <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+    <li><a href="tutorial-16.html">16. Input Actions</a></li>
+    <li><a href="tutorial-17.html">17. UI System</a></li>
+    <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+    <li><a href="tutorial-19.html">19. Save and Load</a></li>
+    <li><a href="tutorial-20.html">20. Scene Management</a></li>
+    <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+    <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+    <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+    <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+    <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+    <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+    <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+    <li><a href="tutorial-28.html">28. Tweens</a></li>
+    <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+    <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 02</div>
+
+<h1><span class="tutorial-part">Part 02 of 30</span>Lights and Colors</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>Color(r,g,b,a)</code> &nbsp;&bull;&nbsp;
+    <code>Color::WHITE</code> / <code>Color::BLACK</code> &nbsp;&bull;&nbsp;
+    <code>SetClearColor(Color)</code> &nbsp;&bull;&nbsp;
+    <code>SetAmbientColor(Color)</code> &nbsp;&bull;&nbsp;
+    <code>Entity::AddDirectionalLight(Color, intensity)</code> &nbsp;&bull;&nbsp;
+    <code>Entity::AddPointLight(Color, range)</code> &nbsp;&bull;&nbsp;
+    <code>Quaternion(yaw, pitch, roll)</code> for light direction &nbsp;&bull;&nbsp;
+    Key + fill two-light rig
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ────────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How the <code>Color</code> type works — RGBA normalized floats, and the built-in <code>Color::WHITE</code> / <code>Color::BLACK</code> constants.</li>
+  <li>How to set the window background colour with <code>SetClearColor</code>.</li>
+  <li>How to give the entire scene a base level of illumination using <code>SetAmbientColor</code>.</li>
+  <li>How to add a sun-like directional light with <code>AddDirectionalLight(Color, intensity)</code>.</li>
+  <li>How to point a directional light in any direction using <code>Quaternion(yaw, pitch, roll)</code>.</li>
+  <li>How to add a local radius-limited point light (like a torch or lamp) with <code>AddPointLight(Color, range)</code>.</li>
+  <li>The classic <strong>key + fill</strong> two-light pattern that makes geometry look three-dimensional without advanced rendering.</li>
+</ul>
+
+<!-- ─── INTRODUCTION ──────────────────────────────────────────────── -->
+<h2>Introduction</h2>
+<p>
+  In Part 01 you created a window, an entity, and a camera. But with no lights in the scene
+  the default rendering relies on a flat ambient pass — everything looks washed out or uniformly
+  dark. Real-time lighting is what transforms flat geometry into convincing 3D shapes. Even a
+  single well-placed directional light dramatically improves depth perception.
+</p>
+<p>
+  Before you can talk about lights you need a language for colour. In simple-3d every colour is
+  expressed as four normalized floating-point components: red, green, blue, and alpha (opacity).
+  All values live in the range <code>0.0&thinsp;&ndash;&thinsp;1.0</code>. The same
+  <code>Color</code> type is used everywhere: light tints, ambient settings, clear colour, UI
+  widget tints, and label colours.
+</p>
+
+<!-- ─── THE COLOR TYPE ────────────────────────────────────────────── -->
+<h2>The Color type</h2>
+
+<span class="api-sig">Color(float r, float g, float b, float a = 1.0f)</span>
+
+<p>
+  <code>Color</code> is a plain value type defined in <code>Simple3D/Simple3D.h</code>. All four
+  components are <code>float</code> values in the <code>[0.0, 1.0]</code> range; values outside
+  this range are legal in some contexts (HDR lighting) but clamp to the visible range on standard
+  displays.
+</p>
+
+<pre><span class="cm">// Explicit RGBA construction</span>
+<span class="ty">Color</span> red   = <span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">1.0f</span>);  <span class="cm">// fully opaque red</span>
+<span class="ty">Color</span> green  = <span class="ty">Color</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>, <span class="val">1.0f</span>);  <span class="cm">// fully opaque green</span>
+<span class="ty">Color</span> blue   = <span class="ty">Color</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>);  <span class="cm">// fully opaque blue</span>
+
+<span class="cm">// Alpha channel</span>
+<span class="ty">Color</span> semiBlue = <span class="ty">Color</span>(<span class="val">0.0f</span>, <span class="val">0.3f</span>, <span class="val">1.0f</span>, <span class="val">0.5f</span>);  <span class="cm">// 50 % transparent blue</span>
+
+<span class="cm">// Three-component form (alpha defaults to 1.0)</span>
+<span class="ty">Color</span> amber    = <span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.75f</span>, <span class="val">0.0f</span>);
+
+<span class="cm">// Predefined constants</span>
+<span class="ty">Color</span>::<span class="nm">WHITE</span>   <span class="cm">// Color(1, 1, 1, 1) — pure white, fully opaque</span>
+<span class="ty">Color</span>::<span class="nm">BLACK</span>   <span class="cm">// Color(0, 0, 0, 1) — pure black, fully opaque</span></pre>
+
+<div class="callout info">
+  <h4>0–1, not 0–255</h4>
+  <p>
+    A common mistake from CSS / SDL / GDI programming is to write <code>Color(255, 128, 0)</code>.
+    In simple-3d that produces a blindingly bright, clipped colour (255 times maximum red).
+    Always use normalized floats: <code>Color(1.0f, 0.5f, 0.0f)</code>.
+  </p>
+</div>
+
+<p>
+  The <code>Color</code> type inherits from Urho3D and exposes several additional predefined
+  constants including <code>Color::RED</code>, <code>Color::GREEN</code>, <code>Color::BLUE</code>,
+  <code>Color::YELLOW</code>, <code>Color::CYAN</code>, <code>Color::MAGENTA</code>, and
+  <code>Color::TRANSPARENT</code>. <code>Color::WHITE</code> and <code>Color::BLACK</code> are
+  the most commonly used for lighting.
+</p>
+
+<!-- ─── SETCLEARCOLOR ──────────────────────────────────────────────── -->
+<h2>SetClearColor — the window background</h2>
+
+<span class="api-sig">void SetClearColor(Color c)</span>
+
+<p>
+  Every frame the renderer first fills the entire framebuffer with a solid colour before drawing
+  any 3D content. This is the <strong>clear colour</strong>, visible wherever no geometry or sky
+  covers the screen. Call <code>SetClearColor</code> in <code>Start()</code> (and whenever you
+  change scenes) to give your game the right background tone.
+</p>
+
+<pre><span class="cm">// Dark navy sky — good for night / space scenes</span>
+<span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.05f</span>, <span class="val">0.08f</span>, <span class="val">0.18f</span>));
+
+<span class="cm">// Midday blue sky</span>
+<span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.4f</span>, <span class="val">0.65f</span>, <span class="val">0.9f</span>));
+
+<span class="cm">// Solid black (default if never called)</span>
+<span class="fn">SetClearColor</span>(<span class="ty">Color</span>::<span class="nm">BLACK</span>);
+
+<span class="cm">// Pure white — good for stylized/flat scenes</span>
+<span class="fn">SetClearColor</span>(<span class="ty">Color</span>::<span class="nm">WHITE</span>);</pre>
+
+<p>
+  <code>SetClearColor</code> is a method on <code>Game</code>, so you call it without a receiver
+  inside any <code>Game</code> subclass method. It is safe to call from both <code>Start()</code>
+  and <code>Update()</code> — for example when transitioning between an outdoor (blue sky) and
+  an indoor (black) scene.
+</p>
+
+<!-- ─── SETAMBIENTCOLOR ────────────────────────────────────────────── -->
+<h2>SetAmbientColor — baseline illumination</h2>
+
+<span class="api-sig">void SetAmbientColor(Color c)</span>
+
+<p>
+  Ambient light is a constant, directionless illumination that reaches every surface in the scene
+  equally, regardless of its orientation relative to light sources. It represents indirect light
+  bouncing off walls, the sky, or the ground — light that comes from everywhere at once.
+</p>
+<p>
+  The default ambient is <code>Color(0.3, 0.3, 0.3)</code> — a moderate grey. Too high and the
+  scene looks flat (all surfaces equally bright, no depth). Too low and shadows look completely
+  black with no detail. A good ambient is subtle: around 10–25&thinsp;% brightness.
+</p>
+
+<pre><span class="cm">// Neutral grey ambient (default)</span>
+<span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.3f</span>, <span class="val">0.3f</span>, <span class="val">0.3f</span>));
+
+<span class="cm">// Subtle cool ambient (moonlit outdoor scene)</span>
+<span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.10f</span>, <span class="val">0.12f</span>, <span class="val">0.20f</span>));
+
+<span class="cm">// Warm amber ambient (interior lit by firelight)</span>
+<span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.20f</span>, <span class="val">0.12f</span>, <span class="val">0.06f</span>));
+
+<span class="cm">// No ambient at all — pitch-black shadows (space, horror)</span>
+<span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>::<span class="nm">BLACK</span>);</pre>
+
+<div class="callout info">
+  <h4>Ambient and the Zone component</h4>
+  <p>
+    Internally, <code>SetAmbientColor</code> sets the ambient light on Urho3D's
+    <code>Zone</code> component that simple-3d creates for you. The same Zone also controls
+    fog (covered in Part 29). You never need to touch the Zone directly.
+  </p>
+</div>
+
+<!-- ─── DIRECTIONAL LIGHT ─────────────────────────────────────────── -->
+<h2>AddDirectionalLight — sun-like lighting</h2>
+
+<span class="api-sig">void Entity::AddDirectionalLight(Color color, float intensity)</span>
+
+<p>
+  A <strong>directional light</strong> has no position — it sends parallel rays across the entire
+  scene from a fixed direction, just like the sun. Every surface in the world is illuminated by
+  the same light regardless of where it is. The brightness on each surface depends only on the
+  angle between the surface normal and the light direction.
+</p>
+<p>
+  You call <code>AddDirectionalLight</code> on any entity. The entity's world-space rotation
+  determines which way the light points. The <code>color</code> parameter tints the light, and
+  <code>intensity</code> scales its overall brightness (1.0 is full power; 0.5 is half; values
+  above 1.0 are valid for HDR-style overbright effects).
+</p>
+
+<pre><span class="cm">// Create a dedicated entity to carry the sun light</span>
+<span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+
+<span class="cm">// Pure white, full brightness — neutral daytime sun</span>
+sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>::<span class="nm">WHITE</span>, <span class="val">1.0f</span>);
+
+<span class="cm">// Warm afternoon light (slightly orange-tinted, still bright)</span>
+sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.92f</span>, <span class="val">0.75f</span>), <span class="val">1.0f</span>);
+
+<span class="cm">// Dimmer fill light — cooler blue tone</span>
+<span class="ty">Entity</span>* fill = <span class="fn">CreateEntity</span>(<span class="st">"FillLight"</span>);
+fill-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">0.40f</span>, <span class="val">0.55f</span>, <span class="val">0.80f</span>), <span class="val">0.35f</span>);</pre>
+
+<p>
+  Directional lights do not attenuate with distance — a surface 1 metre away is just as bright as
+  one 1000 metres away. This is why they are used for global sources like the sun or moon.
+</p>
+
+<!-- ─── QUATERNION FOR LIGHT DIRECTION ────────────────────────────── -->
+<h2>Quaternion — pointing a directional light</h2>
+
+<span class="api-sig">Quaternion(float yaw, float pitch, float roll)</span>
+
+<p>
+  A <code>Quaternion</code> represents a 3D rotation. For directional lights, you set the
+  entity's rotation and that rotation defines which direction the light shines. The constructor
+  <code>Quaternion(yaw, pitch, roll)</code> takes angles in <strong>degrees</strong>.
+</p>
+<ul>
+  <li><strong>Yaw</strong> — rotation around the world Y (up) axis. Positive yaw spins right.</li>
+  <li><strong>Pitch</strong> — rotation around the local X axis (after yaw). Positive pitch tilts downward.</li>
+  <li><strong>Roll</strong> — rotation around the local Z axis. For directional lights, roll has no visible effect.</li>
+</ul>
+
+<pre><span class="cm">// Sun from upper-left — tilted 45° down, 30° to the right</span>
+sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45.0f</span>, <span class="val">-30.0f</span>, <span class="val">0.0f</span>));
+
+<span class="cm">// Sun directly overhead (noon) — straight down</span>
+sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">90.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>));
+
+<span class="cm">// Low sunrise from the left — shallow angle, wide shadow</span>
+sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">10.0f</span>, <span class="val">90.0f</span>, <span class="val">0.0f</span>));
+
+<span class="cm">// Fill light from the opposite side as the sun above</span>
+fill-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(-<span class="val">45.0f</span>, <span class="val">150.0f</span>, <span class="val">0.0f</span>));</pre>
+
+<div class="callout info">
+  <h4>Default direction</h4>
+  <p>
+    An entity with no rotation (<code>Quaternion(0, 0, 0)</code> or simply unset) has its
+    forward direction pointing along <strong>+Z</strong>. A directional light attached to such an
+    entity shines horizontally into the scene. Giving it a positive pitch tilts it downward, which
+    is usually what you want.
+  </p>
+</div>
+
+<p>
+  For dynamic light rigs — for example a day/night cycle — you can update the rotation every frame
+  inside <code>Update(float dt)</code>:
+</p>
+
+<pre><span class="cm">// In Update(dt): rotate the sun slowly (day/night cycle)</span>
+dayAngle_ += dt * <span class="val">6.0f</span>;  <span class="cm">// 6°/s = one full day in 60 seconds</span>
+sun_-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(dayAngle_, -<span class="val">30.0f</span>, <span class="val">0.0f</span>));</pre>
+
+<!-- ─── POINT LIGHT ────────────────────────────────────────────────── -->
+<h2>AddPointLight — local radius light</h2>
+
+<span class="api-sig">void Entity::AddPointLight(Color color, float range)</span>
+
+<p>
+  A <strong>point light</strong> radiates light outward equally in all directions from the
+  entity's world position, like a light bulb or a torch. Unlike a directional light, it has a
+  position and a finite <code>range</code>: surfaces farther than <code>range</code> world units
+  from the light receive no illumination at all. Between 0 and <code>range</code>, brightness
+  falls off smoothly following an inverse-square-ish curve.
+</p>
+
+<pre><span class="cm">// A warm orange torch, reaches 8 metres</span>
+<span class="ty">Entity</span>* torch = <span class="fn">CreateEntity</span>(<span class="st">"Torch"</span>);
+torch-&gt;<span class="fn">AddPointLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.55f</span>, <span class="val">0.15f</span>), <span class="val">8.0f</span>);
+torch-&gt;<span class="fn">SetPosition</span>(-<span class="val">2.0f</span>, <span class="val">1.5f</span>, <span class="val">4.0f</span>);
+
+<span class="cm">// A small cool LED, tight radius</span>
+<span class="ty">Entity</span>* lamp = <span class="fn">CreateEntity</span>(<span class="st">"Lamp"</span>);
+lamp-&gt;<span class="fn">AddPointLight</span>(<span class="ty">Color</span>(<span class="val">0.85f</span>, <span class="val">0.90f</span>, <span class="val">1.0f</span>), <span class="val">3.0f</span>);
+lamp-&gt;<span class="fn">SetPosition</span>(<span class="val">2.0f</span>, <span class="val">2.0f</span>, <span class="val">6.0f</span>);
+
+<span class="cm">// A large area flood (white, neutral intensity)</span>
+<span class="ty">Entity</span>* flood = <span class="fn">CreateEntity</span>(<span class="st">"Flood"</span>);
+flood-&gt;<span class="fn">AddPointLight</span>(<span class="ty">Color</span>::<span class="nm">WHITE</span>, <span class="val">20.0f</span>);
+flood-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">8.0f</span>, <span class="val">0.0f</span>);</pre>
+
+<p>
+  Point lights do not require the entity to have any particular rotation — direction is irrelevant
+  for omnidirectional point lights. Moving the entity moves the light source in world space, so
+  you can animate a torch bobbing, a magic projectile flying through the air, or a pick-up item
+  pulsing on the ground.
+</p>
+
+<div class="callout info">
+  <h4>SpotLight is also available</h4>
+  <p>
+    simple-3d also exposes <code>AddSpotLight(Color, range, angle)</code> for cone-shaped lights
+    (flashlights, car headlights, stage spotlights). Spot lights use entity rotation to aim the
+    cone, just like directional lights. They are covered in depth in a later part.
+  </p>
+</div>
+
+<!-- ─── FILL LIGHT PATTERN ────────────────────────────────────────── -->
+<h2>The key + fill two-light pattern</h2>
+<p>
+  Placing just one directional light results in half of every object being fully lit and the other
+  half receiving only ambient light. With a very low ambient that shadow side looks unnaturally
+  dark. The <strong>key + fill rig</strong> is a cinematography technique that solves this:
+</p>
+<ul>
+  <li>
+    The <strong>key light</strong> is the primary, dominant light source — bright, warm, and
+    positioned from above-side (typically representing the sun). It defines the overall mood and
+    the primary shadow direction.
+  </li>
+  <li>
+    The <strong>fill light</strong> is a secondary, dimmer light coming from roughly the opposite
+    side or below — cooler in colour, 30–50&thinsp;% the intensity of the key. It softens the
+    shadows without eliminating them, keeping depth visible while revealing detail in dark areas.
+  </li>
+</ul>
+
+<pre><span class="cm">// Key light — warm sun, from upper-left</span>
+<span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.92f</span>, <span class="val">0.75f</span>), <span class="val">1.0f</span>);
+sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45.0f</span>, -<span class="val">30.0f</span>, <span class="val">0.0f</span>));
+
+<span class="cm">// Fill light — cool sky, from lower-right (opposite side)</span>
+<span class="ty">Entity</span>* fill = <span class="fn">CreateEntity</span>(<span class="st">"SkyFill"</span>);
+fill-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">0.40f</span>, <span class="val">0.55f</span>, <span class="val">0.80f</span>), <span class="val">0.35f</span>);
+fill-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(-<span class="val">45.0f</span>, <span class="val">150.0f</span>, <span class="val">0.0f</span>));</pre>
+
+<p>
+  The contrast between the warm key and the cool fill is a powerful visual cue: the lit side
+  looks sunny and the shadow side looks like it is receiving reflected skylight. This gives
+  geometry a natural, photographic quality with minimal setup.
+</p>
+
+<div class="callout ok">
+  <h4>Quick recipe</h4>
+  <p>
+    Warm key at ~1.0 intensity + cool fill at ~0.3&ndash;0.4 intensity + dark ambient at
+    <code>Color(0.08, 0.10, 0.18)</code> = a scene that reads clearly in all lighting conditions
+    without looking flat or overly dark.
+  </p>
+</div>
+
+<!-- ─── COMPLETE C++ EXAMPLE ──────────────────────────────────────── -->
+<h2>Complete C++ example</h2>
+<p>
+  The program below demonstrates every concept from this part: the <code>Color</code> type,
+  <code>SetClearColor</code>, <code>SetAmbientColor</code>, a directional key + fill rig, and a
+  bobbing point light. The box rotates slowly so you can see how the lighting wraps around it.
+</p>
+
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;cmath&gt;</span>      <span class="cm">// std::sin</span>
+<span class="pp">#include</span> <span class="st">&lt;string&gt;</span>
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">LightsDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+    <span class="ty">Entity</span>* box_     = <span class="kw">nullptr</span>;  <span class="cm">// the rotating crate</span>
+    <span class="ty">Entity</span>* torch_   = <span class="kw">nullptr</span>;  <span class="cm">// the moving point light</span>
+    <span class="ty">Label</span>*  hud_     = <span class="kw">nullptr</span>;
+    <span class="ty">float</span>   angle_   = <span class="val">0.0f</span>;    <span class="cm">// box Y rotation in degrees</span>
+    <span class="ty">float</span>   bobTime_ = <span class="val">0.0f</span>;    <span class="cm">// torch bobbing timer</span>
+
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Part 02 — Lights and Colors"</span>);
+
+        <span class="cm">// ── Background colour ─────────────────────────────────────────</span>
+        <span class="cm">// Deep midnight-blue — visible wherever no geometry covers the screen.</span>
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.05f</span>, <span class="val">0.08f</span>, <span class="val">0.18f</span>));
+
+        <span class="cm">// ── Ambient light ────────────────────────────────────────────</span>
+        <span class="cm">// Subtle cool ambient so shadowed sides are dark but not pure black.</span>
+        <span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.10f</span>, <span class="val">0.12f</span>, <span class="val">0.20f</span>));
+
+        <span class="cm">// ── Scene geometry ───────────────────────────────────────────</span>
+        <span class="cm">// A crate in the centre of the view.</span>
+        box_ = <span class="fn">CreateEntity</span>(<span class="st">"Crate"</span>);
+        box_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        box_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">5.0f</span>);
+
+        <span class="cm">// A wide, flat floor to catch shadows and coloured spill.</span>
+        <span class="ty">Entity</span>* floor = <span class="fn">CreateEntity</span>(<span class="st">"Floor"</span>);
+        floor-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        floor-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, -<span class="val">1.0f</span>, <span class="val">5.0f</span>);
+        floor-&gt;<span class="fn">SetScale</span>(<span class="val">12.0f</span>, <span class="val">0.2f</span>, <span class="val">12.0f</span>);
+
+        <span class="cm">// ── Key light: warm sun from upper-left ─────────────────────</span>
+        <span class="cm">// Color(1, 0.92, 0.75) = slightly golden daylight.</span>
+        <span class="cm">// Intensity 1.0 = full brightness.</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.92f</span>, <span class="val">0.75f</span>), <span class="val">1.0f</span>);
+        <span class="cm">// Quaternion(yaw, pitch, roll): pitch 45° down, yaw -30° (from left)</span>
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45.0f</span>, -<span class="val">30.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── Fill light: cool sky from lower-right ───────────────────</span>
+        <span class="cm">// Opposite side from the sun; 35 % intensity; cool blue-white tint.</span>
+        <span class="ty">Entity</span>* fill = <span class="fn">CreateEntity</span>(<span class="st">"SkyFill"</span>);
+        fill-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">0.40f</span>, <span class="val">0.55f</span>, <span class="val">0.80f</span>), <span class="val">0.35f</span>);
+        fill-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(-<span class="val">45.0f</span>, <span class="val">150.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── Point light: an orange torch near the crate ─────────────</span>
+        <span class="cm">// Color(1, 0.55, 0.15) = ember orange.  Range 8 metres.</span>
+        torch_ = <span class="fn">CreateEntity</span>(<span class="st">"Torch"</span>);
+        torch_-&gt;<span class="fn">AddPointLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.55f</span>, <span class="val">0.15f</span>), <span class="val">8.0f</span>);
+        torch_-&gt;<span class="fn">SetPosition</span>(-<span class="val">2.5f</span>, <span class="val">1.0f</span>, <span class="val">4.0f</span>);
+
+        <span class="cm">// ── Camera ───────────────────────────────────────────────────</span>
+        <span class="fn">CreateCamera</span>();
+
+        <span class="cm">// ── HUD label ────────────────────────────────────────────────</span>
+        hud_ = <span class="fn">CreateLabel</span>(<span class="st">"Part 02: Lights and Colors  |  ESC to quit"</span>);
+        hud_-&gt;<span class="fn">SetPosition</span>(<span class="val">16</span>, <span class="val">16</span>);
+        hud_-&gt;<span class="fn">SetFontSize</span>(<span class="val">15</span>);
+        hud_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.75f</span>, <span class="val">0.80f</span>, <span class="val">0.90f</span>));
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        <span class="cm">// Rotate the box so all faces catch light in turn.</span>
+        angle_ += dt * <span class="val">25.0f</span>;
+        box_-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">0.0f</span>, angle_, <span class="val">0.0f</span>));
+
+        <span class="cm">// Bob the torch up and down to simulate a flickering flame position.</span>
+        bobTime_ += dt;
+        <span class="ty">float</span> bob = std::<span class="fn">sin</span>(bobTime_ * <span class="val">3.5f</span>) * <span class="val">0.15f</span>;
+        torch_-&gt;<span class="fn">SetPosition</span>(-<span class="val">2.5f</span>, <span class="val">1.0f</span> + bob, <span class="val">4.0f</span>);
+
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>() {
+    <span class="kw">return</span> <span class="fn">CreateGame</span>&lt;<span class="ty">LightsDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ───────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <h3>SetClearColor — paint the sky</h3>
+    <p>
+      <code>SetClearColor(Color(0.05f, 0.08f, 0.18f))</code> sets the background to a deep
+      midnight blue. The values are <code>(red=0.05, green=0.08, blue=0.18)</code>; the alpha
+      defaults to 1.0 (fully opaque). This colour becomes visible in any area of the screen not
+      covered by geometry — including the corners of the window when the field of view is narrow.
+    </p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <h3>SetAmbientColor — fill in the shadows</h3>
+    <p>
+      <code>SetAmbientColor(Color(0.10f, 0.12f, 0.20f))</code> sets a very dark blue-grey ambient.
+      This is the base brightness that every surface receives. Because it is so dark, shadow-side
+      faces will be noticeably darker than lit faces, preserving depth. The slight blue bias
+      complements the warm key light by making shadows feel "cooled" by reflected sky light.
+    </p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <h3>AddDirectionalLight — the sun</h3>
+    <p>
+      <code>sun-&gt;AddDirectionalLight(Color(1.0f, 0.92f, 0.75f), 1.0f)</code> adds a parallel
+      light that covers the entire scene. The colour is warm white with a slight golden tint
+      (full red, slightly reduced green, reduced blue). The intensity of <code>1.0f</code> is
+      standard full brightness. Because directional lights use the entity's rotation for direction,
+      calling <code>AddDirectionalLight</code> with no subsequent <code>SetRotation</code> would
+      produce a light shining along the default forward axis — horizontally, which is rarely
+      desirable.
+    </p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">4</div>
+  <div class="step-body">
+    <h3>SetRotation with Quaternion — aiming the sun</h3>
+    <p>
+      <code>sun-&gt;SetRotation(Quaternion(45.0f, -30.0f, 0.0f))</code> tilts the sun entity
+      45&deg; downward (pitch) and rotates it 30&deg; to the left (negative yaw). Together these
+      place the light source somewhere in the upper-left of the scene — a classic "early afternoon"
+      angle. The <code>0.0f</code> roll has no effect on a directional light.
+    </p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">5</div>
+  <div class="step-body">
+    <h3>Fill light — the other side</h3>
+    <p>
+      <code>fill-&gt;AddDirectionalLight(Color(0.40f, 0.55f, 0.80f), 0.35f)</code> adds a second
+      directional light at 35&thinsp;% of full brightness, tinted cool blue-white. Its rotation
+      <code>Quaternion(-45.0f, 150.0f, 0.0f)</code> points it from the lower-right — the opposite
+      hemisphere from the sun. Faces that are in shadow from the sun now receive this cooler light,
+      so no surface goes completely dark. The intensity difference (1.0 vs. 0.35) preserves the
+      sense of direction and drama.
+    </p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">6</div>
+  <div class="step-body">
+    <h3>AddPointLight — the torch</h3>
+    <p>
+      <code>torch_-&gt;AddPointLight(Color(1.0f, 0.55f, 0.15f), 8.0f)</code> creates an
+      omnidirectional ember-orange light with a 8-metre radius. Surfaces more than 8 m away receive
+      no illumination from it at all. Setting the entity's position with <code>SetPosition</code>
+      controls where in the world the light is emitted from. Moving the entity in
+      <code>Update()</code> moves the light source — this is how animated lights (flickering
+      torches, moving headlights, magic projectiles) are implemented.
+    </p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">7</div>
+  <div class="step-body">
+    <h3>Bobbing animation — sinusoidal offset</h3>
+    <p>
+      Inside <code>Update(float dt)</code>, <code>bobTime_</code> accumulates elapsed time.
+      Feeding it through <code>std::sin(bobTime_ * 3.5f)</code> produces a smooth oscillation
+      between -1 and +1. Multiplying by <code>0.15f</code> makes the range ±0.15 metres, which
+      is subtle enough to look like a flame dancing rather than a platform elevator. This same
+      pattern — <code>sin(time * frequency) * amplitude</code> — is fundamental to game
+      animations and will appear again in later tutorials.
+    </p>
+  </div>
+</div>
+
+<!-- ─── LUA EQUIVALENT ────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+<p>
+  The lighting setup can be performed entirely from a Lua script that is attached to a dedicated
+  manager entity, or done in C++ with only the per-frame animation in Lua. Below is a complete
+  Lua implementation of the same scene:
+</p>
+
+<pre><span class="lua-cm">-- Data/Scripts/lights_demo.lua
+-- Attach to a "SceneManager" entity created in C++ Start():</span>
+<span class="lua-cm">--   local mgr = CreateEntity("SceneManager")</span>
+<span class="lua-cm">--   mgr:AddScript("Scripts/lights_demo.lua")</span>
+
+<span class="lua-kw">local</span> box
+<span class="lua-kw">local</span> torch
+<span class="lua-kw">local</span> angle    <span class="lua-op">=</span> <span class="lua-num">0</span>
+<span class="lua-kw">local</span> bobTime  <span class="lua-op">=</span> <span class="lua-num">0</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-cm">-- Background and ambient ─────────────────────────────────────────</span>
+    <span class="lua-fn">SetClearColor</span>(Color(<span class="lua-num">0.05</span>, <span class="lua-num">0.08</span>, <span class="lua-num">0.18</span>))
+    <span class="lua-fn">SetAmbientColor</span>(Color(<span class="lua-num">0.10</span>, <span class="lua-num">0.12</span>, <span class="lua-num">0.20</span>))
+
+    <span class="lua-cm">-- Scene geometry ─────────────────────────────────────────────────</span>
+    box = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Crate"</span>)
+    box:AddModel(<span class="lua-str">"Models/Box.mdl"</span>)
+    box:SetPosition(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">5</span>)
+
+    <span class="lua-kw">local</span> floor = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Floor"</span>)
+    floor:AddModel(<span class="lua-str">"Models/Box.mdl"</span>)
+    floor:SetPosition(<span class="lua-num">0</span>, <span class="lua-num">-1</span>, <span class="lua-num">5</span>)
+    floor:SetScale(<span class="lua-num">12</span>, <span class="lua-num">0.2</span>, <span class="lua-num">12</span>)
+
+    <span class="lua-cm">-- Key light: warm sun ────────────────────────────────────────────</span>
+    <span class="lua-kw">local</span> sun = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Sun"</span>)
+    sun:AddDirectionalLight(Color(<span class="lua-num">1.0</span>, <span class="lua-num">0.92</span>, <span class="lua-num">0.75</span>), <span class="lua-num">1.0</span>)
+    sun:SetRotation(Quaternion(<span class="lua-num">45</span>, <span class="lua-op">-</span><span class="lua-num">30</span>, <span class="lua-num">0</span>))
+
+    <span class="lua-cm">-- Fill light: cool sky ───────────────────────────────────────────</span>
+    <span class="lua-kw">local</span> fill = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"SkyFill"</span>)
+    fill:AddDirectionalLight(Color(<span class="lua-num">0.40</span>, <span class="lua-num">0.55</span>, <span class="lua-num">0.80</span>), <span class="lua-num">0.35</span>)
+    fill:SetRotation(Quaternion(<span class="lua-op">-</span><span class="lua-num">45</span>, <span class="lua-num">150</span>, <span class="lua-num">0</span>))
+
+    <span class="lua-cm">-- Point light: orange torch ──────────────────────────────────────</span>
+    torch = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Torch"</span>)
+    torch:AddPointLight(Color(<span class="lua-num">1.0</span>, <span class="lua-num">0.55</span>, <span class="lua-num">0.15</span>), <span class="lua-num">8.0</span>)
+    torch:SetPosition(<span class="lua-op">-</span><span class="lua-num">2.5</span>, <span class="lua-num">1.0</span>, <span class="lua-num">4.0</span>)
+
+    <span class="lua-cm">-- Camera ─────────────────────────────────────────────────────────</span>
+    <span class="lua-fn">CreateCamera</span>()
+
+    <span class="lua-cm">-- HUD ─────────────────────────────────────────────────────────────</span>
+    <span class="lua-kw">local</span> hud = <span class="lua-fn">CreateLabel</span>(<span class="lua-str">"Part 02: Lights and Colors  |  ESC to quit"</span>)
+    hud:SetPosition(<span class="lua-num">16</span>, <span class="lua-num">16</span>)
+    hud:SetFontSize(<span class="lua-num">15</span>)
+    hud:SetColor(Color(<span class="lua-num">0.75</span>, <span class="lua-num">0.80</span>, <span class="lua-num">0.90</span>))
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-cm">-- Rotate the box</span>
+    angle = angle <span class="lua-op">+</span> dt <span class="lua-op">*</span> <span class="lua-num">25</span>
+    box:SetRotation(Quaternion(<span class="lua-num">0</span>, angle, <span class="lua-num">0</span>))
+
+    <span class="lua-cm">-- Bob the torch</span>
+    bobTime = bobTime <span class="lua-op">+</span> dt
+    <span class="lua-kw">local</span> bob = math.sin(bobTime <span class="lua-op">*</span> <span class="lua-num">3.5</span>) <span class="lua-op">*</span> <span class="lua-num">0.15</span>
+    torch:SetPosition(<span class="lua-op">-</span><span class="lua-num">2.5</span>, <span class="lua-num">1.0</span> <span class="lua-op">+</span> bob, <span class="lua-num">4.0</span>)
+
+    <span class="lua-kw">if</span> Input:IsKeyDown(KEY_ESCAPE) <span class="lua-kw">then</span>
+        <span class="lua-fn">Quit</span>()
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<div class="callout lua">
+  <h4>Lua vs C++ key differences</h4>
+  <p>
+    In Lua, <code>SetClearColor</code> and <code>SetAmbientColor</code> are global functions
+    accessible in any script context. Method calls on entities use Lua's colon syntax
+    <code>entity:AddDirectionalLight(...)</code> instead of C++'s arrow <code>entity-&gt;AddDirectionalLight(...)</code>.
+    Keyboard detection uses the Urho3D Lua constant <code>KEY_ESCAPE</code> via the global
+    <code>Input</code> object rather than simple-3d's C++ enum <code>Key::Escape</code>.
+  </p>
+</div>
+
+<!-- ─── EXPERIMENTING ──────────────────────────────────────────────── -->
+<h2>Experiments to try</h2>
+<p>
+  Once the example is running, try these modifications to build intuition for how lighting works:
+</p>
+<ol>
+  <li>
+    <strong>Change the ambient to black</strong> (<code>Color::BLACK</code>) — the shadow side
+    of the box becomes completely invisible. This shows exactly what ambient light is doing.
+  </li>
+  <li>
+    <strong>Remove the fill light</strong> — comment out the fill entity. Notice how the shadow
+    side now only has ambient; it looks harsher and less natural.
+  </li>
+  <li>
+    <strong>Make the key light blue</strong> (<code>Color(0.5f, 0.7f, 1.0f)</code>) and the
+    fill light orange (<code>Color(1.0f, 0.6f, 0.2f)</code>) — a complementary-colour
+    lighting setup popular in sci-fi and stylized games.
+  </li>
+  <li>
+    <strong>Increase the torch range</strong> to <code>25.0f</code> and move it to
+    <code>(0, 5, 5)</code> (above the box) — it becomes the dominant light source, overriding the
+    directional lights for nearby geometry.
+  </li>
+  <li>
+    <strong>Try <code>Color::WHITE</code> everywhere</strong> — all lights pure white — to see
+    how colour tinting changes the mood even when the scene structure is identical.
+  </li>
+</ol>
+
+<!-- ─── API QUICK REFERENCE ───────────────────────────────────────── -->
+<h2>API quick reference</h2>
+<table>
+  <tr>
+    <th>Call</th>
+    <th>Where</th>
+    <th>What it does</th>
+  </tr>
+  <tr>
+    <td><code>Color(r, g, b, a)</code></td>
+    <td>Anywhere</td>
+    <td>Constructs an RGBA colour from floats in [0,1]. Alpha defaults to 1.0.</td>
+  </tr>
+  <tr>
+    <td><code>Color::WHITE</code></td>
+    <td>Anywhere</td>
+    <td>Constant for <code>Color(1,1,1,1)</code>.</td>
+  </tr>
+  <tr>
+    <td><code>Color::BLACK</code></td>
+    <td>Anywhere</td>
+    <td>Constant for <code>Color(0,0,0,1)</code>.</td>
+  </tr>
+  <tr>
+    <td><code>SetClearColor(Color)</code></td>
+    <td>Game method</td>
+    <td>Background colour before 3D content is drawn. Call in <code>Start()</code>.</td>
+  </tr>
+  <tr>
+    <td><code>SetAmbientColor(Color)</code></td>
+    <td>Game method</td>
+    <td>Scene-wide base illumination. Default is <code>Color(0.3, 0.3, 0.3)</code>.</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;AddDirectionalLight(Color, float intensity)</code></td>
+    <td>Entity method</td>
+    <td>Parallel-ray light (no position, only direction). Uses entity rotation. No distance falloff.</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;AddPointLight(Color, float range)</code></td>
+    <td>Entity method</td>
+    <td>Omnidirectional local light. Uses entity world position. Zero illumination beyond <code>range</code>.</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;SetRotation(Quaternion(yaw, pitch, roll))</code></td>
+    <td>Entity method</td>
+    <td>Sets world-space rotation. For lights: controls the direction of directional/spot lights.</td>
+  </tr>
+</table>
+
+<!-- ─── COMMON MISTAKES ───────────────────────────────────────────── -->
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Color values in 0&ndash;255 range.</strong> Writing <code>Color(255, 128, 0)</code>
+      passes values far above 1.0 which saturates and clips. Always use floats in [0,1]:
+      <code>Color(1.0f, 0.5f, 0.0f)</code>.
+    </li>
+    <li>
+      <strong>Forgetting to rotate a directional light.</strong> A directional light on an entity
+      with default rotation points along the +Z axis, shining horizontally. Add a pitch of at
+      least 20&ndash;30 degrees to simulate any above-ground light source, otherwise surfaces will
+      face the light only from the side, making the scene look strange.
+    </li>
+    <li>
+      <strong>Setting point light range to zero.</strong> <code>AddPointLight(color, 0.0f)</code>
+      creates a light that illuminates nothing — zero range means zero radius. Always pass a
+      positive range value.
+    </li>
+    <li>
+      <strong>Ambient too high.</strong> Setting <code>SetAmbientColor(Color::WHITE)</code> or
+      any value near 1.0 makes every surface uniformly bright regardless of lights. The scene
+      looks completely flat. Keep ambient in the 0.05&ndash;0.25 range.
+    </li>
+    <li>
+      <strong>Calling SetClearColor with Color::TRANSPARENT.</strong> This has alpha=0, which
+      some drivers interpret correctly and some do not. Use <code>Color(r, g, b)</code> (alpha
+      defaults to 1.0) for clear colours.
+    </li>
+    <li>
+      <strong>Placing both directional lights on the same side.</strong> The fill light only
+      helps if it comes from a different direction than the key. Aim it into the shadow regions
+      the key creates — roughly the opposite hemisphere.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ──────────────────────────────────────────── -->
+<h2>What you learned</h2>
+<p>
+  In this part you added real-time lighting to a simple-3d scene. Here is a summary of every
+  new concept:
+</p>
+<ul>
+  <li>
+    The <code>Color(r, g, b, a)</code> type uses normalized floats in [0,1] for all four
+    components. <code>Color::WHITE</code> and <code>Color::BLACK</code> are convenient constants
+    for pure white and pure black respectively.
+  </li>
+  <li>
+    <code>SetClearColor(Color)</code> controls the solid colour that fills the framebuffer before
+    any 3D rendering takes place — the visible background / sky.
+  </li>
+  <li>
+    <code>SetAmbientColor(Color)</code> sets the scene-wide base illumination reaching every
+    surface regardless of light source positions. Keep it dark to preserve depth cues.
+  </li>
+  <li>
+    <code>entity-&gt;AddDirectionalLight(Color, intensity)</code> adds a sun-like parallel light
+    to an entity. The entity's world rotation determines the light direction; there is no position
+    or distance falloff.
+  </li>
+  <li>
+    <code>Quaternion(yaw, pitch, roll)</code> with angles in degrees is the standard way to aim
+    a directional light. Positive pitch tilts the light downward; yaw spins it around the vertical
+    axis.
+  </li>
+  <li>
+    <code>entity-&gt;AddPointLight(Color, range)</code> creates an omnidirectional local light
+    tied to the entity's position in world space. Moving the entity moves the light.
+  </li>
+  <li>
+    The <strong>key + fill rig</strong> — a bright warm directional light plus a dimmer cool
+    directional light from the opposite side — is a minimal, high-quality starting setup that
+    prevents flat-looking scenes without requiring any advanced rendering features.
+  </li>
+</ul>
+<p>
+  In <a href="tutorial-03.html">Part 03</a> you will add keyboard input so the player can
+  move the camera and interact with objects in the scene.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-01.html">&#8592; Part 01: Hello World</a>
+  <a href="tutorial-03.html">Part 03: Keyboard Input &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

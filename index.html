@@ -12,11 +12,15 @@
   <nav>
     <a href="index.html" class="active">Home</a>
     <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html">Tutorial</a>
     <a href="architecture.html">Architecture</a>
     <a href="api.html">C++ API</a>
     <a href="lua-api.html">Lua API</a>
     <a href="examples.html">Examples</a>
     <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
   </nav>
 </header>
 
@@ -38,11 +42,15 @@
   <h3>Documentation</h3>
   <ul>
     <li><a href="getting-started.html">Getting Started</a></li>
+    <li><a href="tutorial.html">Tutorial</a></li>
     <li><a href="architecture.html">Architecture</a></li>
     <li><a href="api.html">C++ API Reference</a></li>
     <li><a href="lua-api.html">Lua API Reference</a></li>
     <li><a href="examples.html">Examples</a></li>
     <li><a href="features.html">Feature Status</a></li>
+    <li><a href="samples.html">Samples</a></li>
+    <li><a href="faq.html">FAQ</a></li>
+    <li><a href="changelog.html">What's New</a></li>
   </ul>
 </aside>
 
@@ -168,6 +176,38 @@
   <div class="card">
     <h3>UI labels</h3>
     <p>On-screen text (HUD): screen position, font size, RGBA color, visibility toggle. Full UI panel/button system planned.</p>
+  </div>
+  <div class="card card-green">
+    <h3>CharacterController</h3>
+    <p>Stable platformer movement. Capsule + slope-filtered raycast grounding. Move(vel,dt), TryJump(speed), IsOnGround(). No tipping.</p>
+  </div>
+  <div class="card card-green">
+    <h3>AnimStateMachine</h3>
+    <p>String-keyed states with bool/float/trigger/auto transitions. SetBool/Float/Trigger conditions. Blends on top of AnimationController.</p>
+  </div>
+  <div class="card card-green">
+    <h3>BehaviorFSM</h3>
+    <p>AI state machine with built-in NavMesh patrol and chase states. Condition-based transitions. Works with C++ lambdas and Lua functions.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>SaveData</h3>
+    <p>JSON key-value store. GetInt/SetInt/GetString/GetBool/GetFloat. Multi-slot (autosave + manual saves). OS-appropriate save directory.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>ParticleEmitter</h3>
+    <p>Play/Stop/Burst with 5 preset XMLs: Fire, Smoke, Explosion, Sparks, Snow. Attach to child entity for world-space effects.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>Input Actions</h3>
+    <p>BindAction/BindAxis2D abstraction. Wire keyboard and gamepad to the same name. Persistence to controls.json for remappable controls.</p>
+  </div>
+  <div class="card">
+    <h3>Full UI System</h3>
+    <p>Panel, Button (OnClick), Image, ProgressBar, Slider (OnChange). Anchor system, ZOrder, parent-child hierarchy, gamepad D-pad focus.</p>
+  </div>
+  <div class="card">
+    <h3>Tweens</h3>
+    <p>CreateTween with Linear/EaseIn/EaseOut/EaseInOut. Chainable onComplete callbacks. Tween entity position or UI element alpha/size.</p>
   </div>
 </div>
 
@@ -396,24 +436,122 @@ jumpForce = <span class="lua-num">8</span>    <span class="lua-cm">-- impulse on
   </tr>
   <tr>
     <td>Full UI system</td>
-    <td><span class="status-plan">📋 Planned</span></td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#ui">UI classes</a></td>
     <td>—</td>
-    <td>—</td>
-    <td>Panels, buttons, images — Task #17</td>
+    <td>Panel, Button, Image, ProgressBar, Slider, anchor, ZOrder</td>
   </tr>
   <tr>
     <td>Scene management</td>
-    <td><span class="status-plan">📋 Planned</span></td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#game-scene">Scene methods</a></td>
     <td>—</td>
+    <td>Level transitions, load/unload scenes</td>
+  </tr>
+  <tr>
+    <td>CharacterController</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#charactercontroller">CharacterController</a></td>
     <td>—</td>
-    <td>Level transitions — Task #18</td>
+    <td>Capsule + slope-filtered grounding, Move, TryJump, IsOnGround</td>
+  </tr>
+  <tr>
+    <td>AnimStateMachine</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#animstatemachine">AnimStateMachine</a></td>
+    <td>—</td>
+    <td>String-keyed states, bool/float/trigger/auto transitions</td>
+  </tr>
+  <tr>
+    <td>BehaviorFSM</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#behaviorfsm">BehaviorFSM</a></td>
+    <td>Via Lua functions</td>
+    <td>AI FSM with NavMesh patrol and chase, condition transitions</td>
+  </tr>
+  <tr>
+    <td>ParticleEmitter</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#particleemitter">ParticleEmitter</a></td>
+    <td>—</td>
+    <td>Play/Stop/Burst, 5 preset XMLs: Fire, Smoke, Explosion, Sparks, Snow</td>
+  </tr>
+  <tr>
+    <td>AudioSource 3D</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#audiosource">AudioSource</a></td>
+    <td>—</td>
+    <td>Spatial 3D positional audio attached to entities</td>
+  </tr>
+  <tr>
+    <td>Gamepad Input</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#game-input">Input methods</a></td>
+    <td>Via <code>Input:</code></td>
+    <td>Buttons, axes, rumble, multi-controller</td>
+  </tr>
+  <tr>
+    <td>Input Actions</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#inputactions">InputActions</a></td>
+    <td>—</td>
+    <td>BindAction/BindAxis2D, controls.json persistence</td>
+  </tr>
+  <tr>
+    <td>SaveData</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#savedata">SaveData</a></td>
+    <td>—</td>
+    <td>JSON key-value, multi-slot, OS save directory</td>
+  </tr>
+  <tr>
+    <td>Entity Tagging</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#entity">Entity::AddTag / FindByTag</a></td>
+    <td>—</td>
+    <td>String tags, scene-wide query</td>
+  </tr>
+  <tr>
+    <td>Physics Constraints</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#entity-physics">Constraint API</a></td>
+    <td>—</td>
+    <td>Hinge, point, cone-twist constraints via Bullet</td>
+  </tr>
+  <tr>
+    <td>Debug Draw</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#debug">DebugDraw</a></td>
+    <td>—</td>
+    <td>Lines, boxes, spheres, text overlays in world space</td>
+  </tr>
+  <tr>
+    <td>Ray Picking</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#game-scene">RayPick</a></td>
+    <td>—</td>
+    <td>Screen-to-world raycast, returns hit entity and point</td>
+  </tr>
+  <tr>
+    <td>Sky/Atmosphere</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#game-scene">SetSkybox / SetSkyAtmosphere</a></td>
+    <td>—</td>
+    <td>Cubemap skybox and procedural atmosphere</td>
+  </tr>
+  <tr>
+    <td>Tweens</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#tweens">Tween API</a></td>
+    <td>—</td>
+    <td>CreateTween, easing modes, chainable onComplete callbacks</td>
   </tr>
   <tr>
     <td>Spatial audio</td>
     <td><span class="status-plan">📋 Planned</span></td>
     <td>—</td>
     <td>—</td>
-    <td>3D positional sound — Task #23</td>
+    <td>Legacy entry — covered by AudioSource 3D above</td>
   </tr>
   <tr>
     <td>Android</td>

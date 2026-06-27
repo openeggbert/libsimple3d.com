@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 13: 2D Physics — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li class="active"><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 13</div>
+
+<h1><span class="tutorial-part">Part 13 of 30</span>2D Physics</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>AddRigidBody2D(mass)</code> &mdash;
+    <code>AddBoxCollider2D(halfX, halfY)</code> &mdash;
+    <code>AddCircleCollider2D(radius)</code> &mdash;
+    <code>SetLinearVelocity2D(Vector2)</code> &mdash;
+    <code>GetLinearVelocity2D()</code> &mdash;
+    <code>ApplyImpulse2D(Vector2)</code> &mdash;
+    <code>IsOnGround2D()</code> &mdash;
+    2D and 3D physics coexisting in the same scene &mdash;
+    side-scroller platformer pattern
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ─────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How simple-3d's 2D physics system (Box2D) differs from its 3D physics system (Bullet) and why both run simultaneously in every scene.</li>
+  <li>How to create <strong>static</strong> (mass&nbsp;0) and <strong>dynamic</strong> (mass&nbsp;&gt;&nbsp;0) 2D rigid bodies with <code>AddRigidBody2D</code>.</li>
+  <li>The two standard 2D collision shapes: axis-aligned box (<code>AddBoxCollider2D</code>) and circle (<code>AddCircleCollider2D</code>), and when to use each.</li>
+  <li>How to drive smooth horizontal movement by replacing only the X component of a body's velocity with <code>SetLinearVelocity2D</code> while leaving the Y component (gravity) untouched.</li>
+  <li>How to launch a jump using <code>ApplyImpulse2D</code>, and how to gate the jump with <code>IsOnGround2D</code> to prevent double-jumping.</li>
+  <li>The complete side-scroller platformer pattern: ground, floating platforms, a player that runs and jumps, and collectible coins.</li>
+  <li>The Lua equivalents of every 2D physics call so you can script game behaviour without recompiling.</li>
+</ul>
+
+<!-- ─── BACKGROUND ───────────────────────────────────────────────── -->
+<h2>Box2D vs Bullet: two physics worlds in one scene</h2>
+<p>
+  simple-3d ships with <strong>two independent physics engines</strong> that coexist in every scene:
+</p>
+
+<div class="grid3">
+  <div class="card card-blue">
+    <h3>Bullet (3D)</h3>
+    <p>The 3D rigid-body solver. Powers <code>AddRigidBody</code>, <code>AddBoxCollider</code>,
+    <code>AddCapsuleCollider</code>, <code>AddSphereCollider</code>, and the
+    <code>CharacterController</code>.</p>
+    <p>Works in full X/Y/Z space. Gravity acts along the &minus;Y axis.</p>
+  </div>
+  <div class="card card-green">
+    <h3>Box2D (2D)</h3>
+    <p>The 2D rigid-body solver. Powers <code>AddRigidBody2D</code>, <code>AddBoxCollider2D</code>,
+    <code>AddCircleCollider2D</code>, and tile-map collision.</p>
+    <p>Works in the XY plane only. Z is used as draw-order depth and is ignored by physics.</p>
+  </div>
+  <div class="card card-orange">
+    <h3>No conflict</h3>
+    <p>Bullet and Box2D operate on completely separate simulation islands. An entity can only belong
+    to one world: either <code>AddRigidBody</code> (3D) or <code>AddRigidBody2D</code> (2D),
+    never both.</p>
+    <p>You can, however, have some entities using 3D physics and others using 2D physics
+    <em>in the same scene</em> &mdash; for example, a 2D platformer player next to a 3D
+    background particle explosion.</p>
+  </div>
+</div>
+
+<div class="callout info">
+  <h4>PhysicsWorld2D is always available</h4>
+  <p>
+    <code>PhysicsWorld2D</code> (the Box2D scene node) is added to the scene automatically
+    when <code>Game::Run()</code> starts. You never need to create it manually. Simply call
+    <code>AddRigidBody2D</code> on any entity and it registers with the 2D world immediately.
+    The same is true for the 3D Bullet world &mdash; both are always running.
+  </p>
+</div>
+
+<!-- ─── HOW 2D PHYSICS WORKS ─────────────────────────────────────── -->
+<h2>How 2D physics works in simple-3d</h2>
+<p>
+  The setup for 2D physics follows the same two-step pattern as 3D physics:
+</p>
+<ol>
+  <li>Add a <strong>2D rigid body</strong> &mdash; the mass, gravity, and velocity container. Created with <code>AddRigidBody2D(mass)</code>.</li>
+  <li>Add at least one <strong>2D collision shape</strong> &mdash; the geometry Box2D uses for contact detection. Created with <code>AddBoxCollider2D</code> or <code>AddCircleCollider2D</code>.</li>
+</ol>
+<p>
+  Box2D gravity defaults to &minus;10&nbsp;m/s&sup2; downward along Y. Dynamic bodies fall and
+  stack; static bodies (mass 0) block them. The simulation runs every frame in step with
+  the engine's update loop, so you simply read and write velocity in <code>Update(dt)</code>
+  and the physics handles collisions and integration automatically.
+</p>
+<p>
+  Because Box2D is a planar solver, the Z position of an entity has no effect on its physics.
+  In a 2D game you set Z to control draw order (entities closer to the camera, i.e. higher Z,
+  are drawn on top). The physics collision always projects onto the XY plane.
+</p>
+
+<!-- ─── COLLISION SHAPES ──────────────────────────────────────────── -->
+<h2>Choosing the right 2D collision shape</h2>
+<div class="grid3">
+  <div class="card card-green">
+    <h3>Box</h3>
+    <p>Best for platforms, ground tiles, crates, and any rectangular object. The two parameters
+    are the <strong>half-extents</strong> in metres: <code>halfX</code> is the half-width and
+    <code>halfY</code> is the half-height. A <code>AddBoxCollider2D(1.0f, 0.5f)</code> produces
+    a box 2&nbsp;m wide and 1&nbsp;m tall.</p>
+    <p><code>AddBoxCollider2D(halfX, halfY)</code></p>
+  </div>
+  <div class="card card-blue">
+    <h3>Circle</h3>
+    <p>Best for coins, balls, bouncing projectiles, and any roughly round sprite. Circles are
+    the cheapest 2D shape to test &mdash; contact between two circles is a single distance check.
+    The single parameter is the <strong>radius</strong> in metres.</p>
+    <p><code>AddCircleCollider2D(radius)</code></p>
+  </div>
+  <div class="card card-orange">
+    <h3>Half-extents vs full size</h3>
+    <p>Unlike the 3D <code>AddBoxCollider(Vector3)</code> which takes the <em>full</em> size,
+    <code>AddBoxCollider2D</code> takes <em>half-extents</em>, following Box2D convention.
+    So <code>AddBoxCollider2D(0.3f, 0.5f)</code> is a 0.6&nbsp;m wide, 1.0&nbsp;m tall
+    bounding box.</p>
+    <p>Always halve your sprite's world dimensions before passing them here.</p>
+  </div>
+</div>
+
+<!-- ─── COMPLETE EXAMPLE ─────────────────────────────────────────── -->
+<h2>Complete example: side-scroller platformer</h2>
+<p>
+  The game below implements a small side-scroller. The player runs left and right with the arrow
+  keys and jumps with <kbd>Space</kbd>. Five coins are scattered across floating platforms; walking
+  into one collects it. The demo exercises every new API introduced in this part:
+  static ground and platforms with <code>AddRigidBody2D(0)</code> + <code>AddBoxCollider2D</code>,
+  a dynamic player with <code>AddRigidBody2D(mass)</code> + <code>AddBoxCollider2D</code>,
+  circular coin colliders via <code>AddCircleCollider2D</code>, horizontal movement via
+  <code>SetLinearVelocity2D</code>, jumping via <code>ApplyImpulse2D</code>, and a ground
+  check via <code>IsOnGround2D</code>.
+</p>
+
+<pre><span class="cm">// Platformer2D.cpp — Part 13 of the simple-3d tutorial series</span>
+<span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;string&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;array&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">Platformer2D</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+    <span class="ty">Entity</span>*  player_     = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*   statusLbl_  = <span class="kw">nullptr</span>;
+    <span class="kw">int</span>      coins_      = <span class="val">0</span>;
+    <span class="kw">static constexpr int</span> kTotalCoins = <span class="val">5</span>;
+    std::<span class="ty">array</span>&lt;<span class="ty">Entity</span>*, kTotalCoins&gt; coinEntities_ = {};
+
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Part 13 — 2D Physics"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.05f</span>, <span class="val">0.10f</span>, <span class="val">0.22f</span>));
+
+        <span class="cm">// ── 2D orthographic camera ──────────────────────────────────</span>
+        <span class="cm">// Setup2D sets orthographic projection and positions the camera</span>
+        <span class="cm">// on the Z axis so the XY world plane is fully visible.</span>
+        <span class="ty">Camera</span>* cam = <span class="fn">CreateCamera</span>();
+        cam-><span class="fn">Setup2D</span>(<span class="val">100.0f</span>);   <span class="cm">// 100 pixels per world unit</span>
+
+        <span class="cm">// A directional light is needed even in 2D to shade sprites</span>
+        <span class="cm">// that use lit materials. Unlit sprites (SetMaterialColor) skip it.</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-><span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45</span>, <span class="val">30</span>, <span class="val">0</span>));
+        sun-><span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>::<span class="nm">WHITE</span>, <span class="val">1.2f</span>);
+
+        <span class="cm">// ── GROUND — static 2D body ─────────────────────────────────</span>
+        <span class="cm">// AddRigidBody2D(0.0f): mass 0 = static; immovable; blocks dynamics.</span>
+        <span class="ty">Entity</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, -<span class="val">3.5f</span>, <span class="val">0.0f</span>));
+        ground-><span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.30f</span>, <span class="val">0.55f</span>, <span class="val">0.25f</span>));
+        ground-><span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        ground-><span class="fn">SetScale</span>(<span class="ty">Vector3</span>(<span class="val">16.0f</span>, <span class="val">1.0f</span>, <span class="val">0.2f</span>));
+        ground-><span class="fn">AddRigidBody2D</span>(<span class="val">0.0f</span>);           <span class="cm">// static ground</span>
+        <span class="cm">// halfX = 8.0 m (full width 16 m), halfY = 0.5 m (full height 1 m)</span>
+        ground-><span class="fn">AddBoxCollider2D</span>(<span class="val">8.0f</span>, <span class="val">0.5f</span>);
+
+        <span class="cm">// ── PLATFORMS — static 2D bodies ────────────────────────────</span>
+        <span class="cm">// A lambda keeps the setup compact; each platform is an</span>
+        <span class="cm">// independent static entity with its own box collider.</span>
+        <span class="kw">auto</span> <span class="fn">makePlatform</span> = [&](<span class="kw">float</span> x, <span class="kw">float</span> y, <span class="kw">float</span> halfW) {
+            <span class="ty">Entity</span>* p = <span class="fn">CreateEntity</span>(<span class="st">"Platform"</span>);
+            p-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(x, y, <span class="val">0.0f</span>));
+            p-><span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.50f</span>, <span class="val">0.35f</span>, <span class="val">0.15f</span>));
+            p-><span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+            p-><span class="fn">SetScale</span>(<span class="ty">Vector3</span>(halfW * <span class="val">2.0f</span>, <span class="val">0.5f</span>, <span class="val">0.2f</span>));
+            p-><span class="fn">AddRigidBody2D</span>(<span class="val">0.0f</span>);
+            p-><span class="fn">AddBoxCollider2D</span>(halfW, <span class="val">0.25f</span>);  <span class="cm">// halfY = 0.25 (height 0.5 m)</span>
+        };
+        <span class="fn">makePlatform</span>(-<span class="val">4.0f</span>, -<span class="val">1.5f</span>, <span class="val">1.5f</span>);   <span class="cm">// left platform, 3 m wide</span>
+        <span class="fn">makePlatform</span>( <span class="val">0.5f</span>, -<span class="val">0.5f</span>, <span class="val">1.0f</span>);   <span class="cm">// centre platform, 2 m wide</span>
+        <span class="fn">makePlatform</span>( <span class="val">4.5f</span>,  <span class="val">1.0f</span>, <span class="val">1.2f</span>);   <span class="cm">// high right platform, 2.4 m wide</span>
+
+        <span class="cm">// ── PLAYER — dynamic 2D body ─────────────────────────────────</span>
+        <span class="cm">// AddRigidBody2D(1.0f): 1 kg dynamic body — falls under gravity,</span>
+        <span class="cm">// responds to SetLinearVelocity2D and ApplyImpulse2D.</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(-<span class="val">6.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>));
+        player_-><span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.20f</span>, <span class="val">0.55f</span>, <span class="val">0.95f</span>));
+        player_-><span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        player_-><span class="fn">SetScale</span>(<span class="ty">Vector3</span>(<span class="val">0.6f</span>, <span class="val">1.0f</span>, <span class="val">0.2f</span>));
+        player_-><span class="fn">AddRigidBody2D</span>(<span class="val">1.0f</span>);          <span class="cm">// 1 kg dynamic body</span>
+        <span class="cm">// halfX = 0.3 m (width 0.6 m), halfY = 0.5 m (height 1.0 m)</span>
+        player_-><span class="fn">AddBoxCollider2D</span>(<span class="val">0.3f</span>, <span class="val">0.5f</span>);
+
+        <span class="cm">// ── COINS — static 2D bodies with circle colliders ───────────</span>
+        <span class="cm">// Coins are static (they should not fall). We use AddCircleCollider2D</span>
+        <span class="cm">// because circles are the cheapest 2D shape and match coin sprites well.</span>
+        <span class="kw">const float</span> coinX[kTotalCoins] = { -<span class="val">4.0f</span>, -<span class="val">4.5f</span>,  <span class="val">0.5f</span>,  <span class="val">4.5f</span>,  <span class="val">5.0f</span> };
+        <span class="kw">const float</span> coinY[kTotalCoins] = { -<span class="val">0.7f</span>, -<span class="val">0.7f</span>,  <span class="val">0.3f</span>,  <span class="val">1.8f</span>,  <span class="val">1.8f</span> };
+        <span class="kw">for</span> (<span class="kw">int</span> i = <span class="val">0</span>; i < kTotalCoins; ++i) {
+            <span class="ty">Entity</span>* coin = <span class="fn">CreateEntity</span>(<span class="st">"Coin"</span> + std::<span class="fn">to_string</span>(i));
+            coin-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(coinX[i], coinY[i], <span class="val">0.1f</span>)); <span class="cm">// z=0.1 in front</span>
+            coin-><span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.85f</span>, <span class="val">0.10f</span>));
+            coin-><span class="fn">AddModel</span>(<span class="st">"Models/Sphere.mdl"</span>);
+            coin-><span class="fn">SetScale</span>(<span class="val">0.35f</span>);
+            coin-><span class="fn">AddRigidBody2D</span>(<span class="val">0.0f</span>);         <span class="cm">// static — coins float in place</span>
+            coin-><span class="fn">AddCircleCollider2D</span>(<span class="val">0.18f</span>);   <span class="cm">// radius 0.18 m</span>
+            coinEntities_[i] = coin;
+        }
+
+        <span class="cm">// ── HUD ──────────────────────────────────────────────────────</span>
+        statusLbl_ = <span class="fn">CreateLabel</span>(<span class="st">"Coins: 0 / 5  |  Arrows = move  Space = jump  ESC = quit"</span>);
+        statusLbl_-><span class="fn">SetPosition</span>(<span class="val">12</span>, <span class="val">12</span>);
+        statusLbl_-><span class="fn">SetFontSize</span>(<span class="val">16</span>);
+        statusLbl_-><span class="fn">SetColor</span>(<span class="ty">Color</span>::<span class="nm">WHITE</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="kw">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="nm">Escape</span>))
+            <span class="fn">Quit</span>();
+
+        <span class="cm">// ── Horizontal movement via SetLinearVelocity2D ──────────────</span>
+        <span class="cm">// We read the current 2D velocity first to preserve the Y component.</span>
+        <span class="cm">// The Y component is driven by Box2D gravity and must not be zeroed out</span>
+        <span class="cm">// or the player will hover and jumps will have no arc.</span>
+        <span class="ty">Vector2</span> vel = player_-><span class="fn">GetLinearVelocity2D</span>();
+        <span class="kw">float</span> moveX = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Left</span>))  moveX = -<span class="val">5.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Right</span>)) moveX =  <span class="val">5.0f</span>;
+
+        <span class="cm">// SetLinearVelocity2D replaces the body's velocity entirely.</span>
+        <span class="cm">// We override X with our desired speed and keep Y from gravity.</span>
+        player_-><span class="fn">SetLinearVelocity2D</span>(<span class="ty">Vector2</span>(moveX, vel.<span class="nm">y_</span>));
+
+        <span class="cm">// Flip the sprite so the player faces the direction of travel.</span>
+        <span class="kw">if</span> (moveX < <span class="val">0.0f</span>) player_-><span class="fn">SetFlipX2D</span>(<span class="kw">true</span>);
+        <span class="kw">if</span> (moveX > <span class="val">0.0f</span>) player_-><span class="fn">SetFlipX2D</span>(<span class="kw">false</span>);
+
+        <span class="cm">// ── Jump via ApplyImpulse2D ──────────────────────────────────</span>
+        <span class="cm">// IsOnGround2D() casts a short ray downward and returns true only</span>
+        <span class="cm">// when the player is resting on a static body. Gating the jump on</span>
+        <span class="cm">// this prevents double-jumping in mid-air.</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="nm">Space</span>) && player_-><span class="fn">IsOnGround2D</span>()) {
+            <span class="cm">// ApplyImpulse2D adds an instant velocity change, not replacing it.</span>
+            <span class="cm">// For a 1 kg body Vector2(0, 8) gives an 8 m/s upward kick.</span>
+            player_-><span class="fn">ApplyImpulse2D</span>(<span class="ty">Vector2</span>(<span class="val">0.0f</span>, <span class="val">8.0f</span>));
+        }
+
+        <span class="cm">// ── Coin collection via proximity check ──────────────────────</span>
+        <span class="cm">// We use a simple distance test against the player's world position.</span>
+        <span class="cm">// When the player overlaps a coin we deactivate it (hide + suspend</span>
+        <span class="cm">// physics) and increment the coin counter.</span>
+        <span class="ty">Vector3</span> pPos = player_-><span class="fn">GetPosition</span>();
+        <span class="kw">for</span> (<span class="kw">int</span> i = <span class="val">0</span>; i < kTotalCoins; ++i) {
+            <span class="ty">Entity</span>* coin = coinEntities_[i];
+            <span class="kw">if</span> (!coin || !coin-><span class="fn">IsActive</span>()) <span class="kw">continue</span>;
+            <span class="ty">Vector3</span> cPos = coin-><span class="fn">GetPosition</span>();
+            <span class="kw">float</span> dist = (pPos - cPos).<span class="fn">Length</span>();
+            <span class="kw">if</span> (dist < <span class="val">0.6f</span>) {
+                coin-><span class="fn">SetActive</span>(<span class="kw">false</span>);   <span class="cm">// hide + freeze physics</span>
+                ++coins_;
+            }
+        }
+
+        <span class="cm">// ── HUD update ────────────────────────────────────────────────</span>
+        std::string grounded = player_-><span class="fn">IsOnGround2D</span>() ? <span class="st">" [GROUNDED]"</span> : <span class="st">" [AIRBORNE]"</span>;
+        statusLbl_-><span class="fn">SetText</span>(
+            <span class="st">"Coins: "</span> + std::<span class="fn">to_string</span>(coins_) + <span class="st">" / "</span> + std::<span class="fn">to_string</span>(kTotalCoins) +
+            grounded + <span class="st">"  |  Arrows=move  Space=jump  ESC=quit"</span>
+        );
+    }
+};
+
+<span class="kw">int</span> <span class="fn">main</span>() {
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">Platformer2D</span>&gt;()-><span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP BY STEP ───────────────────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<h3>AddRigidBody2D(mass)</h3>
+<p>
+  This is the gateway call that opts an entity into the Box2D simulation. Internally it creates
+  an Urho3D <code>RigidBody2D</code> component and registers it with the <code>PhysicsWorld2D</code>
+  scene node. The single parameter is mass in kilograms.
+</p>
+<ul>
+  <li>
+    <strong><code>0.0f</code> &mdash; static body.</strong> The body has infinite effective mass.
+    Other bodies collide with it and bounce or slide, but the static body itself is never
+    displaced by gravity or forces. Use <code>0.0f</code> for all level geometry: the ground,
+    walls, platforms, and any surface the player stands on. Static bodies are much cheaper to
+    simulate than dynamic ones.
+  </li>
+  <li>
+    <strong>Any positive float &mdash; dynamic body.</strong> Box2D applies gravity each simulation
+    step. The body accumulates velocity, responds to <code>ApplyImpulse2D</code> and
+    <code>SetLinearVelocity2D</code>, and participates in collision resolution. The higher the mass
+    value, the more force is required to accelerate the body. For a humanoid character 1&nbsp;kg is
+    common; the exact value is less important than tuning the impulse magnitudes to match.
+  </li>
+</ul>
+<p>
+  Unlike the 3D <code>AddRigidBody</code>, the 2D version does not lock rotation axes by default.
+  If your player sprite tilts when it slides against a wall, call
+  <code>body2D-&gt;SetFixedRotation(true)</code> on the Urho3D <code>RigidBody2D</code> component
+  directly, or simply keep the visual sprite rotation locked at zero in <code>Update</code>.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">AddRigidBody2D</span>(<span class="kw">float</span> mass);</div>
+
+<h3>AddBoxCollider2D(halfX, halfY)</h3>
+<p>
+  Attaches an axis-aligned rectangular collision shape to the entity. The two parameters are
+  the <strong>half-extents</strong> in metres: <code>halfX</code> is half the total width and
+  <code>halfY</code> is half the total height. This matches Box2D's native convention
+  (<code>b2PolygonShape::SetAsBox</code> also takes half-extents).
+</p>
+<p>
+  Concretely: to cover a sprite that is 0.6&nbsp;m wide and 1.0&nbsp;m tall, pass
+  <code>AddBoxCollider2D(0.3f, 0.5f)</code>. If your collision box feels twice as wide as
+  expected, you have probably passed the full size rather than half the size.
+</p>
+<p>
+  The shape is centered on the entity's local origin. If the sprite's visual center does not
+  align with the physics center, offset the entity itself or use a child entity offset from
+  the parent.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">AddBoxCollider2D</span>(<span class="kw">float</span> halfX, <span class="kw">float</span> halfY);</div>
+
+<h3>AddCircleCollider2D(radius)</h3>
+<p>
+  Attaches a circular collision shape with the given radius in metres. This is the cheapest
+  shape Box2D can test &mdash; contact between two circles reduces to a single distance
+  comparison, and circle-vs-box is also simpler than box-vs-box. Use circles for coins,
+  projectiles, balls, and any sprite that is roughly round.
+</p>
+<p>
+  Like the box collider, the circle is centered on the entity's local origin. The radius does
+  not have to match the sprite exactly; using a radius slightly smaller than the visual sprite
+  is common practice to avoid the player feeling like they missed a coin they nearly touched.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">AddCircleCollider2D</span>(<span class="kw">float</span> radius);</div>
+
+<h3>SetLinearVelocity2D(Vector2) and GetLinearVelocity2D()</h3>
+<p>
+  <code>SetLinearVelocity2D</code> replaces the body's current velocity with the supplied
+  <code>Vector2</code>. The X component is horizontal speed (positive = right) and the Y
+  component is vertical speed (positive = up). Calling this every frame is the standard way
+  to drive character movement in a 2D game &mdash; you set exactly how fast the player moves
+  horizontally while Box2D handles vertical motion via gravity.
+</p>
+<p>
+  The critical side-scroller pattern is to <strong>never zero out Y</strong>:
+</p>
+<pre><span class="cm">// CORRECT: read current Y (gravity-driven), only replace X</span>
+<span class="ty">Vector2</span> vel = player_-><span class="fn">GetLinearVelocity2D</span>();
+player_-><span class="fn">SetLinearVelocity2D</span>(<span class="ty">Vector2</span>(moveX, vel.<span class="nm">y_</span>));
+
+<span class="cm">// WRONG: this kills gravity and the player can never fall</span>
+player_-><span class="fn">SetLinearVelocity2D</span>(<span class="ty">Vector2</span>(moveX, <span class="val">0.0f</span>));</pre>
+<p>
+  <code>GetLinearVelocity2D</code> returns the body's velocity as a <code>Vector2</code>.
+  You can read it at any time, including before calling <code>Set</code>, to inspect the
+  current speed for animation, sound, or HUD purposes.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">SetLinearVelocity2D</span>(<span class="ty">Vector2</span> velocity);
+<span class="ty">Vector2</span> v = <span class="ty">entity</span>-&gt;<span class="fn">GetLinearVelocity2D</span>();</div>
+
+<h3>ApplyImpulse2D(Vector2)</h3>
+<p>
+  Applies an instantaneous velocity change to the 2D rigid body. Unlike
+  <code>SetLinearVelocity2D</code>, which <em>replaces</em> the velocity, <code>ApplyImpulse2D</code>
+  <em>adds</em> to it. The unit is Newton-seconds (kg&middot;m/s): for a 1&nbsp;kg body,
+  <code>ApplyImpulse2D(Vector2(0, 8))</code> imparts exactly 8&nbsp;m/s upward. For a 2&nbsp;kg
+  body, the same call gives only 4&nbsp;m/s upward.
+</p>
+<p>
+  Impulses are the correct tool for discrete events such as jumps, knockback from a hit, and
+  explosive blasts. Because they add to whatever velocity the body already has, you should
+  check <code>IsOnGround2D()</code> before applying a jump impulse, otherwise repeated presses
+  in the air would compound the upward speed indefinitely.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">ApplyImpulse2D</span>(<span class="ty">Vector2</span> impulse);</div>
+
+<h3>IsOnGround2D()</h3>
+<p>
+  Casts a short ray (0.6&nbsp;m) downward from the entity's 2D position and returns
+  <code>true</code> if it hits any static 2D body. Use it to gate jumps, trigger landing
+  dust particles, and switch between airborne and grounded animation states. The ray length
+  is intentionally short so that a body falling at high speed still returns <code>true</code>
+  only on the frame it actually makes contact, not while it is several metres above the floor.
+</p>
+
+<div class="sig"><span class="kw">bool</span> grounded = <span class="ty">entity</span>-&gt;<span class="fn">IsOnGround2D</span>();</div>
+
+<!-- ─── 2D AND 3D COEXISTENCE ──────────────────────────────────────── -->
+<h2>2D and 3D physics in the same scene</h2>
+<p>
+  Because Bullet and Box2D operate on completely separate simulation islands you can freely mix
+  them in a single scene. A common creative use is a <em>2.5D game</em>: the player and all
+  interactive objects use Box2D for physics and collision, while background decoration such as
+  distant mountains, spinning gears, or fire particles use 3D rendering (and optionally 3D Bullet
+  physics) to add depth.
+</p>
+<p>
+  The rule is: each entity may belong to at most one physics world. Call either
+  <code>AddRigidBody</code> (3D) <em>or</em> <code>AddRigidBody2D</code> (2D) per entity, never
+  both. The following short example demonstrates two entities in the same scene, each using a
+  different physics world:
+</p>
+
+<pre><span class="cm">// In Start() — mixing 2D and 3D physics in one scene</span>
+
+<span class="cm">// This crate lives in the Box2D 2D world — falls under 2D gravity.</span>
+<span class="ty">Entity</span>* crate2D = <span class="fn">CreateEntity</span>(<span class="st">"Crate2D"</span>);
+crate2D-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">4.0f</span>, <span class="val">0.0f</span>));
+crate2D-><span class="fn">AddRigidBody2D</span>(<span class="val">1.0f</span>);
+crate2D-><span class="fn">AddBoxCollider2D</span>(<span class="val">0.5f</span>, <span class="val">0.5f</span>);  <span class="cm">// 1m × 1m box, half-extents</span>
+
+<span class="cm">// This spinning debris lives in the Bullet 3D world — tumbles freely.</span>
+<span class="ty">Entity</span>* debris3D = <span class="fn">CreateEntity</span>(<span class="st">"Debris3D"</span>);
+debris3D-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">3.0f</span>, <span class="val">4.0f</span>, -<span class="val">1.5f</span>)); <span class="cm">// behind the 2D plane</span>
+debris3D-><span class="fn">AddRigidBody</span>(<span class="val">0.5f</span>);
+debris3D-><span class="fn">AddSphereCollider</span>(<span class="val">0.3f</span>);
+
+<span class="cm">// The two bodies NEVER interact — different simulation worlds.</span>
+<span class="cm">// Visually they appear in the same scene; physically they are isolated.</span></pre>
+
+<div class="callout info">
+  <h4>Tip: Z-depth in 2D games</h4>
+  <p>
+    In 2D mode the camera looks along the &minus;Z axis. Objects with a larger Z value appear
+    in front of objects with a smaller Z value. This lets you layer background elements (Z&nbsp;=&nbsp;&minus;5),
+    gameplay entities (Z&nbsp;=&nbsp;0), and foreground overlays (Z&nbsp;=&nbsp;5) without any
+    physics interaction between the layers. The Box2D solver only cares about X and Y; Z is purely
+    visual.
+  </p>
+</div>
+
+<!-- ─── SIDE-SCROLLER PATTERN ─────────────────────────────────────── -->
+<h2>The side-scroller pattern in detail</h2>
+<p>
+  A side-scroller (horizontal platformer) built with simple-3d 2D physics follows a repeatable
+  pattern. Here is the recipe extracted from the example above:
+</p>
+
+<h3>1. Orthographic camera</h3>
+<pre>cam-><span class="fn">Setup2D</span>(<span class="val">100.0f</span>);   <span class="cm">// 100 pixels per world unit</span></pre>
+<p>
+  <code>Setup2D</code> sets the camera to orthographic projection and positions it far enough
+  along +Z to see the full XY plane without clipping. Pass the pixel-per-world-unit ratio
+  that matches your sprite sheet. At 100 PPU, a sprite sheet tile that is 64&nbsp;&times;&nbsp;64
+  pixels occupies 0.64&nbsp;m in world space.
+</p>
+
+<h3>2. Static ground and platforms</h3>
+<pre><span class="cm">// Ground strip at the bottom of the level</span>
+<span class="ty">Entity</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+ground-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">0</span>, -<span class="val">3.5f</span>, <span class="val">0</span>));
+ground-><span class="fn">AddRigidBody2D</span>(<span class="val">0.0f</span>);           <span class="cm">// static</span>
+ground-><span class="fn">AddBoxCollider2D</span>(<span class="val">8.0f</span>, <span class="val">0.5f</span>);   <span class="cm">// 16m wide, 1m tall</span>
+
+<span class="cm">// Floating platform</span>
+<span class="ty">Entity</span>* plat = <span class="fn">CreateEntity</span>(<span class="st">"Platform"</span>);
+plat-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">2.0f</span>, -<span class="val">0.5f</span>, <span class="val">0</span>));
+plat-><span class="fn">AddRigidBody2D</span>(<span class="val">0.0f</span>);
+plat-><span class="fn">AddBoxCollider2D</span>(<span class="val">1.0f</span>, <span class="val">0.25f</span>);   <span class="cm">// 2m wide, 0.5m tall</span></pre>
+
+<h3>3. Dynamic player character</h3>
+<pre>player_-><span class="fn">AddRigidBody2D</span>(<span class="val">1.0f</span>);          <span class="cm">// dynamic, falls under gravity</span>
+player_-><span class="fn">AddBoxCollider2D</span>(<span class="val">0.3f</span>, <span class="val">0.5f</span>);   <span class="cm">// 0.6m wide, 1m tall</span></pre>
+
+<h3>4. Run: SetLinearVelocity2D, keep Y</h3>
+<pre><span class="ty">Vector2</span> vel = player_-><span class="fn">GetLinearVelocity2D</span>();
+<span class="kw">float</span> moveX = <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Right</span>) ? <span class="val">5.0f</span> : <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Left</span>) ? -<span class="val">5.0f</span> : <span class="val">0.0f</span>;
+player_-><span class="fn">SetLinearVelocity2D</span>(<span class="ty">Vector2</span>(moveX, vel.<span class="nm">y_</span>));</pre>
+
+<h3>5. Jump: ApplyImpulse2D gated on IsOnGround2D</h3>
+<pre><span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="nm">Space</span>) && player_-><span class="fn">IsOnGround2D</span>())
+    player_-><span class="fn">ApplyImpulse2D</span>(<span class="ty">Vector2</span>(<span class="val">0.0f</span>, <span class="val">8.0f</span>));</pre>
+
+<h3>6. Collectibles: static circle colliders, manual overlap check</h3>
+<pre>coin-><span class="fn">AddRigidBody2D</span>(<span class="val">0.0f</span>);         <span class="cm">// static coin, will not fall</span>
+coin-><span class="fn">AddCircleCollider2D</span>(<span class="val">0.18f</span>);   <span class="cm">// circle shape, radius 0.18 m</span>
+
+<span class="cm">// In Update — distance-based pickup</span>
+<span class="kw">if</span> ((player_-><span class="fn">GetPosition</span>() - coin-><span class="fn">GetPosition</span>()).<span class="fn">Length</span>() < <span class="val">0.6f</span>)
+    coin-><span class="fn">SetActive</span>(<span class="kw">false</span>);</pre>
+
+<div class="callout info">
+  <h4>Camera follow in a side-scroller</h4>
+  <p>
+    The example above uses a fixed camera to keep the code short. In a real side-scroller you
+    normally want the camera to follow the player horizontally. The simplest approach is to
+    update the camera's X position each frame to track the player while keeping Y at a fixed
+    comfortable height:
+  </p>
+  <pre><span class="cm">// In Update(dt) — smooth horizontal camera follow</span>
+<span class="ty">Vector3</span> camPos = cam-><span class="fn">GetPosition</span>();
+<span class="ty">Vector3</span> pPos   = player_-><span class="fn">GetPosition</span>();
+camPos.<span class="nm">x_</span> += (pPos.<span class="nm">x_</span> - camPos.<span class="nm">x_</span>) * <span class="val">5.0f</span> * dt;  <span class="cm">// smooth lerp</span>
+cam-><span class="fn">SetPosition</span>(camPos);</pre>
+</div>
+
+<!-- ─── 2D PHYSICS QUICK REFERENCE ───────────────────────────────── -->
+<h2>2D physics API quick reference</h2>
+<table>
+  <tr>
+    <th>Method</th>
+    <th>Notes</th>
+  </tr>
+  <tr>
+    <td><code>AddRigidBody2D(0.0f)</code></td>
+    <td>Static 2D body. Immovable. Blocks and collides with dynamic bodies.</td>
+  </tr>
+  <tr>
+    <td><code>AddRigidBody2D(mass)</code></td>
+    <td>Dynamic 2D body. Subject to Box2D gravity and forces. Mass in kg.</td>
+  </tr>
+  <tr>
+    <td><code>AddBoxCollider2D(halfX, halfY)</code></td>
+    <td>Axis-aligned box shape. Parameters are <strong>half-extents</strong> in metres.</td>
+  </tr>
+  <tr>
+    <td><code>AddCircleCollider2D(radius)</code></td>
+    <td>Circle shape. Cheapest shape. Ideal for coins, balls, projectiles.</td>
+  </tr>
+  <tr>
+    <td><code>SetLinearVelocity2D(Vector2)</code></td>
+    <td>Replaces the body's velocity. Override only X; preserve Y for gravity.</td>
+  </tr>
+  <tr>
+    <td><code>GetLinearVelocity2D()</code></td>
+    <td>Returns current 2D velocity as <code>Vector2</code>.</td>
+  </tr>
+  <tr>
+    <td><code>ApplyImpulse2D(Vector2)</code></td>
+    <td>Adds an instant velocity change (kg&middot;m/s). Ideal for jumps and knockback.</td>
+  </tr>
+  <tr>
+    <td><code>IsOnGround2D()</code></td>
+    <td>Downward ray 0.6&nbsp;m against static 2D bodies. Returns <code>bool</code>.</td>
+  </tr>
+</table>
+
+<!-- ─── LUA EQUIVALENT ───────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+<p>
+  All 2D physics methods are available from Lua. Method names are identical. The snippet below
+  is a complete Lua version of the platformer from the example above. Attach it to an entity
+  with <code>entity:AddScript("Scripts/Platformer2D.lua")</code>, or load it as a standalone
+  game script.
+</p>
+
+<pre><span class="lua-cm">-- Platformer2D.lua — Part 13 of the simple-3d tutorial series</span>
+
+<span class="lua-kw">local</span> player_, statusLbl_
+<span class="lua-kw">local</span> coins_ = <span class="lua-num">0</span>
+<span class="lua-kw">local</span> totalCoins = <span class="lua-num">5</span>
+<span class="lua-kw">local</span> coinEntities = {}
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-fn">SetWindowTitle</span>(<span class="lua-str">"Part 13 — 2D Physics (Lua)"</span>)
+    <span class="lua-fn">SetClearColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.05</span>, <span class="lua-num">0.10</span>, <span class="lua-num">0.22</span>))
+
+    <span class="lua-cm">-- 2D orthographic camera</span>
+    <span class="lua-kw">local</span> cam = <span class="lua-fn">CreateCamera</span>()
+    cam:<span class="lua-fn">Setup2D</span>(<span class="lua-num">100.0</span>)
+
+    <span class="lua-kw">local</span> sun = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Sun"</span>)
+    sun:<span class="lua-fn">SetRotation</span>(<span class="lua-fn">Quaternion</span>(<span class="lua-num">45</span>, <span class="lua-num">30</span>, <span class="lua-num">0</span>))
+    sun:<span class="lua-fn">AddDirectionalLight</span>(<span class="lua-fn">Color</span>(<span class="lua-num">1</span>, <span class="lua-num">1</span>, <span class="lua-num">1</span>), <span class="lua-num">1.2</span>)
+
+    <span class="lua-cm">-- Ground — static 2D body</span>
+    <span class="lua-kw">local</span> ground = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Ground"</span>)
+    ground:<span class="lua-fn">SetPosition</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, -<span class="lua-num">3.5</span>, <span class="lua-num">0</span>))
+    ground:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.30</span>, <span class="lua-num">0.55</span>, <span class="lua-num">0.25</span>))
+    ground:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+    ground:<span class="lua-fn">SetScale</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">16</span>, <span class="lua-num">1</span>, <span class="lua-num">0.2</span>))
+    ground:<span class="lua-fn">AddRigidBody2D</span>(<span class="lua-num">0.0</span>)
+    ground:<span class="lua-fn">AddBoxCollider2D</span>(<span class="lua-num">8.0</span>, <span class="lua-num">0.5</span>)   <span class="lua-cm">-- halfX=8, halfY=0.5</span>
+
+    <span class="lua-cm">-- Platforms — static 2D bodies</span>
+    <span class="lua-kw">local function</span> <span class="lua-fn">makePlatform</span>(x, y, halfW)
+        <span class="lua-kw">local</span> p = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Platform"</span>)
+        p:<span class="lua-fn">SetPosition</span>(<span class="lua-fn">Vector3</span>(x, y, <span class="lua-num">0</span>))
+        p:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.50</span>, <span class="lua-num">0.35</span>, <span class="lua-num">0.15</span>))
+        p:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+        p:<span class="lua-fn">SetScale</span>(<span class="lua-fn">Vector3</span>(halfW * <span class="lua-num">2</span>, <span class="lua-num">0.5</span>, <span class="lua-num">0.2</span>))
+        p:<span class="lua-fn">AddRigidBody2D</span>(<span class="lua-num">0.0</span>)
+        p:<span class="lua-fn">AddBoxCollider2D</span>(halfW, <span class="lua-num">0.25</span>)
+    <span class="lua-kw">end</span>
+    <span class="lua-fn">makePlatform</span>(-<span class="lua-num">4.0</span>, -<span class="lua-num">1.5</span>, <span class="lua-num">1.5</span>)
+    <span class="lua-fn">makePlatform</span>( <span class="lua-num">0.5</span>, -<span class="lua-num">0.5</span>, <span class="lua-num">1.0</span>)
+    <span class="lua-fn">makePlatform</span>( <span class="lua-num">4.5</span>,  <span class="lua-num">1.0</span>, <span class="lua-num">1.2</span>)
+
+    <span class="lua-cm">-- Player — dynamic 2D body</span>
+    player_ = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Player"</span>)
+    player_:<span class="lua-fn">SetPosition</span>(<span class="lua-fn">Vector3</span>(-<span class="lua-num">6</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>))
+    player_:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.20</span>, <span class="lua-num">0.55</span>, <span class="lua-num">0.95</span>))
+    player_:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+    player_:<span class="lua-fn">SetScale</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0.6</span>, <span class="lua-num">1.0</span>, <span class="lua-num">0.2</span>))
+    player_:<span class="lua-fn">AddRigidBody2D</span>(<span class="lua-num">1.0</span>)           <span class="lua-cm">-- 1 kg dynamic body</span>
+    player_:<span class="lua-fn">AddBoxCollider2D</span>(<span class="lua-num">0.3</span>, <span class="lua-num">0.5</span>)    <span class="lua-cm">-- halfX=0.3, halfY=0.5</span>
+
+    <span class="lua-cm">-- Coins — static 2D bodies with circle colliders</span>
+    <span class="lua-kw">local</span> coinX = { -<span class="lua-num">4.0</span>, -<span class="lua-num">4.5</span>,  <span class="lua-num">0.5</span>,  <span class="lua-num">4.5</span>,  <span class="lua-num">5.0</span> }
+    <span class="lua-kw">local</span> coinY = { -<span class="lua-num">0.7</span>, -<span class="lua-num">0.7</span>,  <span class="lua-num">0.3</span>,  <span class="lua-num">1.8</span>,  <span class="lua-num">1.8</span> }
+    <span class="lua-kw">for</span> i = <span class="lua-num">1</span>, totalCoins <span class="lua-kw">do</span>
+        <span class="lua-kw">local</span> coin = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Coin"</span> .. i)
+        coin:<span class="lua-fn">SetPosition</span>(<span class="lua-fn">Vector3</span>(coinX[i], coinY[i], <span class="lua-num">0.1</span>))
+        coin:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">1.0</span>, <span class="lua-num">0.85</span>, <span class="lua-num">0.10</span>))
+        coin:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Sphere.mdl"</span>)
+        coin:<span class="lua-fn">SetScale</span>(<span class="lua-num">0.35</span>)
+        coin:<span class="lua-fn">AddRigidBody2D</span>(<span class="lua-num">0.0</span>)          <span class="lua-cm">-- static</span>
+        coin:<span class="lua-fn">AddCircleCollider2D</span>(<span class="lua-num">0.18</span>)    <span class="lua-cm">-- radius 0.18 m</span>
+        coinEntities[i] = coin
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- HUD label</span>
+    statusLbl_ = <span class="lua-fn">CreateLabel</span>(<span class="lua-str">"Coins: 0 / 5  |  Arrows = move  Space = jump"</span>)
+    statusLbl_:<span class="lua-fn">SetPosition</span>(<span class="lua-num">12</span>, <span class="lua-num">12</span>)
+    statusLbl_:<span class="lua-fn">SetFontSize</span>(<span class="lua-num">16</span>)
+    statusLbl_:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">1</span>, <span class="lua-num">1</span>, <span class="lua-num">1</span>))
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyPressed</span>(Key.Escape) <span class="lua-kw">then</span> <span class="lua-fn">Quit</span>() <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Horizontal movement: read Y, override X only</span>
+    <span class="lua-kw">local</span> vel = player_:<span class="lua-fn">GetLinearVelocity2D</span>()
+    <span class="lua-kw">local</span> moveX = <span class="lua-num">0</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyDown</span>(Key.Left)  <span class="lua-kw">then</span> moveX = -<span class="lua-num">5</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyDown</span>(Key.Right) <span class="lua-kw">then</span> moveX =  <span class="lua-num">5</span> <span class="lua-kw">end</span>
+    player_:<span class="lua-fn">SetLinearVelocity2D</span>(<span class="lua-fn">Vector2</span>(moveX, vel.y))
+
+    <span class="lua-kw">if</span> moveX < <span class="lua-num">0</span> <span class="lua-kw">then</span> player_:<span class="lua-fn">SetFlipX2D</span>(<span class="lua-kw">true</span>)  <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> moveX > <span class="lua-num">0</span> <span class="lua-kw">then</span> player_:<span class="lua-fn">SetFlipX2D</span>(<span class="lua-kw">false</span>) <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Jump: impulse upward when grounded</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyPressed</span>(Key.Space) <span class="lua-kw">and</span> player_:<span class="lua-fn">IsOnGround2D</span>() <span class="lua-kw">then</span>
+        player_:<span class="lua-fn">ApplyImpulse2D</span>(<span class="lua-fn">Vector2</span>(<span class="lua-num">0</span>, <span class="lua-num">8</span>))
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Coin collection</span>
+    <span class="lua-kw">local</span> pPos = player_:<span class="lua-fn">GetPosition</span>()
+    <span class="lua-kw">for</span> i = <span class="lua-num">1</span>, totalCoins <span class="lua-kw">do</span>
+        <span class="lua-kw">local</span> coin = coinEntities[i]
+        <span class="lua-kw">if</span> coin <span class="lua-kw">and</span> coin:<span class="lua-fn">IsActive</span>() <span class="lua-kw">then</span>
+            <span class="lua-kw">local</span> cPos = coin:<span class="lua-fn">GetPosition</span>()
+            <span class="lua-kw">local</span> dx = pPos.x - cPos.x
+            <span class="lua-kw">local</span> dy = pPos.y - cPos.y
+            <span class="lua-kw">if</span> (dx*dx + dy*dy) < <span class="lua-num">0.36</span> <span class="lua-kw">then</span>   <span class="lua-cm">-- 0.6^2</span>
+                coin:<span class="lua-fn">SetActive</span>(<span class="lua-kw">false</span>)
+                coins_ = coins_ + <span class="lua-num">1</span>
+            <span class="lua-kw">end</span>
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-kw">local</span> grounded = player_:<span class="lua-fn">IsOnGround2D</span>() <span class="lua-kw">and</span> <span class="lua-str">" [GROUNDED]"</span> <span class="lua-kw">or</span> <span class="lua-str">" [AIRBORNE]"</span>
+    statusLbl_:<span class="lua-fn">SetText</span>(<span class="lua-str">"Coins: "</span> .. coins_ .. <span class="lua-str">" / "</span> .. totalCoins .. grounded)
+<span class="lua-kw">end</span></pre>
+
+<div class="callout lua">
+  <h4>Lua note</h4>
+  <p>
+    The 2D physics methods (<code>AddRigidBody2D</code>, <code>AddBoxCollider2D</code>,
+    <code>AddCircleCollider2D</code>, <code>SetLinearVelocity2D</code>,
+    <code>GetLinearVelocity2D</code>, <code>ApplyImpulse2D</code>, <code>IsOnGround2D</code>)
+    are available on every entity object in Lua using colon syntax. <code>Vector2</code> is
+    exposed as a global constructor; access its fields as <code>.x</code> and <code>.y</code>
+    (note: in C++ they are <code>x_</code> and <code>y_</code>; Lua strips the underscore).
+  </p>
+</div>
+
+<!-- ─── COMMON MISTAKES ──────────────────────────────────────────── -->
+<h2>Common mistakes</h2>
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Treating <code>AddBoxCollider2D</code> arguments as full size rather than half-extents.</strong>
+      Unlike the 3D <code>AddBoxCollider(Vector3)</code>, which takes the full width/height/depth,
+      <code>AddBoxCollider2D</code> takes half-extents following Box2D convention.
+      If your platform is twice as wide as expected or objects are floating above the ground,
+      check that you are dividing the sprite dimensions by two before passing them here.
+    </li>
+    <li>
+      <strong>Zeroing out the Y component in <code>SetLinearVelocity2D</code>.</strong>
+      A very common bug: writing <code>SetLinearVelocity2D(Vector2(moveX, 0))</code> every frame
+      cancels gravity entirely. The player will hover when walking off a ledge and jumps will
+      have no arc. Always preserve the current Y with <code>GetLinearVelocity2D().y_</code>
+      and pass it back in.
+    </li>
+    <li>
+      <strong>Calling <code>ApplyImpulse2D</code> every frame instead of on key press.</strong>
+      <code>ApplyImpulse2D</code> adds to the velocity each call. In <code>Update</code>, which
+      runs 60 times per second, calling it unconditionally while a key is held will shoot the player
+      into orbit. Use <code>IsKeyPressed</code> (fires once on the first frame) rather than
+      <code>IsKeyDown</code> (fires every frame) to trigger jumps and one-shot events.
+    </li>
+    <li>
+      <strong>Mixing <code>AddRigidBody</code> (3D) and <code>AddRigidBody2D</code> (2D) on the same entity.</strong>
+      Each entity may belong to exactly one physics world. Calling both on the same entity produces
+      undefined behaviour: the entity will appear to work in one world while silently corrupting
+      the other simulation. Keep them separate &mdash; one entity, one physics world.
+    </li>
+    <li>
+      <strong>Forgetting to set position before <code>AddRigidBody2D</code>.</strong>
+      Once a Box2D body exists, the physics world records the entity's starting position. Call
+      <code>SetPosition</code> before <code>AddRigidBody2D</code>. Moving an entity after its
+      body exists requires <code>SetLinearVelocity2D</code> or <code>ApplyImpulse2D</code>;
+      calling <code>SetPosition</code> on a live dynamic body can cause position discontinuities
+      and collision tunnelling.
+    </li>
+    <li>
+      <strong><code>IsOnGround2D</code> returning <code>false</code> even when standing on a static body.</strong>
+      <code>IsOnGround2D</code> casts a ray 0.6&nbsp;m downward. If the platform collider was
+      created without a rigid body, or if the collider half-height is very large and the entity
+      center is far above the surface, the ray may not reach it. Verify that every platform has
+      both <code>AddRigidBody2D(0.0f)</code> and a collider, and that the collider half-extents
+      are sensible relative to the entity's center.
+    </li>
+    <li>
+      <strong>Expecting 2D and 3D physics to interact.</strong>
+      A 2D Box2D body and a 3D Bullet body will never generate a collision contact with each other,
+      even if their visual models overlap in world space. The two simulation worlds are completely
+      independent. Design your scene so either all gameplay-critical objects use 2D physics or all
+      use 3D physics; reserve the other for pure visual decoration.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ─────────────────────────────────────────── -->
+<h2>What you learned</h2>
+<p>
+  In this part you built a working 2D physics-based platformer from scratch. Here is a concise
+  summary of every concept covered:
+</p>
+<ul>
+  <li>
+    simple-3d includes <strong>both Bullet (3D) and Box2D (2D) physics worlds</strong> in every
+    scene. They run independently and never interact with each other; each entity can belong to
+    at most one world.
+  </li>
+  <li>
+    <code>AddRigidBody2D(0.0f)</code> creates a <strong>static</strong> Box2D body (ground,
+    walls, platforms). <code>AddRigidBody2D(mass)</code> with a positive mass creates a
+    <strong>dynamic</strong> body that falls under Box2D gravity.
+  </li>
+  <li>
+    <code>AddBoxCollider2D(halfX, halfY)</code> attaches a rectangular shape using
+    <strong>half-extents</strong> (not full size). A 2&nbsp;m wide platform uses <code>halfX = 1.0f</code>.
+  </li>
+  <li>
+    <code>AddCircleCollider2D(radius)</code> attaches a circular shape &mdash; the cheapest 2D
+    shape, ideal for coins, balls, and collectibles.
+  </li>
+  <li>
+    The side-scroller movement pattern reads the current velocity with
+    <code>GetLinearVelocity2D()</code>, overrides only the X component with the desired horizontal
+    speed, and writes it back with <code>SetLinearVelocity2D</code> &mdash; this preserves the
+    Y component that Box2D calculates via gravity.
+  </li>
+  <li>
+    <code>ApplyImpulse2D(Vector2)</code> adds an instantaneous velocity change &mdash; the correct
+    tool for jumps and knockback. Gate jumps with <code>IsOnGround2D()</code> to prevent
+    double-jumping.
+  </li>
+  <li>
+    <code>IsOnGround2D()</code> casts a 0.6&nbsp;m downward ray against static 2D bodies and
+    returns <code>true</code> when the entity is resting on a surface.
+  </li>
+  <li>
+    The <code>PhysicsWorld2D</code> component is added automatically by
+    <code>Game::Run()</code> &mdash; you never create it manually, just call the 2D API and it
+    is ready immediately.
+  </li>
+</ul>
+<p>
+  The next part moves away from physics into navigation and pathfinding, where you will use a
+  baked NavMesh to make enemies find their way around complex 3D environments automatically.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-12.html">&#8592; Part 12: 2D Mode</a>
+  <a href="tutorial-14.html">Part 14: Navigation and Pathfinding &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

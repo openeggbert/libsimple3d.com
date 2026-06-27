@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 19: Save and Load — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li class="active"><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 19</div>
+
+<h1><span class="tutorial-part">Part 19 of 30</span>Save and Load</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>SetAppName(name)</code> &mdash;
+    <code>Simple3D::SaveData</code> &mdash;
+    <code>GetSaveData(slot)</code> &mdash;
+    <code>data.Set(key, int|float|bool|string)</code> &mdash;
+    <code>data.GetInt(key, default)</code> &mdash;
+    <code>data.GetFloat(key, default)</code> &mdash;
+    <code>data.GetBool(key, default)</code> &mdash;
+    <code>data.GetString(key, default)</code> &mdash;
+    <code>data.Get&lt;T&gt;(key, default)</code> &mdash;
+    <code>data.HasKey(key)</code> &mdash;
+    <code>data.Clear()</code> &mdash;
+    <code>data.Save(slot)</code> &mdash;
+    <code>data.Load(slot)</code> &mdash;
+    <code>SaveData::Exists(slot)</code> &mdash;
+    <code>SaveData::Delete(slot)</code> &mdash;
+    multi-slot save pattern (slot 0 = autosave, 1&ndash;3 = manual) &mdash;
+    OS save directory path &mdash;
+    default-value pattern for first run.
+  </p>
+</div>
+
+<!-- WHAT YOU WILL LEARN -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How <code>Simple3D::SaveData</code> stores key-value pairs of <code>int</code>, <code>float</code>, <code>bool</code>, and <code>string</code> and serialises them to a JSON file on disk.</li>
+  <li>How to set the application name with <code>SetAppName</code> so saves land in the correct OS directory.</li>
+  <li>Where save files are written on Linux and Windows.</li>
+  <li>How to write values with the overloaded <code>Set(key, value)</code> call and read them back with typed getters — <code>GetInt</code>, <code>GetFloat</code>, <code>GetBool</code>, and <code>GetString</code> — each accepting a default for the first-run case.</li>
+  <li>How to use the template shorthand <code>Get&lt;T&gt;(key, default)</code> to reduce repetition.</li>
+  <li>How to check for a key's presence with <code>HasKey</code> and wipe the in-memory state with <code>Clear</code>.</li>
+  <li>How to persist data to disk with <code>Save(slot)</code> and restore it with <code>Load(slot)</code>, and how to handle a missing or corrupted file gracefully.</li>
+  <li>How to query whether a save slot file exists with the static <code>SaveData::Exists(slot)</code> and delete it with <code>SaveData::Delete(slot)</code>.</li>
+  <li>The recommended multi-slot pattern: slot 0 for autosave, slots 1&ndash;3 for manual saves.</li>
+  <li>How to use <code>Game::GetSaveData(slot)</code> to let the engine own and cache <code>SaveData</code> instances for you.</li>
+</ul>
+
+<!-- BACKGROUND -->
+<h2>Background: what is SaveData?</h2>
+
+<p>
+  Most games need to remember something between sessions: the player's score, the
+  current level, audio settings, or whether a tutorial was already shown.
+  simple-3d provides <code>Simple3D::SaveData</code>, a lightweight key-value store
+  that serialises to and from a JSON file on disk.  There are no databases or
+  binary formats to worry about — the file is human-readable, which makes debugging
+  simple.
+</p>
+
+<div class="grid2">
+  <div class="card card-green">
+    <h3>In-memory store</h3>
+    <p>
+      A <code>SaveData</code> object holds an in-memory map of typed values.
+      You can read and write keys freely without touching the filesystem.
+      The data is only persisted when you explicitly call <code>Save(slot)</code>.
+    </p>
+  </div>
+  <div class="card card-blue">
+    <h3>JSON on disk</h3>
+    <p>
+      <code>Save(slot)</code> serialises the in-memory map to
+      <code>save_<em>N</em>.json</code> in the application's OS-specific directory.
+      <code>Load(slot)</code> reads it back.  If the file is missing,
+      <code>Load</code> returns <code>false</code> and the object stays empty —
+      your default values take over automatically.
+    </p>
+  </div>
+</div>
+
+<!-- FILE LOCATIONS -->
+<h2>Where save files are written</h2>
+
+<p>
+  Before calling <code>Save</code> or <code>Load</code> for the first time, call
+  <code>SetAppName</code> to fix the directory.  The default name is
+  <code>"Simple3DGame"</code> if you do not call it.
+</p>
+
+<pre><span class="cm">// In Start() or main() — call once before any Save/Load</span>
+<span class="fn">SetAppName</span>(<span class="st">"PlatformerAdventure"</span>);</pre>
+
+<p>The resulting paths for slot <code>N</code> are:</p>
+
+<table>
+  <thead>
+    <tr><th>Platform</th><th>Path</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Linux</td>
+      <td><code>~/.local/share/&lt;appName&gt;/save_N.json</code></td>
+    </tr>
+    <tr>
+      <td>Windows</td>
+      <td><code>%APPDATA%\&lt;appName&gt;\save_N.json</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  For example, with <code>SetAppName("PlatformerAdventure")</code> and
+  <code>Save(0)</code> on Linux, the file is written to
+  <code>~/.local/share/PlatformerAdventure/save_0.json</code>.
+  The directory is created automatically if it does not exist.
+</p>
+
+<!-- JSON FORMAT -->
+<h2>JSON format on disk</h2>
+
+<p>
+  Each type lives in its own section so the parser can distinguish a bool from an
+  int without ambiguity.  Here is an example file for slot 0:
+</p>
+
+<pre>{
+  <span class="st">"ints"</span>: {
+    <span class="st">"score"</span>: <span class="val">4200</span>,
+    <span class="st">"level"</span>: <span class="val">3</span>,
+    <span class="st">"lives"</span>: <span class="val">5</span>
+  },
+  <span class="st">"floats"</span>: {
+    <span class="st">"masterVolume"</span>: <span class="val">0.800000012</span>
+  },
+  <span class="st">"bools"</span>: {
+    <span class="st">"musicEnabled"</span>: <span class="kw">true</span>,
+    <span class="st">"tutorialShown"</span>: <span class="kw">true</span>
+  },
+  <span class="st">"strings"</span>: {
+    <span class="st">"playerName"</span>: <span class="st">"Alice"</span>
+  }
+}</pre>
+
+<p>
+  Because the file is plain JSON, you can open it in any text editor to inspect or
+  reset values during development.  Never rely on this format being stable across
+  engine versions in production; use it for debugging only.
+</p>
+
+<!-- COMPLETE EXAMPLE -->
+<h2>Complete working example</h2>
+
+<p>
+  The example below builds a small RPG-style demo.  It demonstrates every save-and-load
+  API call covered in this part: setting the app name, writing and reading all four
+  value types, the first-run default pattern, autosave on quit, manual save slots,
+  checking whether a slot exists, and deleting a slot from the save-selection UI.
+</p>
+
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="cm">// ── Save slot conventions ─────────────────────────────────────────────
+// Slot 0  = autosave  (written automatically on quit and level transition)
+// Slots 1-3 = manual saves (player-controlled from the pause menu)</span>
+<span class="kw">static constexpr</span> <span class="ty">int</span> SLOT_AUTO   = <span class="val">0</span>;
+<span class="kw">static constexpr</span> <span class="ty">int</span> SLOT_SAVE1  = <span class="val">1</span>;
+<span class="kw">static constexpr</span> <span class="ty">int</span> SLOT_SAVE2  = <span class="val">2</span>;
+<span class="kw">static constexpr</span> <span class="ty">int</span> SLOT_SAVE3  = <span class="val">3</span>;
+
+<span class="kw">class</span> <span class="ty">SaveLoadDemo</span> : <span class="kw">public</span> <span class="ty">Game</span>
+{
+<span class="kw">public</span>:
+    <span class="cm">// ── Game state ───────────────────────────────────────────────────</span>
+    <span class="ty">int</span>         score_          = <span class="val">0</span>;
+    <span class="ty">int</span>         currentLevel_   = <span class="val">1</span>;
+    <span class="ty">int</span>         lives_          = <span class="val">3</span>;
+    <span class="ty">float</span>       masterVolume_   = <span class="val">0.8f</span>;
+    <span class="ty">bool</span>        musicEnabled_   = <span class="kw">true</span>;
+    <span class="ty">bool</span>        tutorialShown_  = <span class="kw">false</span>;
+    <span class="ty">std::string</span> playerName_     = <span class="st">"Player"</span>;
+
+    <span class="cm">// ── UI ───────────────────────────────────────────────────────────</span>
+    <span class="ty">Entity</span>*  player_      = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*  ground_      = <span class="kw">nullptr</span>;
+    <span class="ty">Camera</span>*  cam_         = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*   scoreLabel_  = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*   levelLabel_  = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*   infoLabel_   = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*   slotLabel_   = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="cm">// STEP 1 — Set the app name BEFORE any Save/Load call.
+        // The name becomes part of the OS save directory path:
+        //   Linux:   ~/.local/share/PlatformerAdventure/save_N.json
+        //   Windows: %APPDATA%\PlatformerAdventure\save_N.json</span>
+        <span class="fn">SetAppName</span>(<span class="st">"PlatformerAdventure"</span>);
+
+        <span class="cm">// STEP 2 — Load the autosave (slot 0) on startup.
+        // GetSaveData(slot) returns a SaveData& owned by the Game;
+        // no manual lifetime management needed.</span>
+        <span class="fn">LoadFromSlot</span>(SLOT_AUTO);
+
+        <span class="cm">// ── Scene setup ─────────────────────────────────────────────</span>
+        ground_ = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground_-&gt;<span class="fn">SetScale</span>(<span class="val">20.0f</span>);
+        ground_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        ground_-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">20.0f</span>, <span class="val">0.1f</span>, <span class="val">20.0f</span>));
+
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>);
+        <span class="ty">CharacterController</span>* cc = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+        cc-&gt;<span class="fn">SetGravity</span>(<span class="val">20.0f</span>);
+
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>, <span class="val">1.0f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45.0f</span>, <span class="val">30.0f</span>, <span class="val">0.0f</span>));
+
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">Follow</span>(player_, <span class="val">7.0f</span>, <span class="val">3.0f</span>);
+        cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">5.0f</span>);
+
+        <span class="cm">// ── HUD ─────────────────────────────────────────────────────</span>
+        scoreLabel_ = <span class="fn">CreateLabel</span>(<span class="st">""</span>);
+        scoreLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">10</span>);
+        scoreLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">18</span>);
+        scoreLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>);
+
+        levelLabel_ = <span class="fn">CreateLabel</span>(<span class="st">""</span>);
+        levelLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">36</span>);
+        levelLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">16</span>);
+        levelLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.8f</span>, <span class="val">1.0f</span>, <span class="val">0.8f</span>, <span class="val">1.0f</span>));
+
+        infoLabel_ = <span class="fn">CreateLabel</span>(
+            <span class="st">"F5=autosave  F6=save1  F7=save2  F8=save3 | "</span>
+            <span class="st">"F9=load1  F10=load2  F11=load3 | DEL=delete slot1"</span>);
+        infoLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">62</span>);
+        infoLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">12</span>);
+        infoLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.7f</span>, <span class="val">0.7f</span>, <span class="val">0.7f</span>, <span class="val">1.0f</span>));
+
+        slotLabel_ = <span class="fn">CreateLabel</span>(<span class="st">""</span>);
+        slotLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">82</span>);
+        slotLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">14</span>);
+        slotLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.9f</span>, <span class="val">0.4f</span>, <span class="val">1.0f</span>));
+
+        <span class="cm">// Apply audio setting loaded from save</span>
+        <span class="fn">SetMasterVolume</span>(masterVolume_);
+        <span class="kw">if</span> (musicEnabled_)
+            <span class="fn">PlayMusic</span>(<span class="st">"Music/theme.ogg"</span>);
+
+        <span class="cm">// Show tutorial message on first run only</span>
+        <span class="kw">if</span> (!tutorialShown_)
+        {
+            slotLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Welcome! Use WASD to move. Collect coins to earn points."</span>);
+            tutorialShown_ = <span class="kw">true</span>;   <span class="cm">// persisted at next save</span>
+        }
+
+        <span class="fn">UpdateHUD</span>();
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="fn">HandleMovement</span>(dt);
+        <span class="fn">HandleCoinPickup</span>();
+        <span class="fn">HandleSaveKeys</span>();
+        <span class="fn">HandleLoadKeys</span>();
+        <span class="fn">HandleDeleteKey</span>();
+        <span class="fn">HandleQuit</span>();
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Stop</span>() <span class="kw">override</span>
+    {
+        <span class="cm">// Autosave on quit so progress is never lost.</span>
+        <span class="fn">SaveToSlot</span>(SLOT_AUTO);
+        <span class="fn">StopMusic</span>();
+    }
+
+    <span class="cm">// ═══════════════════════════════════════════════════════════════
+    // SAVE / LOAD HELPERS
+    // ═══════════════════════════════════════════════════════════════</span>
+
+    <span class="cm">// SaveToSlot — pack all game state into the SaveData object and write to disk.</span>
+    <span class="kw">void</span> <span class="fn">SaveToSlot</span>(<span class="ty">int</span> slot)
+    {
+        <span class="cm">// GetSaveData(slot) returns a SaveData& owned by the Game.
+        // The same reference is returned every time for the same slot.</span>
+        <span class="ty">SaveData</span>&amp; save = <span class="fn">GetSaveData</span>(slot);
+
+        <span class="cm">// Set accepts int, float, bool, or std::string — all via the same
+        // overloaded name.  If the key already exists its value is replaced.</span>
+        save.<span class="fn">Set</span>(<span class="st">"score"</span>,         score_);
+        save.<span class="fn">Set</span>(<span class="st">"level"</span>,         currentLevel_);
+        save.<span class="fn">Set</span>(<span class="st">"lives"</span>,         lives_);
+        save.<span class="fn">Set</span>(<span class="st">"masterVolume"</span>,  masterVolume_);
+        save.<span class="fn">Set</span>(<span class="st">"musicEnabled"</span>,  musicEnabled_);
+        save.<span class="fn">Set</span>(<span class="st">"tutorialShown"</span>, tutorialShown_);
+        save.<span class="fn">Set</span>(<span class="st">"playerName"</span>,    playerName_);
+
+        <span class="cm">// Save(slot) serialises in-memory data to save_N.json on disk.
+        // Returns false on I/O error (e.g., no write permission).</span>
+        <span class="kw">if</span> (!save.<span class="fn">Save</span>(slot))
+            slotLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"ERROR: save failed for slot "</span> + <span class="ty">String</span>(slot));
+        <span class="kw">else</span>
+            slotLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Saved to slot "</span> + <span class="ty">String</span>(slot));
+    }
+
+    <span class="cm">// LoadFromSlot — read data back from disk and apply defaults for missing keys.</span>
+    <span class="kw">void</span> <span class="fn">LoadFromSlot</span>(<span class="ty">int</span> slot)
+    {
+        <span class="ty">SaveData</span>&amp; save = <span class="fn">GetSaveData</span>(slot);
+
+        <span class="cm">// Load(slot) reads save_N.json and populates the in-memory store.
+        // Returns false if the file is missing or cannot be parsed —
+        // which is the normal case on first launch.</span>
+        <span class="kw">if</span> (!save.<span class="fn">Load</span>(slot))
+        {
+            <span class="cm">// First run (or corrupted file): all member variables keep
+            // their in-class default values.  Nothing to do here.</span>
+            <span class="kw">if</span> (slotLabel_)
+                slotLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"No save in slot "</span> + <span class="ty">String</span>(slot) + <span class="st">" — using defaults"</span>);
+            <span class="kw">return</span>;
+        }
+
+        <span class="cm">// GetInt(key, default) — returns the stored int, or 'default' if the
+        // key is absent (first run after adding a new feature, etc.).</span>
+        score_        = save.<span class="fn">GetInt</span>   (<span class="st">"score"</span>,         <span class="val">0</span>);
+        currentLevel_ = save.<span class="fn">GetInt</span>   (<span class="st">"level"</span>,         <span class="val">1</span>);
+        lives_        = save.<span class="fn">GetInt</span>   (<span class="st">"lives"</span>,         <span class="val">3</span>);
+
+        <span class="cm">// GetFloat(key, default) — returns stored float or default.</span>
+        masterVolume_ = save.<span class="fn">GetFloat</span> (<span class="st">"masterVolume"</span>,  <span class="val">0.8f</span>);
+
+        <span class="cm">// GetBool(key, default) — returns stored bool or default.</span>
+        musicEnabled_   = save.<span class="fn">GetBool</span>  (<span class="st">"musicEnabled"</span>,  <span class="kw">true</span>);
+        tutorialShown_  = save.<span class="fn">GetBool</span>  (<span class="st">"tutorialShown"</span>, <span class="kw">false</span>);
+
+        <span class="cm">// GetString(key, default) — returns stored string or default.</span>
+        playerName_   = save.<span class="fn">GetString</span>(<span class="st">"playerName"</span>,    <span class="st">"Player"</span>);
+
+        <span class="kw">if</span> (slotLabel_)
+            slotLabel_-&gt;<span class="fn">SetText</span>(
+                <span class="st">"Loaded slot "</span> + <span class="ty">String</span>(slot) + <span class="st">" — welcome back, "</span> + <span class="ty">String</span>(playerName_.c_str()) + <span class="st">"!"</span>);
+
+        <span class="fn">UpdateHUD</span>();
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">UpdateHUD</span>()
+    {
+        <span class="kw">if</span> (scoreLabel_)
+            scoreLabel_-&gt;<span class="fn">SetText</span>(
+                <span class="ty">String</span>(playerName_.c_str()) + <span class="st">"  Score: "</span> + <span class="ty">String</span>(score_) +
+                <span class="st">"  Lives: "</span> + <span class="ty">String</span>(lives_));
+        <span class="kw">if</span> (levelLabel_)
+            levelLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Level: "</span> + <span class="ty">String</span>(currentLevel_));
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">HandleMovement</span>(<span class="ty">float</span> dt)
+    {
+        <span class="ty">CharacterController</span>* cc = player_-&gt;<span class="fn">GetComponent</span>&lt;<span class="ty">CharacterController</span>&gt;();
+        <span class="kw">if</span> (!cc) <span class="kw">return</span>;
+
+        <span class="ty">float</span> mx = <span class="val">0.0f</span>, mz = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Left</span>)  || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">A</span>)) mx -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Right</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">D</span>)) mx += <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Up</span>)    || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">W</span>)) mz -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Down</span>)  || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">S</span>)) mz += <span class="val">1.0f</span>;
+
+        cc-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(mx, <span class="val">0.0f</span>, mz) * <span class="val">5.0f</span>, dt);
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Space</span>) &amp;&amp; cc-&gt;<span class="fn">IsOnGround</span>())
+            cc-&gt;<span class="fn">Jump</span>(<span class="val">10.0f</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">HandleCoinPickup</span>()
+    {
+        <span class="cm">// Pressing C simulates picking up a coin</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">C</span>))
+        {
+            score_ += <span class="val">100</span>;
+            <span class="kw">if</span> (score_ % <span class="val">1000</span> == <span class="val">0</span>)
+            {
+                currentLevel_++;
+                slotLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Level up! Autosaving..."</span>);
+                <span class="fn">SaveToSlot</span>(SLOT_AUTO);   <span class="cm">// autosave at level transition</span>
+            }
+            <span class="fn">UpdateHUD</span>();
+        }
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">HandleSaveKeys</span>()
+    {
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">F5</span>))  <span class="fn">SaveToSlot</span>(SLOT_AUTO);
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">F6</span>))  <span class="fn">SaveToSlot</span>(SLOT_SAVE1);
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">F7</span>))  <span class="fn">SaveToSlot</span>(SLOT_SAVE2);
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">F8</span>))  <span class="fn">SaveToSlot</span>(SLOT_SAVE3);
+    }
+
+    <span class="kw">void</span> <span class="fn">HandleLoadKeys</span>()
+    {
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">F9</span>))
+        {
+            <span class="cm">// Check existence before loading to give a friendly message.</span>
+            <span class="kw">if</span> (<span class="ty">SaveData</span>::<span class="fn">Exists</span>(SLOT_SAVE1))
+                <span class="fn">LoadFromSlot</span>(SLOT_SAVE1);
+            <span class="kw">else</span>
+                slotLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Slot 1 is empty."</span>);
+        }
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">F10</span>))
+        {
+            <span class="kw">if</span> (<span class="ty">SaveData</span>::<span class="fn">Exists</span>(SLOT_SAVE2))
+                <span class="fn">LoadFromSlot</span>(SLOT_SAVE2);
+            <span class="kw">else</span>
+                slotLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Slot 2 is empty."</span>);
+        }
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">F11</span>))
+        {
+            <span class="kw">if</span> (<span class="ty">SaveData</span>::<span class="fn">Exists</span>(SLOT_SAVE3))
+                <span class="fn">LoadFromSlot</span>(SLOT_SAVE3);
+            <span class="kw">else</span>
+                slotLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Slot 3 is empty."</span>);
+        }
+    }
+
+    <span class="kw">void</span> <span class="fn">HandleDeleteKey</span>()
+    {
+        <span class="cm">// Delete key erases slot 1 from disk permanently.</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Delete</span>))
+        {
+            <span class="kw">if</span> (<span class="ty">SaveData</span>::<span class="fn">Delete</span>(SLOT_SAVE1))
+            {
+                <span class="cm">// Also clear the cached in-memory data for this slot.</span>
+                <span class="fn">GetSaveData</span>(SLOT_SAVE1).<span class="fn">Clear</span>();
+                slotLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Slot 1 deleted."</span>);
+            }
+            <span class="kw">else</span>
+            {
+                slotLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Slot 1 was already empty."</span>);
+            }
+        }
+    }
+
+    <span class="kw">void</span> <span class="fn">HandleQuit</span>()
+    {
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Escape</span>))
+            <span class="fn">Quit</span>();   <span class="cm">// Stop() is called automatically — autosave fires there</span>
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">SaveLoadDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- STEP BY STEP EXPLANATION -->
+<h2>Step-by-step explanation</h2>
+
+<!-- SetAppName -->
+<h3>SetAppName(name)</h3>
+<p>
+  Call <code>SetAppName</code> once, before any <code>Save</code> or <code>Load</code>
+  call, to set the subdirectory that holds all save files for your game.
+  Internally it calls the static <code>SaveData::SetGlobalAppName(name)</code>, which
+  fixes the base directory for all subsequent disk operations.
+  The default name — used if you never call this — is <code>"Simple3DGame"</code>.
+  Choose something unique so that two games installed on the same machine do not
+  share each other's save files.
+</p>
+<pre><span class="cm">// Call once in Start() before any Save/Load operation</span>
+<span class="fn">SetAppName</span>(<span class="st">"MyRpgGame"</span>);
+
+<span class="cm">// From that point, Save(0) writes to:
+//   Linux:   ~/.local/share/MyRpgGame/save_0.json
+//   Windows: %APPDATA%\MyRpgGame\save_0.json</span></pre>
+
+<!-- SaveData standalone vs GetSaveData -->
+<h3>Simple3D::SaveData — standalone vs. Game::GetSaveData(slot)</h3>
+<p>
+  You can create a <code>Simple3D::SaveData</code> object as a plain stack variable
+  whenever you need one.  This is useful for temporary or one-off operations.
+  The more common approach inside a <code>Game</code> subclass is
+  <code>GetSaveData(slot)</code>, which returns a <code>SaveData&amp;</code> owned by
+  the engine.  The engine creates the object on first access and keeps it alive as
+  long as the game runs, so you never have to manage its lifetime.  Calling
+  <code>GetSaveData(0)</code> ten times always returns the same object.
+</p>
+<pre><span class="cm">// Approach A — standalone (own the object yourself)</span>
+<span class="ty">Simple3D</span>::<span class="ty">SaveData</span> data;
+data.<span class="fn">Set</span>(<span class="st">"score"</span>, score_);
+data.<span class="fn">Save</span>(<span class="val">0</span>);
+
+<span class="cm">// Approach B — Game-owned (recommended inside a Game subclass)</span>
+<span class="ty">SaveData</span>&amp; save = <span class="fn">GetSaveData</span>(<span class="val">0</span>);  <span class="cm">// lazy-created, cached</span>
+save.<span class="fn">Set</span>(<span class="st">"score"</span>, score_);
+save.<span class="fn">Save</span>(<span class="val">0</span>);</pre>
+
+<!-- Set -->
+<h3>data.Set(key, value)</h3>
+<p>
+  <code>Set</code> is a single overloaded method that accepts an <code>int</code>,
+  <code>float</code>, <code>bool</code>, or <code>std::string</code> as its second
+  argument.  The compiler selects the right overload automatically.  If the key
+  already exists — even with a different type from a previous call — the old value
+  and type are replaced by the new ones.  Keys are case-sensitive strings; prefer
+  lowercase camel-case names to match the JSON output style.
+</p>
+<pre>save.<span class="fn">Set</span>(<span class="st">"score"</span>,        score_);         <span class="cm">// int overload</span>
+save.<span class="fn">Set</span>(<span class="st">"masterVolume"</span>, masterVolume_);  <span class="cm">// float overload</span>
+save.<span class="fn">Set</span>(<span class="st">"musicEnabled"</span>, musicEnabled_);  <span class="cm">// bool overload</span>
+save.<span class="fn">Set</span>(<span class="st">"playerName"</span>,   playerName_);    <span class="cm">// string overload</span></pre>
+
+<!-- GetInt, GetFloat, GetBool, GetString -->
+<h3>GetInt / GetFloat / GetBool / GetString — the default-value pattern</h3>
+<p>
+  Each typed getter takes the key and a default value.  If the key is present in
+  the loaded data, the stored value is returned.  If the key is absent — because the
+  file is brand new, the key was added in a newer version of the game, or
+  <code>Load</code> returned <code>false</code> — the default is returned instead.
+  This is the correct way to handle the first-run case: you write the default in the
+  getter call and it works automatically, with no explicit <code>if (!fileExists)</code>
+  branching required.
+</p>
+<pre><span class="cm">// First run: Load() returns false, GetInt returns the default 0.</span>
+<span class="cm">// Subsequent runs: the stored value is returned.</span>
+score_  = save.<span class="fn">GetInt</span>   (<span class="st">"score"</span>,        <span class="val">0</span>);
+level_  = save.<span class="fn">GetInt</span>   (<span class="st">"level"</span>,        <span class="val">1</span>);  <span class="cm">// default = level 1</span>
+vol_    = save.<span class="fn">GetFloat</span> (<span class="st">"masterVolume"</span>, <span class="val">0.8f</span>);
+music_  = save.<span class="fn">GetBool</span>  (<span class="st">"musicEnabled"</span>, <span class="kw">true</span>);
+name_   = save.<span class="fn">GetString</span>(<span class="st">"playerName"</span>,   <span class="st">"Player"</span>);
+
+<span class="cm">// Template shorthand — same result, fewer characters when T is clear</span>
+score_  = save.<span class="fn">Get</span>&lt;<span class="ty">int</span>&gt;  (<span class="st">"score"</span>,        <span class="val">0</span>);
+vol_    = save.<span class="fn">Get</span>&lt;<span class="ty">float</span>&gt;(<span class="st">"masterVolume"</span>, <span class="val">0.8f</span>);</pre>
+
+<!-- Save / Load -->
+<h3>data.Save(slot) and data.Load(slot)</h3>
+<p>
+  <code>Save(slot)</code> serialises the in-memory key-value map to
+  <code>save_<em>N</em>.json</code> on disk.  It returns <code>true</code> on
+  success and <code>false</code> if a filesystem error occurs — for example if the
+  directory is read-only or the disk is full.  Always check the return value in
+  production code so you can show the player a meaningful error message instead of
+  silently losing their progress.
+</p>
+<p>
+  <code>Load(slot)</code> reads the corresponding JSON file into the in-memory store
+  and returns <code>true</code>.  If the file does not exist or cannot be parsed,
+  it returns <code>false</code> and leaves the object empty.  A <code>false</code>
+  return is <em>not</em> an error that needs logging — it is the expected state on
+  the very first launch.  The typical pattern is:
+</p>
+<pre><span class="kw">if</span> (!save.<span class="fn">Load</span>(<span class="val">0</span>))
+{
+    <span class="cm">// No save file yet (first run) — member defaults are already in place.</span>
+}
+<span class="kw">else</span>
+{
+    score_  = save.<span class="fn">GetInt</span>(<span class="st">"score"</span>, <span class="val">0</span>);
+    level_  = save.<span class="fn">GetInt</span>(<span class="st">"level"</span>, <span class="val">1</span>);
+    <span class="cm">// ... read remaining keys</span>
+}</pre>
+<p>
+  You can omit the <code>else</code> branch entirely if you call <code>Get*</code>
+  unconditionally, because the defaults in the getter calls cover the missing-key
+  case automatically.
+</p>
+
+<!-- HasKey and Clear -->
+<h3>data.HasKey(key) and data.Clear()</h3>
+<p>
+  <code>HasKey(key)</code> returns <code>true</code> if the key exists in the
+  in-memory store with any type.  Use it when the <em>presence</em> of a key has
+  semantic meaning — for example, to tell apart "player typed an empty string" from
+  "player never visited the name screen".
+</p>
+<pre><span class="kw">if</span> (!save.<span class="fn">HasKey</span>(<span class="st">"playerName"</span>))
+{
+    <span class="cm">// Key was never written — route to the name-entry screen</span>
+    <span class="fn">ShowNameEntryScreen</span>();
+}</pre>
+<p>
+  <code>Clear()</code> wipes all keys from the in-memory map without touching the
+  file on disk.  Call it before rebuilding a save from scratch — for instance, when
+  starting a new game and the player opts to overwrite an existing slot.  After
+  <code>Clear()</code>, the next <code>Set</code> / <code>Save</code> calls produce
+  a fresh file with only the keys you explicitly write.
+</p>
+<pre><span class="cm">// "New Game" flow — erase in-memory state, write clean defaults</span>
+save.<span class="fn">Clear</span>();
+save.<span class="fn">Set</span>(<span class="st">"score"</span>,       <span class="val">0</span>);
+save.<span class="fn">Set</span>(<span class="st">"level"</span>,       <span class="val">1</span>);
+save.<span class="fn">Set</span>(<span class="st">"playerName"</span>,  playerName_);
+save.<span class="fn">Save</span>(SLOT_SAVE1);</pre>
+
+<!-- SaveData::Exists and SaveData::Delete -->
+<h3>SaveData::Exists(slot) and SaveData::Delete(slot) — static helpers</h3>
+<p>
+  <code>SaveData::Exists(slot)</code> is a static method that checks whether the
+  JSON file for the given slot is present on disk without loading its contents.
+  Use it to decide whether to enable a "Continue" button or show a slot as occupied
+  in a save-selection menu.  <code>SaveData::SlotExists(slot)</code> is an alias for
+  the same function.
+</p>
+<p>
+  <code>SaveData::Delete(slot)</code> removes the file from disk and returns
+  <code>true</code> if the file existed and was successfully deleted, or
+  <code>false</code> if the file was absent.  After deletion, also call
+  <code>GetSaveData(slot).Clear()</code> to purge the cached in-memory data so the
+  stale values do not linger.  <code>SaveData::DeleteSlot(slot)</code> is an alias.
+</p>
+<pre><span class="cm">// Populate a save-selection UI</span>
+<span class="kw">for</span> (<span class="ty">int</span> s = <span class="val">1</span>; s &lt;= <span class="val">3</span>; ++s)
+{
+    <span class="kw">if</span> (<span class="ty">SaveData</span>::<span class="fn">Exists</span>(s))
+        slotButtons_[s]-&gt;<span class="fn">SetText</span>(<span class="st">"Slot "</span> + <span class="ty">String</span>(s) + <span class="st">" — occupied"</span>);
+    <span class="kw">else</span>
+        slotButtons_[s]-&gt;<span class="fn">SetText</span>(<span class="st">"Slot "</span> + <span class="ty">String</span>(s) + <span class="st">" — empty"</span>);
+}
+
+<span class="cm">// Delete a slot on player request</span>
+<span class="ty">SaveData</span>::<span class="fn">Delete</span>(<span class="val">2</span>);
+<span class="fn">GetSaveData</span>(<span class="val">2</span>).<span class="fn">Clear</span>();   <span class="cm">// clear the engine's cached copy too</span></pre>
+
+<!-- Multi-slot pattern -->
+<h3>Multi-slot pattern: slot 0 = autosave, slots 1&ndash;3 = manual</h3>
+<p>
+  The convention used throughout simple-3d projects reserves slot 0 for the
+  automatic save that runs without player interaction — on level transition, on
+  pause, and on quit.  Slots 1, 2, and 3 are player-controlled saves that the
+  player writes from a pause-menu button and loads from a title-screen selection.
+  Using separate slot indices ensures that an autosave never silently overwrites a
+  manual save the player created at a difficult-to-reach checkpoint.
+</p>
+<pre><span class="cm">// On level cleared — autosave fires without player involvement</span>
+<span class="kw">void</span> <span class="fn">OnLevelCleared</span>()
+{
+    currentLevel_++;
+    <span class="fn">SaveToSlot</span>(SLOT_AUTO);   <span class="cm">// slot 0</span>
+}
+
+<span class="cm">// Pause-menu "Save" button — writes player's chosen manual slot</span>
+saveBtn_-&gt;<span class="fn">SetOnClick</span>([<span class="kw">this</span>] {
+    <span class="fn">SaveToSlot</span>(activeManualSlot_);  <span class="cm">// 1, 2, or 3 chosen in the UI</span>
+    pausePanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);
+});
+
+<span class="cm">// Title-screen slot picker — load whichever slot the player selects</span>
+<span class="kw">for</span> (<span class="ty">int</span> s = <span class="val">1</span>; s &lt;= <span class="val">3</span>; ++s)
+{
+    slotBtn_[s]-&gt;<span class="fn">SetOnClick</span>([<span class="kw">this</span>, s] {
+        <span class="fn">LoadFromSlot</span>(s);
+    });
+    <span class="cm">// Grey out empty slots</span>
+    slotBtn_[s]-&gt;<span class="fn">SetColor</span>(<span class="ty">SaveData</span>::<span class="fn">Exists</span>(s)
+        ? <span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.6f</span>, <span class="val">0.2f</span>, <span class="val">0.9f</span>)
+        : <span class="ty">Color</span>(<span class="val">0.3f</span>, <span class="val">0.3f</span>, <span class="val">0.3f</span>, <span class="val">0.6f</span>));
+}</pre>
+
+<!-- QUICK REFERENCE -->
+<h2>Quick reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Returns</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>SetAppName(name)</code></td>
+      <td>&mdash;</td>
+      <td>Sets the OS save directory. Call before any Save/Load.</td>
+    </tr>
+    <tr>
+      <td><code>GetSaveData(slot=0)</code></td>
+      <td><code>SaveData&amp;</code></td>
+      <td>Game-owned; lazy-created on first access.</td>
+    </tr>
+    <tr>
+      <td><code>data.Set(key, int|float|bool|string)</code></td>
+      <td>&mdash;</td>
+      <td>Overwrites key with any supported type.</td>
+    </tr>
+    <tr>
+      <td><code>data.GetInt(key, default=0)</code></td>
+      <td><code>int</code></td>
+      <td>Returns default if key absent.</td>
+    </tr>
+    <tr>
+      <td><code>data.GetFloat(key, default=0.0f)</code></td>
+      <td><code>float</code></td>
+      <td>Returns default if key absent.</td>
+    </tr>
+    <tr>
+      <td><code>data.GetBool(key, default=false)</code></td>
+      <td><code>bool</code></td>
+      <td>Returns default if key absent.</td>
+    </tr>
+    <tr>
+      <td><code>data.GetString(key, default="")</code></td>
+      <td><code>string</code></td>
+      <td>Returns default if key absent.</td>
+    </tr>
+    <tr>
+      <td><code>data.Get&lt;T&gt;(key, default)</code></td>
+      <td><code>T</code></td>
+      <td>Template shorthand for the four getters above.</td>
+    </tr>
+    <tr>
+      <td><code>data.HasKey(key)</code></td>
+      <td><code>bool</code></td>
+      <td>True if key is present with any type.</td>
+    </tr>
+    <tr>
+      <td><code>data.Clear()</code></td>
+      <td>&mdash;</td>
+      <td>Clears in-memory map; file untouched.</td>
+    </tr>
+    <tr>
+      <td><code>data.Save(slot=0)</code></td>
+      <td><code>bool</code></td>
+      <td><code>false</code> on I/O error.</td>
+    </tr>
+    <tr>
+      <td><code>data.Load(slot=0)</code></td>
+      <td><code>bool</code></td>
+      <td><code>false</code> if file missing or parse error.</td>
+    </tr>
+    <tr>
+      <td><code>SaveData::Exists(slot)</code> <em>(static)</em></td>
+      <td><code>bool</code></td>
+      <td>True if file exists on disk.</td>
+    </tr>
+    <tr>
+      <td><code>SaveData::Delete(slot)</code> <em>(static)</em></td>
+      <td><code>bool</code></td>
+      <td>Removes file; false if already absent.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- LUA EQUIVALENT -->
+<h2>Lua equivalent</h2>
+
+<p>
+  <code>SaveData</code> is exposed to Lua through the <code>game</code> global.
+  The method names and signatures are identical to C++.  Lua scripts attached with
+  <code>entity:AddScript()</code> can read and write save data the same way as C++.
+</p>
+
+<pre><span class="lua-cm">-- Scripts/save_manager.lua
+-- Attach this script to a persistent entity to manage saving and loading.</span>
+
+<span class="lua-kw">local</span> SLOT_AUTO  = <span class="lua-num">0</span>
+<span class="lua-kw">local</span> SLOT_SAVE1 = <span class="lua-num">1</span>
+<span class="lua-kw">local</span> SLOT_SAVE2 = <span class="lua-num">2</span>
+<span class="lua-kw">local</span> SLOT_SAVE3 = <span class="lua-num">3</span>
+
+<span class="lua-cm">-- Game state (would normally be shared via a module or global)</span>
+<span class="lua-kw">local</span> score         = <span class="lua-num">0</span>
+<span class="lua-kw">local</span> currentLevel  = <span class="lua-num">1</span>
+<span class="lua-kw">local</span> masterVolume  = <span class="lua-num">0.8</span>
+<span class="lua-kw">local</span> musicEnabled  = <span class="lua-kw">true</span>
+<span class="lua-kw">local</span> playerName    = <span class="lua-str">"Player"</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">saveToSlot</span>(slot)
+    <span class="lua-kw">local</span> save = game:<span class="lua-fn">GetSaveData</span>(slot)
+    save:<span class="lua-fn">Set</span>(<span class="lua-str">"score"</span>,        score)
+    save:<span class="lua-fn">Set</span>(<span class="lua-str">"level"</span>,        currentLevel)
+    save:<span class="lua-fn">Set</span>(<span class="lua-str">"masterVolume"</span>, masterVolume)
+    save:<span class="lua-fn">Set</span>(<span class="lua-str">"musicEnabled"</span>, musicEnabled)
+    save:<span class="lua-fn">Set</span>(<span class="lua-str">"playerName"</span>,   playerName)
+    <span class="lua-kw">if</span> <span class="lua-kw">not</span> save:<span class="lua-fn">Save</span>(slot) <span class="lua-kw">then</span>
+        <span class="lua-fn">print</span>(<span class="lua-str">"ERROR: save failed for slot "</span> .. slot)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">loadFromSlot</span>(slot)
+    <span class="lua-kw">local</span> save = game:<span class="lua-fn">GetSaveData</span>(slot)
+    <span class="lua-kw">if</span> <span class="lua-kw">not</span> save:<span class="lua-fn">Load</span>(slot) <span class="lua-kw">then</span>
+        <span class="lua-cm">-- First run or missing file — keep defaults</span>
+        <span class="lua-fn">print</span>(<span class="lua-str">"No save in slot "</span> .. slot .. <span class="lua-str">", using defaults"</span>)
+        <span class="lua-kw">return</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Each getter returns the stored value, or the second argument as default</span>
+    score        = save:<span class="lua-fn">GetInt</span>   (<span class="lua-str">"score"</span>,        <span class="lua-num">0</span>)
+    currentLevel = save:<span class="lua-fn">GetInt</span>   (<span class="lua-str">"level"</span>,        <span class="lua-num">1</span>)
+    masterVolume = save:<span class="lua-fn">GetFloat</span> (<span class="lua-str">"masterVolume"</span>, <span class="lua-num">0.8</span>)
+    musicEnabled = save:<span class="lua-fn">GetBool</span>  (<span class="lua-str">"musicEnabled"</span>, <span class="lua-kw">true</span>)
+    playerName   = save:<span class="lua-fn">GetString</span>(<span class="lua-str">"playerName"</span>,   <span class="lua-str">"Player"</span>)
+
+    <span class="lua-fn">print</span>(<span class="lua-str">"Loaded slot "</span> .. slot .. <span class="lua-str">" — welcome back, "</span> .. playerName)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-cm">-- SetAppName is called from C++ main() before scripts run, or
+    -- you can call it here if this is a pure-Lua project.</span>
+    game:<span class="lua-fn">SetAppName</span>(<span class="lua-str">"PlatformerAdventure"</span>)
+
+    <span class="lua-cm">-- Load autosave on startup</span>
+    <span class="lua-fn">loadFromSlot</span>(SLOT_AUTO)
+
+    game:<span class="lua-fn">SetMasterVolume</span>(masterVolume)
+    <span class="lua-kw">if</span> musicEnabled <span class="lua-kw">then</span>
+        game:<span class="lua-fn">PlayMusic</span>(<span class="lua-str">"Music/theme.ogg"</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-cm">-- F5 = autosave</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.F5) <span class="lua-kw">then</span>
+        <span class="lua-fn">saveToSlot</span>(SLOT_AUTO)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- F6/F7/F8 = manual slots</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.F6) <span class="lua-kw">then</span> <span class="lua-fn">saveToSlot</span>(SLOT_SAVE1) <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.F7) <span class="lua-kw">then</span> <span class="lua-fn">saveToSlot</span>(SLOT_SAVE2) <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.F8) <span class="lua-kw">then</span> <span class="lua-fn">saveToSlot</span>(SLOT_SAVE3) <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- F9/F10/F11 = load manual slots (check existence first)</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.F9) <span class="lua-kw">then</span>
+        <span class="lua-kw">if</span> SaveData.<span class="lua-fn">Exists</span>(SLOT_SAVE1) <span class="lua-kw">then</span>
+            <span class="lua-fn">loadFromSlot</span>(SLOT_SAVE1)
+        <span class="lua-kw">else</span>
+            <span class="lua-fn">print</span>(<span class="lua-str">"Slot 1 is empty"</span>)
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.F10) <span class="lua-kw">then</span>
+        <span class="lua-kw">if</span> SaveData.<span class="lua-fn">Exists</span>(SLOT_SAVE2) <span class="lua-kw">then</span>
+            <span class="lua-fn">loadFromSlot</span>(SLOT_SAVE2)
+        <span class="lua-kw">else</span>
+            <span class="lua-fn">print</span>(<span class="lua-str">"Slot 2 is empty"</span>)
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Delete key = erase slot 1</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.Delete) <span class="lua-kw">then</span>
+        SaveData.<span class="lua-fn">Delete</span>(SLOT_SAVE1)
+        game:<span class="lua-fn">GetSaveData</span>(SLOT_SAVE1):<span class="lua-fn">Clear</span>()
+        <span class="lua-fn">print</span>(<span class="lua-str">"Slot 1 deleted"</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Stop</span>()
+    <span class="lua-cm">-- Autosave on quit</span>
+    <span class="lua-fn">saveToSlot</span>(SLOT_AUTO)
+    game:<span class="lua-fn">StopMusic</span>()
+<span class="lua-kw">end</span></pre>
+
+<!-- PATTERNS AND TIPS -->
+<h2>Patterns and tips</h2>
+
+<h3>Saving settings vs. saving game progress</h3>
+<p>
+  It is good practice to keep global settings (volume, resolution, keybindings) in
+  slot 0 alongside the autosave, but tagged with a distinct key prefix.  Alternatively,
+  use a dedicated slot — for instance slot 99 — for settings only, so that "New Game"
+  never accidentally wipes the player's audio preferences when overwriting slot 0.
+</p>
+<pre><span class="cm">// In Stop() — write both progress and settings to slot 0</span>
+<span class="ty">SaveData</span>&amp; save = <span class="fn">GetSaveData</span>(SLOT_AUTO);
+save.<span class="fn">Set</span>(<span class="st">"score"</span>,        score_);
+save.<span class="fn">Set</span>(<span class="st">"level"</span>,        currentLevel_);
+save.<span class="fn">Set</span>(<span class="st">"cfg_volume"</span>,   masterVolume_);   <span class="cm">// prefix distinguishes settings</span>
+save.<span class="fn">Set</span>(<span class="st">"cfg_music"</span>,    musicEnabled_);
+save.<span class="fn">Save</span>(SLOT_AUTO);</pre>
+
+<h3>Versioning your save data</h3>
+<p>
+  When you add new keys in a later version of the game, older save files will not
+  contain them.  Always use the <code>default</code> parameter in every getter call —
+  that default is the "upgrade path" for saves created before the key existed.
+  You can also store an explicit version number and migrate data programmatically:
+</p>
+<pre><span class="ty">int</span> saveVersion = save.<span class="fn">GetInt</span>(<span class="st">"saveVersion"</span>, <span class="val">1</span>);
+<span class="kw">if</span> (saveVersion &lt; <span class="val">2</span>)
+{
+    <span class="cm">// Key "lives" did not exist before version 2 — backfill the default</span>
+    lives_ = <span class="val">3</span>;
+    save.<span class="fn">Set</span>(<span class="st">"saveVersion"</span>, <span class="val">2</span>);
+}
+<span class="kw">else</span>
+{
+    lives_ = save.<span class="fn">GetInt</span>(<span class="st">"lives"</span>, <span class="val">3</span>);
+}</pre>
+
+<h3>Persisting audio settings (from Part 10)</h3>
+<p>
+  Part 10 showed a pattern where <code>SaveData</code> stores the master volume.
+  Here is the complete round-trip for convenience:
+</p>
+<pre><span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+{
+    <span class="fn">SetAppName</span>(<span class="st">"MyGame"</span>);
+    <span class="ty">SaveData</span>&amp; save = <span class="fn">GetSaveData</span>(<span class="val">0</span>);
+    save.<span class="fn">Load</span>(<span class="val">0</span>);
+    masterVol_ = save.<span class="fn">GetFloat</span>(<span class="st">"masterVol"</span>, <span class="val">0.8f</span>);
+    <span class="fn">SetMasterVolume</span>(masterVol_);
+    <span class="fn">PlayMusic</span>(<span class="st">"Music/theme.ogg"</span>);
+}
+
+<span class="kw">void</span> <span class="fn">Stop</span>() <span class="kw">override</span>
+{
+    <span class="ty">SaveData</span>&amp; save = <span class="fn">GetSaveData</span>(<span class="val">0</span>);
+    save.<span class="fn">Set</span>(<span class="st">"masterVol"</span>, masterVol_);
+    save.<span class="fn">Save</span>(<span class="val">0</span>);
+    <span class="fn">StopMusic</span>();
+}</pre>
+
+<!-- COMMON MISTAKES -->
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Forgetting to call <code>SetAppName</code> before the first Save/Load.</strong>
+      If you skip it, files land in a directory named
+      <code>"Simple3DGame"</code> — the library default.  Two different games with the
+      same oversight will silently share save files and corrupt each other's data.
+      Always call <code>SetAppName</code> at the very start of <code>Start()</code>.
+    </li>
+    <li>
+      <strong>Treating a <code>false</code> return from <code>Load</code> as an error.</strong>
+      On the very first launch there is no save file, so <code>Load</code> correctly
+      returns <code>false</code>.  Do not log this as an error or show a warning
+      dialog — it is the normal first-run state.  Reserve error handling for cases
+      where <code>Save</code> returns <code>false</code> (write failure) or where
+      <code>Load</code> fails on a slot that <code>SaveData::Exists</code> confirmed
+      was present (possible file corruption).
+    </li>
+    <li>
+      <strong>Calling <code>Save</code> every frame.</strong>
+      Disk writes have latency and can cause frame stutter.  Save at meaningful
+      game events only: level clear, checkpoint reached, player-initiated save,
+      and application quit.  If you need frequent persistence, accumulate changes
+      in-memory with <code>Set</code> and save once at the end.
+    </li>
+    <li>
+      <strong>Using the same slot for autosave and manual saves.</strong>
+      If autosave fires while the player is mid-level and overwrites their carefully
+      placed manual checkpoint save, they lose that checkpoint permanently.  Reserve
+      slot 0 exclusively for autosave; never let player-driven manual saves write
+      to slot 0.
+    </li>
+    <li>
+      <strong>Not calling <code>Clear()</code> before overwriting an existing slot with "New Game" data.</strong>
+      If the slot previously stored keys that no longer exist in the new save
+      (because a feature was removed), those orphaned keys will persist in the JSON
+      file after the next <code>Save</code>.  Call <code>save.Clear()</code> first
+      to guarantee the file contains only what you explicitly write.
+    </li>
+    <li>
+      <strong>Forgetting to call <code>GetSaveData(slot).Clear()</code> after <code>SaveData::Delete(slot)</code>.</strong>
+      <code>Delete</code> removes the file from disk but leaves the Game's cached
+      <code>SaveData</code> object intact.  If you then call <code>SaveData::Exists</code>
+      it correctly returns <code>false</code>, but if some code path calls
+      <code>GetSaveData(slot).GetInt(...</code>) without loading first, it will see
+      the stale in-memory values.  Always pair a <code>Delete</code> with a
+      <code>Clear</code> on the same slot.
+    </li>
+    <li>
+      <strong>Relying on the JSON file format across engine versions.</strong>
+      The JSON layout (the <code>"ints"</code>, <code>"floats"</code>, etc. sections)
+      is an implementation detail.  Never write code that reads or edits the file
+      directly at runtime; always go through the <code>SaveData</code> API.  The
+      format may change in future engine releases.
+    </li>
+    <li>
+      <strong>Using hardcoded slot numbers instead of named constants.</strong>
+      Scattering the number <code>0</code> through your codebase to mean "autosave"
+      makes the intent unclear and turns a slot renumber into a grep-and-replace
+      exercise.  Define <code>static constexpr int SLOT_AUTO = 0;</code> at the top
+      of your class and reference that constant everywhere.
+    </li>
+  </ul>
+</div>
+
+<!-- WHAT YOU LEARNED -->
+<h2>What you learned</h2>
+
+<p>
+  In this part you built a complete save-and-load system using
+  <code>Simple3D::SaveData</code>:
+</p>
+<ul>
+  <li>
+    <strong>App name:</strong> <code>SetAppName(name)</code> fixes the OS directory
+    where all <code>save_N.json</code> files are written.  Call it once before
+    any disk operation.
+  </li>
+  <li>
+    <strong>Writing data:</strong> <code>data.Set(key, value)</code> stores any of
+    the four supported types — <code>int</code>, <code>float</code>, <code>bool</code>,
+    <code>std::string</code> — under a string key in memory.
+  </li>
+  <li>
+    <strong>Reading data:</strong> <code>GetInt</code>, <code>GetFloat</code>,
+    <code>GetBool</code>, and <code>GetString</code> each accept a default value
+    that is returned when the key is absent.  This default is the only code you
+    need to handle the first-run case — no separate branch required.
+    The template <code>Get&lt;T&gt;</code> is a shorthand for the same four methods.
+  </li>
+  <li>
+    <strong>Persistence:</strong> <code>data.Save(slot)</code> writes the in-memory
+    map to <code>save_N.json</code>; <code>data.Load(slot)</code> reads it back.
+    Both return <code>bool</code> to indicate success.
+  </li>
+  <li>
+    <strong>In-memory utilities:</strong> <code>HasKey(key)</code> checks whether a
+    key was loaded; <code>Clear()</code> wipes the in-memory map without touching
+    the file on disk.
+  </li>
+  <li>
+    <strong>Static helpers:</strong> <code>SaveData::Exists(slot)</code> checks
+    whether a file is present before attempting a load; <code>SaveData::Delete(slot)</code>
+    removes a file and returns whether it existed.
+  </li>
+  <li>
+    <strong>Multi-slot pattern:</strong> slot 0 is the autosave (fired on level
+    transition and quit); slots 1&ndash;3 are player-controlled manual saves written
+    from the pause menu.  This separation ensures autosaves never silently clobber
+    checkpoints the player intentionally created.
+  </li>
+  <li>
+    <strong>Game-owned caching:</strong> <code>GetSaveData(slot)</code> returns a
+    <code>SaveData&amp;</code> managed by the engine, eliminating the need to juggle
+    object lifetimes yourself.
+  </li>
+</ul>
+
+<p>
+  Next up: <a href="tutorial-20.html">Part 20: Scene Management</a> — loading
+  and unloading scenes with <code>LoadScene</code> / <code>UnloadScene</code>,
+  level lists, and fade transitions.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-18.html">&#8592; Part 18: UI Advanced</a>
+  <a href="tutorial-20.html">Part 20: Scene Management &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

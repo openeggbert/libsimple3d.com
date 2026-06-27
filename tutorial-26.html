@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 26: Ray Picking — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li class="active"><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 26</div>
+
+<h1><span class="tutorial-part">Part 26 of 30</span>Ray Picking</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>PickEntity(screenPos, mask)</code> &mdash;
+    <code>PickPosition(screenPos, mask)</code> &mdash;
+    <code>SetCursorVisible(bool)</code> / <code>IsCursorVisible()</code> &mdash;
+    <code>SetCursorLocked(bool)</code> / <code>IsCursorLocked()</code> &mdash;
+    <code>GetMouseDelta()</code> in <code>MM_RELATIVE</code> mode &mdash;
+    <code>CollisionLayer</code> mask filtering &mdash;
+    RTS click-to-select and move-to-position pattern.
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ──────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How <em>ray picking</em> works: a physics ray is cast from the camera through a screen pixel into the 3D world.</li>
+  <li>How to use <code>PickEntity(GetMousePosition(), mask)</code> to find the first entity under the mouse cursor.</li>
+  <li>How to use <code>PickPosition(screenPos, mask)</code> to get the exact world-space point where the ray hits a surface.</li>
+  <li>How to filter picks by <code>CollisionLayer</code> so clicks on the ground do not accidentally hit invisible trigger volumes, and vice versa.</li>
+  <li>How to show and hide the OS cursor with <code>SetCursorVisible</code> and query its state with <code>IsCursorVisible</code>.</li>
+  <li>How to lock the cursor into <em>relative mode</em> with <code>SetCursorLocked(true)</code> for FPS-style mouse look, and unlock it with <code>SetCursorLocked(false)</code>.</li>
+  <li>How <code>GetMouseDelta()</code> reports per-frame mouse motion whether or not the cursor is locked.</li>
+  <li>How to build a complete RTS click-to-select and right-click-to-move pattern using these tools together.</li>
+  <li>How to implement middle-mouse camera panning using <code>GetMouseDelta()</code> without locking the cursor.</li>
+  <li>How to toggle between an RTS top-down camera and an FPS free-look camera at runtime.</li>
+</ul>
+
+<!-- ─── BACKGROUND ───────────────────────────────────────────────── -->
+<h2>Background: how ray picking works</h2>
+
+<p>
+  Every time you call <code>PickEntity</code> or <code>PickPosition</code>, simple-3d performs the following steps invisibly:
+</p>
+<ol>
+  <li>The screen pixel you pass in (e.g. the current mouse position) is converted to a normalised <code>[0, 1]</code> viewport coordinate.</li>
+  <li>The active camera generates a world-space <code>Ray</code> that starts at the camera origin and passes through that viewport point.</li>
+  <li><code>PhysicsWorld::RaycastSingle</code> tests the ray against all physics bodies up to 1000 world units away that match the collision-layer <code>mask</code>.</li>
+  <li>On a hit, <code>PickEntity</code> looks up the physics body's node in the entity registry and returns the matching <code>Entity*</code>; <code>PickPosition</code> returns the hit point as a <code>Vector3</code>.</li>
+  <li>On a miss, both functions return <code>nullptr</code> or <code>Vector3::ZERO</code> respectively.</li>
+</ol>
+
+<p>
+  Because the ray is cast against the physics world, every entity you want to be pickable must have a <code>RigidBody</code> and at least one collider added to it (via <code>AddBoxCollider</code>, <code>AddSphereCollider</code>, <code>AddCapsuleCollider</code>, or <code>AddMeshCollider</code>).  Entities with only a visual model and no physics shape are invisible to ray picks.
+</p>
+
+<!-- ─── COLLISION LAYER MASK TABLE ───────────────────────────────── -->
+<h2>Collision layer mask reference</h2>
+
+<p>
+  Both <code>PickEntity</code> and <code>PickPosition</code> accept an optional second argument: a <code>CollisionLayer</code> mask.  The mask is bitwise-ANDed against each body's collision layer.  Only bodies whose layer bit is set in the mask are tested by the ray.  The default mask is <code>CollisionLayer::All</code>, which tests everything.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Mask constant</th><th>Numeric value</th><th>What it hits</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>CollisionLayer::All</code></td><td><code>0xFFFF</code></td><td>Every entity with a RigidBody</td></tr>
+    <tr><td><code>CollisionLayer::Actor</code></td><td><code>1</code></td><td>Player, enemies, selectable units</td></tr>
+    <tr><td><code>CollisionLayer::StaticGeometry</code></td><td><code>2</code></td><td>Ground, walls, platforms, crates</td></tr>
+    <tr><td><code>CollisionLayer::Trigger</code></td><td><code>4</code></td><td>Trigger volumes (usually excluded)</td></tr>
+  </tbody>
+</table>
+
+<p>
+  In a typical RTS, left-click should only pick <em>actors</em> and right-click should only pick the <em>ground</em>.  Passing the appropriate mask to each call keeps triggers, decorative props without game logic, and other irrelevant bodies out of the results.
+</p>
+
+<div class="grid2">
+  <div class="card card-blue">
+    <h3>PickEntity — who did I click?</h3>
+    <p>
+      Use when you want to know <em>which entity</em> is under the cursor.
+      Pass <code>CollisionLayer::Actor</code> to restrict hits to units, enemies, or
+      NPCs only.  Returns <code>nullptr</code> on a miss or if the mask excludes
+      the entity under the cursor.
+    </p>
+  </div>
+  <div class="card card-green">
+    <h3>PickPosition — where did I click?</h3>
+    <p>
+      Use when you want the <em>world-space coordinate</em> of a surface point.
+      Pass <code>CollisionLayer::StaticGeometry</code> to land picks on terrain
+      and floors only, ignoring units, triggers, and other dynamic bodies.
+      Returns <code>Vector3::ZERO</code> on a miss.
+    </p>
+  </div>
+</div>
+
+<!-- ─── COMPLETE EXAMPLE ──────────────────────────────────────────── -->
+<h2>Complete working example</h2>
+
+<p>
+  The example below implements a miniature RTS scene containing three selectable
+  box units on a ground plane.  Left-clicking a unit selects it (highlighted gold).
+  Right-clicking the ground while a unit is selected issues a move order: the unit
+  travels to that world position, guided by a green destination marker.  Holding the
+  middle mouse button and dragging pans the top-down camera using
+  <code>GetMouseDelta()</code>.  Pressing Tab toggles between the RTS view and a
+  free FPS look mode in which the cursor is locked and mouse movement rotates the
+  camera freely.  The example demonstrates all six new API concepts in a single,
+  self-contained file.
+</p>
+
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="cm">// ─────────────────────────────────────────────────────────────────────────────
+// RTSGame — demonstrates ray picking, cursor control, and mouse-delta panning.
+//
+// Controls:
+//   LMB              — pick a unit (PickEntity, CollisionLayer::Actor)
+//   RMB              — move selected unit to ground point (PickPosition, StaticGeometry)
+//   Middle drag      — pan camera (GetMouseDelta, cursor NOT locked)
+//   Tab              — toggle FPS free-look (SetCursorLocked / SetCursorVisible)
+//   Escape           — exit FPS mode or quit
+// ─────────────────────────────────────────────────────────────────────────────</span>
+<span class="kw">class</span> <span class="ty">RTSGame</span> : <span class="kw">public</span> <span class="ty">Game</span>
+{
+<span class="kw">public</span>:
+    <span class="cm">// ── Scene objects ────────────────────────────────────────────────</span>
+    <span class="ty">Entity</span>*  ground_      = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*  unit_[<span class="val">3</span>]    = {};        <span class="cm">// three selectable units</span>
+    <span class="ty">Entity</span>*  selected_    = <span class="kw">nullptr</span>;  <span class="cm">// the currently highlighted unit</span>
+    <span class="ty">Entity</span>*  moveMarker_  = <span class="kw">nullptr</span>;  <span class="cm">// green cone at move destination</span>
+    <span class="ty">Camera</span>*  cam_         = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── RTS camera state ─────────────────────────────────────────────</span>
+    <span class="ty">Vector3</span>  camPos_      = <span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">16.0f</span>, <span class="val">9.0f</span>);
+    <span class="ty">Vector3</span>  camLookAt_   = <span class="ty">Vector3</span>::<span class="val">ZERO</span>;
+
+    <span class="cm">// ── Unit movement ────────────────────────────────────────────────</span>
+    <span class="ty">Vector3</span>  unitTarget_  = <span class="ty">Vector3</span>::<span class="val">ZERO</span>;
+    <span class="ty">bool</span>     hasTarget_   = <span class="kw">false</span>;
+
+    <span class="cm">// ── Mode flag ────────────────────────────────────────────────────</span>
+    <span class="ty">bool</span>     fpsMode_     = <span class="kw">false</span>;
+
+    <span class="cm">// ── UI ───────────────────────────────────────────────────────────</span>
+    <span class="ty">Label</span>*   statusLbl_   = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*   controlsLbl_ = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── Tuning constants ─────────────────────────────────────────────</span>
+    <span class="kw">static constexpr</span> <span class="ty">float</span> UNIT_SPEED    = <span class="val">5.0f</span>;   <span class="cm">// world units / second</span>
+    <span class="kw">static constexpr</span> <span class="ty">float</span> PAN_SCALE     = <span class="val">0.07f</span>;  <span class="cm">// world units per cursor pixel</span>
+    <span class="kw">static constexpr</span> <span class="ty">float</span> ARRIVE_THRESH = <span class="val">0.12f</span>;  <span class="cm">// stop when this close</span>
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // Start() — build the scene, position camera, show cursor.
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.1f</span>, <span class="val">0.14f</span>, <span class="val">0.1f</span>));
+
+        <span class="cm">// ── Ground plane — StaticGeometry layer ──────────────────────
+        // The layer assignment is CRITICAL for PickPosition.
+        // Without it, PickPosition(mpos, CollisionLayer::StaticGeometry)
+        // would miss the ground and always return Vector3::ZERO.</span>
+        ground_ = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground_-&gt;<span class="fn">SetScale</span>(<span class="ty">Vector3</span>(<span class="val">24.0f</span>, <span class="val">1.0f</span>, <span class="val">24.0f</span>));
+        ground_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);                              <span class="cm">// mass 0 = static</span>
+        ground_-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">24.0f</span>, <span class="val">0.2f</span>, <span class="val">24.0f</span>));
+        ground_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+        <span class="cm">// ── Directional sunlight ─────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.95f</span>, <span class="val">0.8f</span>), <span class="val">1.0f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50.0f</span>, <span class="val">30.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── Three selectable units — Actor layer ─────────────────────
+        // SpawnUnit() puts each box on CollisionLayer::Actor so that
+        // PickEntity(mpos, CollisionLayer::Actor) can find them while
+        // PickPosition(mpos, CollisionLayer::StaticGeometry) ignores them.</span>
+        unit_[<span class="val">0</span>] = <span class="fn">SpawnUnit</span>(<span class="st">"Alpha"</span>,   <span class="ty">Vector3</span>(-<span class="val">4.0f</span>, <span class="val">0.4f</span>,  <span class="val">0.0f</span>));
+        unit_[<span class="val">1</span>] = <span class="fn">SpawnUnit</span>(<span class="st">"Bravo"</span>,   <span class="ty">Vector3</span>( <span class="val">0.0f</span>, <span class="val">0.4f</span>,  <span class="val">0.0f</span>));
+        unit_[<span class="val">2</span>] = <span class="fn">SpawnUnit</span>(<span class="st">"Charlie"</span>, <span class="ty">Vector3</span>( <span class="val">4.0f</span>, <span class="val">0.4f</span>,  <span class="val">0.0f</span>));
+
+        <span class="cm">// ── Move destination marker (starts hidden) ───────────────────</span>
+        moveMarker_ = <span class="fn">CreateEntity</span>(<span class="st">"MoveMarker"</span>);
+        moveMarker_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Cone.mdl"</span>);
+        moveMarker_-&gt;<span class="fn">SetScale</span>(<span class="val">0.35f</span>);
+        moveMarker_-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.1f</span>, <span class="val">0.9f</span>, <span class="val">0.2f</span>));
+        moveMarker_-&gt;<span class="fn">SetActive</span>(<span class="kw">false</span>);     <span class="cm">// hide until a move order is issued</span>
+
+        <span class="cm">// ── Top-down RTS camera ───────────────────────────────────────
+        // Detach() releases the camera from any Follow / FPS mode so
+        // we can drive its position manually in Update().</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">SetFOV</span>(<span class="val">45.0f</span>);
+        cam_-&gt;<span class="fn">Detach</span>();
+        cam_-&gt;<span class="fn">SetPosition</span>(camPos_);
+        cam_-&gt;<span class="fn">LookAt</span>(camLookAt_);
+
+        <span class="cm">// ── Cursor — visible for RTS mode ────────────────────────────
+        // In a typical game the cursor starts visible so the player can
+        // see where they are clicking.  SetCursorVisible(true) is the
+        // default, but being explicit makes intent clear.</span>
+        <span class="fn">SetCursorVisible</span>(<span class="kw">true</span>);
+
+        <span class="cm">// ── HUD ──────────────────────────────────────────────────────</span>
+        statusLbl_ = <span class="fn">CreateLabel</span>(<span class="st">"Click a unit to select it"</span>);
+        statusLbl_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">10</span>);
+        statusLbl_-&gt;<span class="fn">SetFontSize</span>(<span class="val">16</span>);
+        statusLbl_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>);
+
+        controlsLbl_ = <span class="fn">CreateLabel</span>(
+            <span class="st">"LMB: select unit  |  RMB: move  |  MMB drag: pan  |  Tab: FPS mode"</span>);
+        controlsLbl_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">36</span>);
+        controlsLbl_-&gt;<span class="fn">SetFontSize</span>(<span class="val">12</span>);
+        controlsLbl_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.7f</span>, <span class="val">0.7f</span>, <span class="val">0.7f</span>, <span class="val">1.0f</span>));
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // SpawnUnit — creates a box entity on the Actor collision layer.
+    // Only entities on CollisionLayer::Actor are returned by
+    //   PickEntity(mpos, CollisionLayer::Actor).
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="ty">Entity</span>* <span class="fn">SpawnUnit</span>(<span class="kw">const</span> <span class="ty">std::string</span>&amp; name, <span class="ty">Vector3</span> pos)
+    {
+        <span class="ty">Entity</span>* u = <span class="fn">CreateEntity</span>(name);
+        u-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        u-&gt;<span class="fn">SetScale</span>(<span class="val">0.8f</span>);
+        u-&gt;<span class="fn">SetPosition</span>(pos);
+
+        <span class="cm">// A RigidBody + collider are REQUIRED for the ray to hit this entity.
+        // Mass 0 = kinematic; we will move the unit manually in MoveUnit().</span>
+        u-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        u-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">0.8f</span>, <span class="val">0.8f</span>, <span class="val">0.8f</span>));
+        u-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+
+        <span class="cm">// Tag used later to confirm the hit entity is a selectable unit.</span>
+        u-&gt;<span class="fn">AddTag</span>(<span class="st">"unit"</span>);
+        u-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.25f</span>, <span class="val">0.45f</span>, <span class="val">0.85f</span>));   <span class="cm">// blue</span>
+        <span class="kw">return</span> u;
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // Update() — dispatch to RTS or FPS handler based on current mode.
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Tab</span>))
+            <span class="fn">ToggleFPSMode</span>();
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Escape</span>))
+        {
+            <span class="kw">if</span> (fpsMode_) <span class="fn">ToggleFPSMode</span>();   <span class="cm">// exit FPS mode before quitting</span>
+            <span class="kw">else</span>          <span class="fn">Quit</span>();
+        }
+
+        <span class="kw">if</span> (!fpsMode_)
+        {
+            <span class="fn">HandleRTSInput</span>(dt);
+            <span class="fn">MoveUnit</span>(dt);
+            <span class="fn">PanCamera</span>();
+        }
+        <span class="cm">// In FPS mode cam_->SetFPSMode() drives look automatically;
+        // we only need to handle the Tab / Escape keys above.</span>
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // HandleRTSInput — ray picking on left and right mouse buttons.
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">HandleRTSInput</span>(<span class="ty">float</span> dt)
+    {
+        <span class="ty">Vector2</span> mpos = <span class="fn">GetMousePosition</span>();
+
+        <span class="cm">// ── Left click: select a unit ─────────────────────────────────
+        // PickEntity casts a ray and returns the first Entity* whose
+        // RigidBody is on CollisionLayer::Actor.  The ground is on
+        // CollisionLayer::StaticGeometry (=2), so it is masked out here.</span>
+        <span class="kw">if</span> (<span class="fn">IsMouseButtonDown</span>(<span class="ty">MouseButton</span>::<span class="val">Left</span>))
+        {
+            <span class="ty">Entity</span>* hit = <span class="fn">PickEntity</span>(mpos, <span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+
+            <span class="kw">if</span> (hit &amp;&amp; hit-&gt;<span class="fn">HasTag</span>(<span class="st">"unit"</span>))
+            {
+                <span class="fn">SelectUnit</span>(hit);
+            }
+            <span class="kw">else</span>
+            {
+                <span class="cm">// Clicked empty space — deselect.</span>
+                <span class="fn">Deselect</span>();
+            }
+        }
+
+        <span class="cm">// ── Right click: issue a move order ──────────────────────────
+        // PickPosition returns the WORLD-SPACE point where the ray hits
+        // the first body on CollisionLayer::StaticGeometry.
+        // The Actor-layer unit boxes are excluded, so the ray lands on
+        // the ground plane even if a unit happens to be standing on that spot.</span>
+        <span class="kw">if</span> (<span class="fn">IsMouseButtonDown</span>(<span class="ty">MouseButton</span>::<span class="val">Right</span>) &amp;&amp; selected_)
+        {
+            <span class="ty">Vector3</span> groundPos = <span class="fn">PickPosition</span>(mpos, <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+            <span class="kw">if</span> (groundPos != <span class="ty">Vector3</span>::<span class="val">ZERO</span>)    <span class="cm">// ZERO means the ray missed everything</span>
+            {
+                <span class="cm">// Keep the unit's current Y so it stays on the ground surface.</span>
+                unitTarget_ = <span class="ty">Vector3</span>(groundPos.<span class="val">x_</span>,
+                                      selected_-&gt;<span class="fn">GetPosition</span>().<span class="val">y_</span>,
+                                      groundPos.<span class="val">z_</span>);
+                hasTarget_ = <span class="kw">true</span>;
+
+                <span class="cm">// Place the green move-marker cone at the click point.</span>
+                moveMarker_-&gt;<span class="fn">SetPosition</span>(groundPos + <span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">0.05f</span>, <span class="val">0.0f</span>));
+                moveMarker_-&gt;<span class="fn">SetActive</span>(<span class="kw">true</span>);
+
+                statusLbl_-&gt;<span class="fn">SetText</span>(<span class="st">"Moving: "</span> + selected_-&gt;<span class="fn">GetName</span>());
+            }
+        }
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // SelectUnit / Deselect — colour-tint the selection state.
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">SelectUnit</span>(<span class="ty">Entity</span>* unit)
+    {
+        <span class="cm">// Restore previous unit to its unselected colour.</span>
+        <span class="kw">if</span> (selected_)
+        {
+            selected_-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.25f</span>, <span class="val">0.45f</span>, <span class="val">0.85f</span>));
+            selected_-&gt;<span class="fn">RemoveTag</span>(<span class="st">"selected"</span>);
+        }
+
+        selected_ = unit;
+        selected_-&gt;<span class="fn">AddTag</span>(<span class="st">"selected"</span>);
+        selected_-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.75f</span>, <span class="val">0.1f</span>));  <span class="cm">// gold = selected</span>
+
+        hasTarget_  = <span class="kw">false</span>;
+        moveMarker_-&gt;<span class="fn">SetActive</span>(<span class="kw">false</span>);
+        statusLbl_-&gt;<span class="fn">SetText</span>(<span class="st">"Selected: "</span> + selected_-&gt;<span class="fn">GetName</span>() +
+                             <span class="st">"  — RMB to move"</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">Deselect</span>()
+    {
+        <span class="kw">if</span> (selected_)
+        {
+            selected_-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.25f</span>, <span class="val">0.45f</span>, <span class="val">0.85f</span>));
+            selected_-&gt;<span class="fn">RemoveTag</span>(<span class="st">"selected"</span>);
+            selected_    = <span class="kw">nullptr</span>;
+        }
+        hasTarget_  = <span class="kw">false</span>;
+        moveMarker_-&gt;<span class="fn">SetActive</span>(<span class="kw">false</span>);
+        statusLbl_-&gt;<span class="fn">SetText</span>(<span class="st">"Click a unit to select it"</span>);
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // MoveUnit — slides the selected unit toward unitTarget_ each frame.
+    // This is intentionally a simple lerp; for full pathfinding use the
+    // NavMesh API from Part 14.
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">MoveUnit</span>(<span class="ty">float</span> dt)
+    {
+        <span class="kw">if</span> (!selected_ || !hasTarget_) <span class="kw">return</span>;
+
+        <span class="ty">Vector3</span> pos = selected_-&gt;<span class="fn">GetPosition</span>();
+        <span class="ty">Vector3</span> dir = unitTarget_ - pos;
+        <span class="ty">float</span>   dist = dir.<span class="fn">Length</span>();
+
+        <span class="kw">if</span> (dist &lt; ARRIVE_THRESH)
+        {
+            <span class="cm">// Snap to target and hide the marker.</span>
+            selected_-&gt;<span class="fn">SetPosition</span>(unitTarget_);
+            hasTarget_  = <span class="kw">false</span>;
+            moveMarker_-&gt;<span class="fn">SetActive</span>(<span class="kw">false</span>);
+            statusLbl_-&gt;<span class="fn">SetText</span>(<span class="st">"Selected: "</span> + selected_-&gt;<span class="fn">GetName</span>() +
+                                 <span class="st">"  — RMB to move"</span>);
+        }
+        <span class="kw">else</span>
+        {
+            dir.<span class="fn">Normalize</span>();
+            selected_-&gt;<span class="fn">SetPosition</span>(pos + dir * UNIT_SPEED * dt);
+        }
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // PanCamera — reads GetMouseDelta() while middle button is held.
+    //
+    // GetMouseDelta() reports how many pixels the mouse moved this frame.
+    // This works WITHOUT locking the cursor: the cursor stays visible and
+    // moveable, while the delta drives the camera pan.
+    //
+    // This is different from SetCursorLocked, which hides the cursor and
+    // allows unlimited motion past screen edges (used for FPS look below).
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">PanCamera</span>()
+    {
+        <span class="kw">if</span> (<span class="fn">IsMouseButtonDown</span>(<span class="ty">MouseButton</span>::<span class="val">Middle</span>))
+        {
+            <span class="ty">Vector2</span> delta = <span class="fn">GetMouseDelta</span>();    <span class="cm">// pixels moved this frame</span>
+
+            <span class="cm">// Map horizontal pixel movement to world-X, vertical to world-Z.
+            // Negate so dragging right moves the camera right (feels natural).</span>
+            camPos_.<span class="val">x_</span>    -= delta.<span class="val">x_</span> * PAN_SCALE;
+            camPos_.<span class="val">z_</span>    -= delta.<span class="val">y_</span> * PAN_SCALE;
+            camLookAt_.<span class="val">x_</span> -= delta.<span class="val">x_</span> * PAN_SCALE;
+            camLookAt_.<span class="val">z_</span> -= delta.<span class="val">y_</span> * PAN_SCALE;
+
+            cam_-&gt;<span class="fn">SetPosition</span>(camPos_);
+            cam_-&gt;<span class="fn">LookAt</span>(camLookAt_);
+        }
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // ToggleFPSMode — demonstrates SetCursorLocked / SetCursorVisible.
+    //
+    // RTS mode:  cursor VISIBLE, NOT locked — player clicks units and ground.
+    // FPS mode:  cursor LOCKED (MM_RELATIVE) — mouse movement rotates camera;
+    //            GetMouseDelta() returns raw unbounded motion each frame.
+    //            SetCursorVisible() has NO EFFECT while the cursor is locked.
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">ToggleFPSMode</span>()
+    {
+        fpsMode_ = !fpsMode_;
+
+        <span class="kw">if</span> (fpsMode_)
+        {
+            <span class="cm">// Hide cursor and enter MM_RELATIVE mode.
+            // After this call IsCursorLocked() returns true,
+            // and GetMouseDelta() reports raw unbounded mouse motion.</span>
+            <span class="fn">SetCursorLocked</span>(<span class="kw">true</span>);
+
+            <span class="cm">// Switch camera to free FPS look; mouse look is handled
+            // automatically inside SetFPSMode() using GetMouseDelta().</span>
+            cam_-&gt;<span class="fn">SetFPSMode</span>();
+            cam_-&gt;<span class="fn">SetFPSSensitivity</span>(<span class="val">0.18f</span>);
+
+            statusLbl_-&gt;<span class="fn">SetText</span>(<span class="st">"FPS look mode — Tab to return to RTS"</span>);
+            controlsLbl_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);
+        }
+        <span class="kw">else</span>
+        {
+            <span class="cm">// Release cursor lock — IsCursorLocked() returns false after this.
+            // SetCursorLocked(false) automatically restores cursor visibility.</span>
+            <span class="fn">SetCursorLocked</span>(<span class="kw">false</span>);
+
+            <span class="cm">// Make the cursor explicitly visible again for RTS interaction.
+            // (SetCursorLocked(false) already restores it, but being explicit
+            //  makes the intent readable in code review.)</span>
+            <span class="fn">SetCursorVisible</span>(<span class="kw">true</span>);
+
+            <span class="cm">// Restore the top-down camera.</span>
+            cam_-&gt;<span class="fn">Detach</span>();
+            cam_-&gt;<span class="fn">SetPosition</span>(camPos_);
+            cam_-&gt;<span class="fn">LookAt</span>(camLookAt_);
+
+            statusLbl_-&gt;<span class="fn">SetText</span>(selected_
+                ? <span class="st">"Selected: "</span> + selected_-&gt;<span class="fn">GetName</span>() + <span class="st">"  — RMB to move"</span>
+                : <span class="st">"Click a unit to select it"</span>);
+            controlsLbl_-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+        }
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">RTSGame</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ──────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<!-- PickEntity -->
+<h3>PickEntity(screenPos, mask)</h3>
+<p>
+  <code>PickEntity</code> casts a ray from the camera through the screen pixel at
+  <code>screenPos</code> (pixel coordinates, top-left origin) and returns the
+  <code>Entity*</code> of the first physics body whose collision layer passes the
+  <code>mask</code> filter.  Pass <code>GetMousePosition()</code> directly as the
+  screen position argument.
+</p>
+<p>
+  The return value is <code>nullptr</code> when the ray hits nothing within the mask
+  (including when it misses all geometry entirely).  Always null-check before using
+  the pointer.  The function never returns a pointer to an entity that is on a layer
+  excluded by the mask, so you do not need to manually test the layer after the call.
+</p>
+
+<pre><span class="cm">// Pick the first Actor-layer entity under the cursor.</span>
+<span class="ty">Entity</span>* hit = <span class="fn">PickEntity</span>(<span class="fn">GetMousePosition</span>(), <span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+<span class="kw">if</span> (hit)
+{
+    <span class="cm">// The entity exists and is on CollisionLayer::Actor.</span>
+    hit-&gt;<span class="fn">AddTag</span>(<span class="st">"selected"</span>);
+}
+
+<span class="cm">// With the default All mask — hits everything with a RigidBody.</span>
+<span class="ty">Entity</span>* anything = <span class="fn">PickEntity</span>(<span class="fn">GetMousePosition</span>());</pre>
+
+<p>
+  Using a mask is important in scenes that mix pickable units with trigger volumes,
+  decorative props with mesh colliders, or other categories you do not want the player
+  to accidentally select.  Without a mask you might select an invisible trigger box
+  sitting on the unit.
+</p>
+
+<!-- PickPosition -->
+<h3>PickPosition(screenPos, mask)</h3>
+<p>
+  <code>PickPosition</code> fires the same physics ray as <code>PickEntity</code> but
+  instead of returning the entity, it returns the world-space <code>Vector3</code>
+  coordinate where the ray struck the surface.  This is the exact 3D point under the
+  mouse cursor in world coordinates, which makes it ideal for terrain placement,
+  move-order targeting in RTS games, and object spawning at the cursor.
+</p>
+<p>
+  The function returns <code>Vector3::ZERO</code> on a miss.  Check for this before
+  using the result, because <code>Vector3::ZERO</code> is also a valid world position
+  (the scene origin).  Compare with <code>!= Vector3::ZERO</code> as a fast miss
+  guard; for scenes where the origin matters, add a hit-distance check instead.
+</p>
+
+<pre><span class="cm">// Find the ground point under the cursor (ignores Actor-layer units).</span>
+<span class="ty">Vector3</span> groundPos = <span class="fn">PickPosition</span>(<span class="fn">GetMousePosition</span>(),
+                                   <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+<span class="kw">if</span> (groundPos != <span class="ty">Vector3</span>::<span class="val">ZERO</span>)
+{
+    <span class="cm">// Spawn a flag at the clicked ground location.</span>
+    <span class="ty">Entity</span>* flag = <span class="fn">CreateEntity</span>(<span class="st">"Flag"</span>);
+    flag-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Flag.mdl"</span>);
+    flag-&gt;<span class="fn">SetPosition</span>(groundPos);
+}
+
+<span class="cm">// Pick with no mask — returns the closest hit of any type.</span>
+<span class="ty">Vector3</span> anyHit = <span class="fn">PickPosition</span>(<span class="fn">GetMousePosition</span>());</pre>
+
+<p>
+  Only the X and Z components of <code>groundPos</code> are useful when you want to
+  move a unit to a flat terrain surface — preserve the unit's current Y so it does
+  not sink into or float above the ground.  This is the pattern used in the
+  <code>HandleRTSInput</code> method in the example above.
+</p>
+
+<!-- SetCursorVisible / IsCursorVisible -->
+<h3>SetCursorVisible(bool) and IsCursorVisible()</h3>
+<p>
+  <code>SetCursorVisible(false)</code> hides the OS cursor.  The mouse still moves and
+  all mouse button events fire normally; only the visible pointer disappears.  Use it
+  during full-screen gameplay where you draw your own crosshair or cursor sprite.
+  <code>SetCursorVisible(true)</code> restores the system cursor.
+</p>
+<p>
+  <code>IsCursorVisible()</code> returns the current visibility state as a
+  <code>bool</code>.  Note that <code>SetCursorVisible</code> has <strong>no effect</strong>
+  while the cursor is locked (see below) — while locked, the cursor is always hidden
+  regardless of the visibility flag.  The visibility state is remembered and restored
+  when the lock is released.
+</p>
+
+<pre><span class="cm">// During gameplay: hide the OS cursor, draw a custom crosshair instead.</span>
+<span class="fn">SetCursorVisible</span>(<span class="kw">false</span>);
+
+<span class="cm">// In the pause menu: show the OS cursor so the player can click buttons.</span>
+<span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Escape</span>))
+{
+    paused_ = !paused_;
+    <span class="fn">SetCursorVisible</span>(paused_);   <span class="cm">// show cursor in pause menu</span>
+    pausePanel_-&gt;<span class="fn">SetVisible</span>(paused_);
+}
+
+<span class="cm">// Query current state.</span>
+<span class="kw">if</span> (!<span class="fn">IsCursorVisible</span>())
+{
+    <span class="cm">// Draw our custom crosshair UI image here.</span>
+}</pre>
+
+<!-- SetCursorLocked / IsCursorLocked -->
+<h3>SetCursorLocked(bool) and IsCursorLocked()</h3>
+<p>
+  <code>SetCursorLocked(true)</code> engages Urho3D's <code>MM_RELATIVE</code> mouse
+  mode: the OS cursor is hidden, the mouse pointer is confined inside the window, and
+  raw per-frame mouse deltas become available via <code>GetMouseDelta()</code> without
+  being bounded by the screen edges.  This is the standard setup for FPS-style mouse
+  look, where the player needs to be able to move the mouse indefinitely in any
+  direction without the cursor hitting the screen border.
+</p>
+<p>
+  <code>SetCursorLocked(false)</code> exits relative mode, releases the cursor
+  confinement, and restores cursor visibility.
+  <code>IsCursorLocked()</code> returns the current lock state.
+</p>
+
+<pre><span class="cm">// Enter FPS look mode — cursor hidden, mouse reports unbounded delta.</span>
+<span class="fn">SetCursorLocked</span>(<span class="kw">true</span>);
+cam_-&gt;<span class="fn">SetFPSMode</span>();          <span class="cm">// FPS camera uses GetMouseDelta() internally</span>
+
+<span class="cm">// Exit FPS mode — cursor released and restored.</span>
+<span class="fn">SetCursorLocked</span>(<span class="kw">false</span>);
+cam_-&gt;<span class="fn">Detach</span>();
+
+<span class="cm">// Query lock state.</span>
+<span class="kw">bool</span> locked = <span class="fn">IsCursorLocked</span>();   <span class="cm">// true = MM_RELATIVE active</span>
+
+<span class="cm">// Common guard: only issue ray picks when cursor is NOT locked,
+// because PickEntity/PickPosition use the visible cursor position
+// which is meaningless while the cursor is confined to the center.</span>
+<span class="kw">if</span> (!<span class="fn">IsCursorLocked</span>() &amp;&amp; <span class="fn">IsMouseButtonDown</span>(<span class="ty">MouseButton</span>::<span class="val">Left</span>))
+{
+    <span class="ty">Entity</span>* hit = <span class="fn">PickEntity</span>(<span class="fn">GetMousePosition</span>());
+}</pre>
+
+<!-- GetMouseDelta -->
+<h3>GetMouseDelta() and MM_RELATIVE mode</h3>
+<p>
+  <code>GetMouseDelta()</code> returns a <code>Vector2</code> containing how many
+  pixels the mouse moved horizontally and vertically this frame.  It works in two
+  distinct modes depending on the cursor lock state:
+</p>
+
+<div class="grid2">
+  <div class="card card-blue">
+    <h3>Cursor NOT locked (default)</h3>
+    <p>
+      Delta is the frame-to-frame movement of the visible cursor position.
+      When the cursor reaches the screen edge, motion stops and the delta is clamped.
+      Useful for camera panning while holding a mouse button, drag operations,
+      or tracking a dragged slider.
+    </p>
+  </div>
+  <div class="card card-green">
+    <h3>Cursor LOCKED (MM_RELATIVE)</h3>
+    <p>
+      Delta is raw unbounded hardware mouse motion.  The cursor is invisibly pinned at
+      the window center; the player can move the mouse freely in any direction for as
+      long as they like.  This is the correct mode for FPS camera look, orbit camera
+      drag, and any interaction where you need infinite mouse travel.
+    </p>
+  </div>
+</div>
+
+<pre><span class="cm">// ── Middle-mouse pan (cursor NOT locked) ─────────────────────────────────</span>
+<span class="kw">if</span> (<span class="fn">IsMouseButtonDown</span>(<span class="ty">MouseButton</span>::<span class="val">Middle</span>))
+{
+    <span class="ty">Vector2</span> delta = <span class="fn">GetMouseDelta</span>();     <span class="cm">// cursor-position delta, bounded by screen</span>
+    camPos_.<span class="val">x_</span> -= delta.<span class="val">x_</span> * PAN_SCALE;
+    camPos_.<span class="val">z_</span> -= delta.<span class="val">y_</span> * PAN_SCALE;
+    cam_-&gt;<span class="fn">SetPosition</span>(camPos_);
+}
+
+<span class="cm">// ── FPS rotation (cursor LOCKED — MM_RELATIVE mode) ──────────────────────</span>
+<span class="fn">SetCursorLocked</span>(<span class="kw">true</span>);   <span class="cm">// call once to enter the mode</span>
+
+<span class="cm">// In Update():
+// cam_->SetFPSMode() handles this automatically, but you can also
+// use GetMouseDelta() yourself for a custom orbit or look effect:</span>
+<span class="ty">Vector2</span> look = <span class="fn">GetMouseDelta</span>();   <span class="cm">// raw hardware delta; no screen-edge clamping</span>
+yaw_   += look.<span class="val">x_</span> * sensitivity;
+pitch_ += look.<span class="val">y_</span> * sensitivity;
+pitch_  = <span class="ty">Clamp</span>(pitch_, -<span class="val">80.0f</span>, <span class="val">80.0f</span>);</pre>
+
+<p>
+  The delta values are in <em>pixels per frame</em>.  Multiply by a sensitivity
+  constant (degrees per pixel or world-units per pixel) to convert them to a usable
+  quantity.  Typical FPS sensitivity values are in the range <code>0.1</code> to
+  <code>0.3</code> degrees per pixel; typical pan values are <code>0.05</code> to
+  <code>0.15</code> world units per pixel depending on zoom level.
+</p>
+
+<!-- RTS PATTERN SUMMARY -->
+<h3>RTS click-to-select and move-to-position pattern</h3>
+<p>
+  The complete RTS pattern combines three picking techniques into a consistent
+  control scheme.  The key insight is that each mouse button sends the ray through
+  a different collision layer mask:
+</p>
+<ul>
+  <li>
+    <strong>Left click</strong> uses <code>PickEntity(..., CollisionLayer::Actor)</code>
+    to select or deselect a unit.  The ground and trigger volumes are masked out.
+  </li>
+  <li>
+    <strong>Right click</strong> uses <code>PickPosition(..., CollisionLayer::StaticGeometry)</code>
+    to find the terrain point for a move order.  Units, triggers, and other dynamic
+    bodies are masked out, so the ray always reaches the ground beneath them.
+  </li>
+  <li>
+    <strong>Middle drag</strong> uses <code>GetMouseDelta()</code> without any picking
+    to pan the camera in world space, keeping the cursor visible and functional.
+  </li>
+</ul>
+
+<pre><span class="cm">// Minimal self-contained RTS pick pattern:</span>
+<span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+{
+    <span class="ty">Vector2</span> mpos = <span class="fn">GetMousePosition</span>();
+
+    <span class="cm">// 1. Left click — select the unit under the cursor.</span>
+    <span class="kw">if</span> (<span class="fn">IsMouseButtonDown</span>(<span class="ty">MouseButton</span>::<span class="val">Left</span>))
+    {
+        <span class="ty">Entity</span>* hit = <span class="fn">PickEntity</span>(mpos, <span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+        <span class="kw">if</span> (selected_) selected_-&gt;<span class="fn">RemoveTag</span>(<span class="st">"selected"</span>);
+        selected_ = (hit &amp;&amp; hit-&gt;<span class="fn">HasTag</span>(<span class="st">"unit"</span>)) ? hit : <span class="kw">nullptr</span>;
+        <span class="kw">if</span> (selected_) selected_-&gt;<span class="fn">AddTag</span>(<span class="st">"selected"</span>);
+    }
+
+    <span class="cm">// 2. Right click — move selected unit to the ground click position.</span>
+    <span class="kw">if</span> (<span class="fn">IsMouseButtonDown</span>(<span class="ty">MouseButton</span>::<span class="val">Right</span>) &amp;&amp; selected_)
+    {
+        <span class="ty">Vector3</span> dest = <span class="fn">PickPosition</span>(mpos, <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+        <span class="kw">if</span> (dest != <span class="ty">Vector3</span>::<span class="val">ZERO</span>)
+            moveTarget_ = dest;
+    }
+
+    <span class="cm">// 3. Slide unit toward move target each frame.</span>
+    <span class="kw">if</span> (selected_ &amp;&amp; (moveTarget_ - selected_-&gt;<span class="fn">GetPosition</span>()).<span class="fn">Length</span>() &gt; <span class="val">0.1f</span>)
+    {
+        <span class="ty">Vector3</span> dir = (moveTarget_ - selected_-&gt;<span class="fn">GetPosition</span>()).<span class="fn">Normalized</span>();
+        selected_-&gt;<span class="fn">SetPosition</span>(selected_-&gt;<span class="fn">GetPosition</span>() + dir * <span class="val">5.0f</span> * dt);
+    }
+
+    <span class="cm">// 4. Middle-drag to pan the camera without locking the cursor.</span>
+    <span class="kw">if</span> (<span class="fn">IsMouseButtonDown</span>(<span class="ty">MouseButton</span>::<span class="val">Middle</span>))
+    {
+        <span class="ty">Vector2</span> d = <span class="fn">GetMouseDelta</span>();
+        camOrigin_.<span class="val">x_</span> -= d.<span class="val">x_</span> * <span class="val">0.07f</span>;
+        camOrigin_.<span class="val">z_</span> -= d.<span class="val">y_</span> * <span class="val">0.07f</span>;
+        cam_-&gt;<span class="fn">SetPosition</span>(camOrigin_ + <span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">16.0f</span>, <span class="val">9.0f</span>));
+        cam_-&gt;<span class="fn">LookAt</span>(camOrigin_);
+    }
+}</pre>
+
+<!-- ─── LUA EQUIVALENT ────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+
+<p>
+  All picking and cursor API calls are available in Lua scripts.  One difference from
+  C++: the Lua <code>PickEntity</code> and <code>PickPosition</code> functions take the
+  mouse X and Y pixel coordinates as two separate integer arguments rather than a
+  single <code>Vector2</code>.  Retrieve them from
+  <code>game:GetMousePosition()</code>, which returns an <code>IntVector2</code>.
+</p>
+
+<pre><span class="lua-cm">-- Scripts/rts_controller.lua
+-- Attach this script to a persistent entity created in C++ Start().
+-- Implements the same RTS click-to-select + move-to-position logic.</span>
+
+<span class="lua-kw">local</span> selected   = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> hasTarget  = <span class="lua-kw">false</span>
+<span class="lua-kw">local</span> moveTarget = Vector3(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+<span class="lua-kw">local</span> UNIT_SPEED = <span class="lua-num">5.0</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-cm">-- GetMousePosition() returns an IntVector2 in Lua.</span>
+    <span class="lua-kw">local</span> mpos = game:<span class="lua-fn">GetMousePosition</span>()
+    <span class="lua-kw">local</span> mx, my = mpos.x, mpos.y
+
+    <span class="lua-cm">-- ── Left click: select a unit ────────────────────────────────
+    -- PickEntity takes x, y as separate integers in Lua.
+    -- Third argument is the collision layer mask (1 = Actor).</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsMouseButtonDown</span>(MouseButton.Left) <span class="lua-kw">then</span>
+        <span class="lua-kw">local</span> hit = <span class="lua-fn">PickEntity</span>(mx, my, <span class="lua-num">1</span>)   <span class="lua-cm">-- mask 1 = CollisionLayer::Actor</span>
+
+        <span class="lua-kw">if</span> selected <span class="lua-kw">then</span>
+            selected:<span class="lua-fn">RemoveTag</span>(<span class="lua-str">"selected"</span>)
+            selected = <span class="lua-kw">nil</span>
+        <span class="lua-kw">end</span>
+
+        <span class="lua-kw">if</span> hit <span class="lua-kw">and</span> hit:<span class="lua-fn">HasTag</span>(<span class="lua-str">"unit"</span>) <span class="lua-kw">then</span>
+            selected = hit
+            selected:<span class="lua-fn">AddTag</span>(<span class="lua-str">"selected"</span>)
+            print(<span class="lua-str">"Selected: "</span> .. selected:<span class="lua-fn">GetName</span>())
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- ── Right click: move selected unit to ground position ────────
+    -- PickPosition takes x, y, mask.
+    -- Mask 2 = CollisionLayer::StaticGeometry (ground only).</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsMouseButtonDown</span>(MouseButton.Right) <span class="lua-kw">and</span> selected <span class="lua-kw">then</span>
+        <span class="lua-kw">local</span> groundPos = <span class="lua-fn">PickPosition</span>(mx, my, <span class="lua-num">2</span>)
+
+        <span class="lua-kw">if</span> groundPos:<span class="lua-fn">Length</span>() &gt; <span class="lua-num">0</span> <span class="lua-kw">then</span>   <span class="lua-cm">-- non-zero = something was hit</span>
+            <span class="lua-kw">local</span> unitY = selected:<span class="lua-fn">GetPosition</span>().y
+            moveTarget  = Vector3(groundPos.x, unitY, groundPos.z)
+            hasTarget   = <span class="lua-kw">true</span>
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- ── Move selected unit toward target ─────────────────────────</span>
+    <span class="lua-kw">if</span> selected <span class="lua-kw">and</span> hasTarget <span class="lua-kw">then</span>
+        <span class="lua-kw">local</span> pos  = selected:<span class="lua-fn">GetPosition</span>()
+        <span class="lua-kw">local</span> dir  = moveTarget - pos
+        <span class="lua-kw">local</span> dist = dir:<span class="lua-fn">Length</span>()
+
+        <span class="lua-kw">if</span> dist &lt; <span class="lua-num">0.12</span> <span class="lua-kw">then</span>
+            selected:<span class="lua-fn">SetPosition</span>(moveTarget)
+            hasTarget = <span class="lua-kw">false</span>
+        <span class="lua-kw">else</span>
+            dir:<span class="lua-fn">Normalize</span>()
+            selected:<span class="lua-fn">SetPosition</span>(pos + dir * UNIT_SPEED * dt)
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- ── Middle drag: pan camera ──────────────────────────────────
+    -- GetMouseDelta() works the same as in C++.
+    -- Cursor is NOT locked; delta is bounded by screen edges.</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsMouseButtonDown</span>(MouseButton.Middle) <span class="lua-kw">then</span>
+        <span class="lua-kw">local</span> delta = game:<span class="lua-fn">GetMouseDelta</span>()
+        <span class="lua-cm">-- pan logic handled by the C++ PanCamera helper via game event</span>
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- ── Cursor control from Lua ───────────────────────────────────────</span>
+<span class="lua-kw">function</span> <span class="lua-fn">EnterFPSMode</span>()
+    game:<span class="lua-fn">SetCursorLocked</span>(<span class="lua-kw">true</span>)    <span class="lua-cm">-- hides cursor + enters MM_RELATIVE mode</span>
+    <span class="lua-cm">-- Camera FPS mode is set from C++; Lua scripts can still read the lock state:</span>
+    print(<span class="lua-str">"Cursor locked: "</span> .. tostring(game:<span class="lua-fn">IsCursorLocked</span>()))
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">ExitFPSMode</span>()
+    game:<span class="lua-fn">SetCursorLocked</span>(<span class="lua-kw">false</span>)   <span class="lua-cm">-- restores cursor visibility automatically</span>
+    game:<span class="lua-fn">SetCursorVisible</span>(<span class="lua-kw">true</span>)   <span class="lua-cm">-- explicit restore for clarity</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- ── Pick with no mask (All layers) from Lua ───────────────────────</span>
+<span class="lua-kw">function</span> <span class="lua-fn">PickAnything</span>()
+    <span class="lua-kw">local</span> mpos = game:<span class="lua-fn">GetMousePosition</span>()
+    <span class="lua-kw">local</span> hit  = <span class="lua-fn">PickEntity</span>(mpos.x, mpos.y)           <span class="lua-cm">-- no mask = All</span>
+    <span class="lua-kw">local</span> pos  = <span class="lua-fn">PickPosition</span>(mpos.x, mpos.y)          <span class="lua-cm">-- world point</span>
+    <span class="lua-kw">if</span> hit <span class="lua-kw">then</span>
+        print(<span class="lua-str">"Hit: "</span> .. hit:<span class="lua-fn">GetName</span>()
+              .. <span class="lua-str">" at ("</span> .. pos.x .. <span class="lua-str">", "</span> .. pos.y .. <span class="lua-str">", "</span> .. pos.z .. <span class="lua-str">")"</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── COMMON MISTAKES ───────────────────────────────────────────── -->
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Forgetting to add a RigidBody and collider.</strong>
+      <code>PickEntity</code> and <code>PickPosition</code> test the
+      <em>physics world</em>, not visual models.  An entity with a mesh but no
+      <code>AddRigidBody</code> and no <code>AddBoxCollider</code> (or equivalent)
+      is completely invisible to ray picks.  If clicking a unit does nothing,
+      the first thing to check is whether it has a physics shape.
+    </li>
+    <li>
+      <strong>Setting the wrong collision layer.</strong>
+      If you call <code>PickEntity(mpos, CollisionLayer::Actor)</code> but the unit's
+      body is on <code>CollisionLayer::StaticGeometry</code>, the ray will miss it
+      every time.  Check that <code>unit-&gt;SetCollisionLayer(CollisionLayer::Actor)</code>
+      is called on every selectable entity.
+    </li>
+    <li>
+      <strong>Not checking for <code>nullptr</code> from PickEntity.</strong>
+      When the cursor is over empty space, <code>PickEntity</code> returns
+      <code>nullptr</code>.  Dereferencing it immediately without a null check
+      causes a crash.  Always write <code>if (hit &amp;&amp; hit-&gt;HasTag(...))</code>.
+    </li>
+    <li>
+      <strong>Treating <code>Vector3::ZERO</code> as a valid move destination.</strong>
+      <code>PickPosition</code> returns <code>Vector3::ZERO</code> on a miss.
+      If your ground happens to pass through the world origin, a miss and a valid
+      center-point hit are indistinguishable with just a <code>!= ZERO</code> check.
+      In that case, test the hit distance instead, or offset the ground plane slightly
+      off the origin.
+    </li>
+    <li>
+      <strong>Calling PickEntity or PickPosition while the cursor is locked.</strong>
+      In <code>MM_RELATIVE</code> mode the OS cursor is pinned at the window center,
+      so <code>GetMousePosition()</code> always returns the center pixel.  Ray picks
+      will always hit whatever is at the screen center, not where the player last
+      pointed before locking.  Guard picking calls with
+      <code>if (!IsCursorLocked())</code>.
+    </li>
+    <li>
+      <strong>Calling <code>SetCursorVisible(false)</code> while the cursor is locked
+      and expecting it to do something.</strong>
+      While <code>IsCursorLocked()</code> is <code>true</code>, the cursor is already
+      forcibly hidden by the OS regardless of the visibility flag.
+      <code>SetCursorVisible</code> has no effect in that state.  Set cursor
+      visibility after releasing the lock with <code>SetCursorLocked(false)</code>.
+    </li>
+    <li>
+      <strong>Expecting <code>SetCursorLocked(false)</code> to keep the cursor hidden.</strong>
+      Releasing the cursor lock automatically restores cursor visibility.  If you
+      want to keep the cursor hidden after exiting lock mode (e.g. you hid it before
+      entering lock mode), call <code>SetCursorVisible(false)</code> again immediately
+      after <code>SetCursorLocked(false)</code>.
+    </li>
+    <li>
+      <strong>Confusing <code>GetMouseDelta()</code> with the mouse position.</strong>
+      <code>GetMouseDelta()</code> returns the movement this frame in pixels, not the
+      cursor's current position on screen.  Use <code>GetMousePosition()</code> for the
+      position and <code>GetMouseDelta()</code> only when you need the amount of
+      movement.  Applying the delta as a position will cause the camera or selected
+      object to warp to bizarre locations.
+    </li>
+    <li>
+      <strong>Not multiplying <code>GetMouseDelta()</code> by <code>dt</code> for
+      smooth movement.</strong>
+      Mouse delta is already a per-frame quantity (pixels moved this frame), so
+      applying it directly to a position or angle is the correct approach for
+      feel-consistent input.  Unlike velocity-based motion you should <em>not</em>
+      multiply delta by <code>dt</code> — the delta already scales with frame time
+      implicitly because it is the hardware movement that occurred during this frame.
+      Do multiply by a sensitivity constant (e.g. degrees per pixel).
+    </li>
+    <li>
+      <strong>Forgetting that Lua <code>PickEntity</code> / <code>PickPosition</code>
+      take <code>(x, y, mask)</code> not a <code>Vector2</code>.</strong>
+      In Lua the picking functions accept separate integer screen coordinates, not a
+      <code>Vector2</code> object.  Use <code>mpos.x, mpos.y</code> from
+      <code>game:GetMousePosition()</code>.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── QUICK REFERENCE ───────────────────────────────────────────── -->
+<h2>Quick reference</h2>
+
+<table>
+  <thead>
+    <tr><th>Method</th><th>Returns</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>PickEntity(screenPos, mask=All)</code></td>
+      <td><code>Entity*</code></td>
+      <td>First entity hit by ray; <code>nullptr</code> on miss or mask exclusion.</td>
+    </tr>
+    <tr>
+      <td><code>PickPosition(screenPos, mask=All)</code></td>
+      <td><code>Vector3</code></td>
+      <td>World-space hit point; <code>Vector3::ZERO</code> on miss.</td>
+    </tr>
+    <tr>
+      <td><code>GetMousePosition()</code></td>
+      <td><code>Vector2</code></td>
+      <td>Current cursor pixel coordinate (top-left origin). Pass directly to <code>PickEntity</code> / <code>PickPosition</code>.</td>
+    </tr>
+    <tr>
+      <td><code>GetMouseDelta()</code></td>
+      <td><code>Vector2</code></td>
+      <td>Pixels moved this frame. Works whether cursor is locked or not. Unbounded in MM_RELATIVE mode.</td>
+    </tr>
+    <tr>
+      <td><code>SetCursorVisible(bool)</code></td>
+      <td>&mdash;</td>
+      <td>Show or hide the OS cursor. No effect while cursor is locked.</td>
+    </tr>
+    <tr>
+      <td><code>IsCursorVisible()</code></td>
+      <td><code>bool</code></td>
+      <td>Current OS cursor visibility state.</td>
+    </tr>
+    <tr>
+      <td><code>SetCursorLocked(bool)</code></td>
+      <td>&mdash;</td>
+      <td><code>true</code> = enter MM_RELATIVE (hide + confine cursor, unbounded delta). <code>false</code> = restore cursor.</td>
+    </tr>
+    <tr>
+      <td><code>IsCursorLocked()</code></td>
+      <td><code>bool</code></td>
+      <td><code>true</code> while MM_RELATIVE mode is active.</td>
+    </tr>
+    <tr>
+      <td><code>CollisionLayer::All</code></td>
+      <td><code>0xFFFF</code></td>
+      <td>Default mask — tests every body with a RigidBody.</td>
+    </tr>
+    <tr>
+      <td><code>CollisionLayer::Actor</code></td>
+      <td><code>1</code></td>
+      <td>Player, enemies, selectable units.</td>
+    </tr>
+    <tr>
+      <td><code>CollisionLayer::StaticGeometry</code></td>
+      <td><code>2</code></td>
+      <td>Ground, walls, platforms.</td>
+    </tr>
+    <tr>
+      <td><code>CollisionLayer::Trigger</code></td>
+      <td><code>4</code></td>
+      <td>Trigger volumes (usually excluded from picks).</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ─── WHAT YOU LEARNED ─────────────────────────────────────────── -->
+<h2>What you learned</h2>
+
+<p>
+  In this part you gained a complete toolkit for mouse-driven 3D interaction:
+</p>
+<ul>
+  <li>
+    <strong>Ray picking mechanics:</strong> simple-3d converts a screen pixel to a
+    world-space ray via the active camera and tests it against the physics world
+    up to 1000 units away.  Every pickable entity must have a <code>RigidBody</code>
+    and a collider shape.
+  </li>
+  <li>
+    <strong>PickEntity:</strong> returns the <code>Entity*</code> of the first body
+    the ray hits, filtered by a <code>CollisionLayer</code> mask.  Returns
+    <code>nullptr</code> on a miss.  Always null-check before use.
+  </li>
+  <li>
+    <strong>PickPosition:</strong> returns the world-space <code>Vector3</code>
+    hit point, ideal for terrain placement and RTS move orders.  Returns
+    <code>Vector3::ZERO</code> on a miss.
+  </li>
+  <li>
+    <strong>Collision layer masks:</strong> each pick call can target a specific
+    category (<code>Actor</code>, <code>StaticGeometry</code>, etc.) so left-click
+    selects units while right-click lands on the ground regardless of what is
+    standing on it.
+  </li>
+  <li>
+    <strong>Cursor visibility:</strong> <code>SetCursorVisible(false/true)</code>
+    shows or hides the OS cursor.  Has no effect while the cursor is locked.
+    <code>IsCursorVisible()</code> queries the current state.
+  </li>
+  <li>
+    <strong>Cursor locking:</strong> <code>SetCursorLocked(true)</code> enters
+    Urho3D's <code>MM_RELATIVE</code> mode &mdash; the cursor is hidden and pinned
+    inside the window, enabling unbounded mouse travel for FPS look.
+    <code>SetCursorLocked(false)</code> restores the cursor.
+    <code>IsCursorLocked()</code> queries the lock state.
+  </li>
+  <li>
+    <strong>Mouse delta:</strong> <code>GetMouseDelta()</code> returns the per-frame
+    pixel movement of the mouse.  In locked mode, the delta is raw hardware motion
+    with no screen-edge clamping; unlocked, it tracks the visible cursor movement.
+    Use it for camera panning, FPS rotation, and custom drag interactions.
+  </li>
+  <li>
+    <strong>RTS pattern:</strong> left-click with <code>CollisionLayer::Actor</code>
+    selects units; right-click with <code>CollisionLayer::StaticGeometry</code> issues
+    a move order to the ground; middle-drag reads <code>GetMouseDelta()</code>
+    without locking the cursor to pan the camera.  Tab toggles to FPS mode via
+    <code>SetCursorLocked</code> and <code>cam_&rarr;SetFPSMode()</code>.
+  </li>
+</ul>
+
+<p>
+  Next up: <a href="tutorial-27.html">Part 27: Debug Draw</a> &mdash; visualising
+  bounding boxes, rays, paths, and text labels in 3D space during development using
+  <code>DrawDebugLine</code>, <code>DrawDebugBox</code>, <code>DrawDebugSphere</code>,
+  and <code>DrawDebugText</code>.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-25.html">&#8592; Part 25: AI Behavior FSM</a>
+  <a href="tutorial-27.html">Part 27: Debug Draw &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

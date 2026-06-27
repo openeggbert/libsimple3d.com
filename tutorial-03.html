@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 03: Keyboard Input — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* ── Tutorial-specific additions ─────────────────────────── */
+.callout.new  { border-color: #3fb950; background: #0d1f10; }
+.callout.new h4 { color: #3fb950; opacity: 1; }
+
+.tutorial-sidebar-list {
+  list-style: decimal;
+  margin: 0;
+  padding: 0 0 0 1.4rem;
+}
+.tutorial-sidebar-list li { margin-bottom: 0; }
+.tutorial-sidebar-list li a {
+  display: block;
+  padding: 0.22rem 0.4rem;
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-decoration: none;
+  transition: background .1s, color .1s;
+}
+.tutorial-sidebar-list li a:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+.tutorial-sidebar-list li.active a {
+  color: var(--accent);
+  background: #0d2210;
+}
+
+.tutorial-breadcrumb {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+.tutorial-breadcrumb a { color: var(--muted); }
+.tutorial-breadcrumb a:hover { color: var(--text); text-decoration: underline; }
+
+.tutorial-part {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 400;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  margin-bottom: 0.28rem;
+}
+
+.tutorial-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.tutorial-nav a {
+  display: inline-block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.875rem;
+  color: var(--accent2);
+  transition: border-color .2s, background .2s;
+  text-decoration: none;
+}
+.tutorial-nav a:hover {
+  border-color: var(--accent2);
+  background: #0d1520;
+  text-decoration: none;
+}
+
+.compare-table th { white-space: nowrap; }
+.compare-table td:first-child code { color: var(--accent2); }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+    <li><a href="tutorial-01.html">01. Hello World</a></li>
+    <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+    <li class="active"><a href="tutorial-03.html">03. Keyboard Input</a></li>
+    <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+    <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+    <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+    <li><a href="tutorial-07.html">07. Character Controller</a></li>
+    <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+    <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+    <li><a href="tutorial-10.html">10. Audio</a></li>
+    <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+    <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+    <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+    <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+    <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+    <li><a href="tutorial-16.html">16. Input Actions</a></li>
+    <li><a href="tutorial-17.html">17. UI System</a></li>
+    <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+    <li><a href="tutorial-19.html">19. Save and Load</a></li>
+    <li><a href="tutorial-20.html">20. Scene Management</a></li>
+    <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+    <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+    <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+    <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+    <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+    <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+    <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+    <li><a href="tutorial-28.html">28. Tweens</a></li>
+    <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+    <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 03</div>
+
+<h1><span class="tutorial-part">Part 03 of 30</span>Keyboard Input</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <ul>
+    <li><code>IsKeyPressed(Key)</code> — returns <code>true</code> only on the <em>first frame</em> a key is pressed; contrasts with <code>IsKeyDown</code> which fires every frame while held</li>
+    <li>Full <code>Key</code> enum coverage: <code>Key::W</code>, <code>Key::A</code>, <code>Key::S</code>, <code>Key::D</code>, <code>Key::Space</code>, <code>Key::Escape</code>, <code>Key::Up</code>, <code>Key::Down</code>, <code>Key::Left</code>, <code>Key::Right</code></li>
+    <li>Frame-rate independent movement via <code>entity-&gt;TranslateWorld(direction * speed * dt)</code></li>
+    <li>Diagonal movement normalization with <code>Vector3::Normalized()</code> to prevent the speed-on-diagonals bug</li>
+    <li>Live HUD position display — calling <code>label-&gt;SetText()</code> every frame with a formatted <code>Vector3</code></li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ─────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>The difference between <strong>IsKeyDown</strong> (fires every frame the key is held) and <strong>IsKeyPressed</strong> (fires exactly once per physical keypress)</li>
+  <li>Which method to choose for movement, jumping, toggling, and quitting</li>
+  <li>How to poll WASD and arrow-key alternatives from the same <code>Update()</code> block</li>
+  <li>Why you must multiply movement by <code>dt</code> to get frame-rate independence</li>
+  <li>How to normalize a movement vector to prevent diagonal movement from being faster than axis-aligned movement</li>
+  <li>How to read an entity's world-space position and display it live in a HUD <code>Label</code></li>
+  <li>Using <code>std::snprintf</code> inside <code>Update()</code> to format floating-point values into a readable string</li>
+</ul>
+
+<!-- ─── COMPLETE EXAMPLE ────────────────────────────────────── -->
+<h2>Complete example</h2>
+<p>
+  The program below creates a movable box on a ground plane. WASD and the arrow keys
+  move the box. Space resets it to the origin. Escape quits. A HUD label in the
+  top-left corner shows the box's live world-space position, updated every frame.
+</p>
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;cstdio&gt;</span>              <span class="cm">// std::snprintf</span>
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">KeyInputDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+    <span class="ty">Entity</span>* player_   = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*  posLabel_ = <span class="kw">nullptr</span>;
+
+    <span class="cm">// Movement speed in world units per second</span>
+    <span class="kw">static constexpr</span> <span class="ty">float</span> speed_ = <span class="val">5.0f</span>;
+
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Part 03 — Keyboard Input"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.08f</span>, <span class="val">0.1f</span>, <span class="val">0.14f</span>));
+
+        <span class="cm">// ── Ground plane ──────────────────────────────────────────</span>
+        <span class="kw">auto</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, -<span class="val">0.5f</span>, <span class="val">0.0f</span>);
+        ground-&gt;<span class="fn">SetScale</span>(<span class="val">20.0f</span>);
+
+        <span class="cm">// ── Movable player box ────────────────────────────────────</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);
+
+        <span class="cm">// ── Lighting ──────────────────────────────────────────────</span>
+        <span class="kw">auto</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.95f</span>, <span class="val">0.85f</span>), <span class="val">1.2f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50.0f</span>, -<span class="val">30.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.25f</span>, <span class="val">0.28f</span>, <span class="val">0.35f</span>));
+
+        <span class="cm">// ── Camera: follow player from above and behind ────────────</span>
+        <span class="kw">auto</span>* cam = <span class="fn">CreateCamera</span>();
+        cam-&gt;<span class="fn">Follow</span>(player_, <span class="val">8.0f</span>, <span class="val">4.0f</span>);
+        cam-&gt;<span class="fn">LookAt</span>(player_);
+
+        <span class="cm">// ── HUD: live position display (top-left) ─────────────────</span>
+        posLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Position: (0.00, 0.00, 0.00)"</span>);
+        posLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">20</span>);
+        posLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">16</span>);
+        posLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.85f</span>, <span class="val">0.95f</span>, <span class="val">0.85f</span>));
+
+        <span class="cm">// ── HUD: controls hint ────────────────────────────────────</span>
+        <span class="ty">Label</span>* hint = <span class="fn">CreateLabel</span>(<span class="st">"WASD / Arrows: Move  |  Space: Reset  |  ESC: Quit"</span>);
+        hint-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">48</span>);
+        hint-&gt;<span class="fn">SetFontSize</span>(<span class="val">13</span>);
+        hint-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.45f</span>, <span class="val">0.6f</span>, <span class="val">0.45f</span>));
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        <span class="cm">// ── Continuous movement (IsKeyDown: true every frame the key is held) ──</span>
+        <span class="ty">Vector3</span> move(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);
+
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::W) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Up))    move.z_ += <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::S) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Down))  move.z_ -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::A) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Left))  move.x_ -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::D) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Right)) move.x_ += <span class="val">1.0f</span>;
+
+        <span class="cm">// Normalise first (prevents diagonal 41% speed boost), then scale by speed and dt</span>
+        <span class="kw">if</span> (move.<span class="fn">Length</span>() &gt; <span class="val">0.0f</span>)
+            player_-&gt;<span class="fn">TranslateWorld</span>(move.<span class="fn">Normalized</span>() * speed_ * dt);
+
+        <span class="cm">// ── One-shot actions (IsKeyPressed: true only on the first frame) ─────</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::Space))
+            player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);   <span class="cm">// teleport to origin</span>
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::Escape))
+            <span class="fn">Quit</span>();
+
+        <span class="cm">// ── Live HUD: refresh position label every frame ──────────────────────</span>
+        <span class="ty">Vector3</span> pos = player_-&gt;<span class="fn">GetPosition</span>();
+        <span class="kw">char</span> buf[<span class="val">80</span>];
+        std::<span class="fn">snprintf</span>(buf, <span class="kw">sizeof</span>(buf),
+                      <span class="st">"Position: (%.2f, %.2f, %.2f)"</span>,
+                      pos.x_, pos.y_, pos.z_);
+        posLabel_-&gt;<span class="fn">SetText</span>(buf);
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>() {
+    <span class="kw">return</span> <span class="fn">CreateGame</span>&lt;<span class="ty">KeyInputDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── HOW IT WORKS ─────────────────────────────────────────── -->
+<h2>How it works</h2>
+
+<!-- ──────────────────────────────────────────────────────────── -->
+<h3>IsKeyDown vs IsKeyPressed</h3>
+
+<p>
+  simple-3d provides two keyboard polling methods. They look similar but have a critical
+  difference in how often they return <code>true</code>.
+</p>
+
+<table class="compare-table">
+  <tr>
+    <th>Method</th>
+    <th>While key is held</th>
+    <th>Frame the key is released</th>
+    <th>Best used for</th>
+  </tr>
+  <tr>
+    <td><code>IsKeyDown(Key)</code></td>
+    <td><strong style="color:#3fb950">true every frame</strong></td>
+    <td><code>false</code></td>
+    <td>Continuous actions — movement, acceleration, holding a button</td>
+  </tr>
+  <tr>
+    <td><code>IsKeyPressed(Key)</code></td>
+    <td><strong style="color:#3fb950">true frame 1 only,</strong> then <code>false</code></td>
+    <td><code>false</code></td>
+    <td>One-shot events — jump, fire, toggle, reset, quit</td>
+  </tr>
+</table>
+
+<p>
+  <strong>IsKeyDown</strong> simply asks "is the key physically down right now?" It returns
+  <code>true</code> on every call while the player keeps the key held. This makes it perfect
+  for movement: every frame we add a small offset proportional to <code>dt</code>, producing
+  smooth, continuous motion.
+</p>
+
+<p>
+  <strong>IsKeyPressed</strong> is a rising-edge detector. It tracks the key's previous state
+  and only fires on the transition from <em>up</em> to <em>down</em>. No matter how long the
+  player holds the key, <code>IsKeyPressed</code> returns <code>true</code> for exactly one
+  frame. This makes it ideal for actions that should happen once per intentional keypress —
+  teleporting to the origin, opening a menu, firing a bullet, or quitting the application.
+</p>
+
+<div class="col2">
+<div>
+<p><strong>Continuous movement — use IsKeyDown</strong></p>
+<pre><span class="cm">// Fires every frame the key is held.</span>
+<span class="cm">// The player moves smoothly for as</span>
+<span class="cm">// long as the key stays pressed.</span>
+<span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::W))
+    player_-&gt;<span class="fn">TranslateWorld</span>(
+        <span class="ty">Vector3</span>(<span class="val">0</span>, <span class="val">0</span>, speed_ * dt));</pre>
+</div>
+<div>
+<p><strong>One-shot reset — use IsKeyPressed</strong></p>
+<pre><span class="cm">// Fires only on the FIRST frame of</span>
+<span class="cm">// the keypress, regardless of how</span>
+<span class="cm">// long the player holds Space.</span>
+<span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::Space))
+    player_-&gt;<span class="fn">SetPosition</span>(
+        <span class="val">0</span>, <span class="val">0</span>, <span class="val">0</span>);</pre>
+</div>
+</div>
+
+<div class="callout warn">
+  <h4>Common mistake: using IsKeyPressed for movement</h4>
+  <p>
+    If you write <code>if (IsKeyPressed(Key::W)) player_-&gt;TranslateWorld(...);</code>,
+    the box will jump exactly one step forward, then stop dead — even if the player keeps
+    W held. The move triggers only on the first frame of the press. Always use
+    <code>IsKeyDown</code> for anything that should repeat while the key is held.
+  </p>
+</div>
+
+<!-- ──────────────────────────────────────────────────────────── -->
+<h3>The Key enum</h3>
+
+<p>
+  All keyboard constants live in the <code>Key</code> enum. Include
+  <code>&lt;Simple3D/Simple3D.h&gt;</code> to access them. This tutorial uses the most common
+  movement and control keys:
+</p>
+
+<table>
+  <tr>
+    <th>Constant</th>
+    <th>Physical key</th>
+    <th>Typical use</th>
+  </tr>
+  <tr>
+    <td><code>Key::W</code></td>
+    <td><kbd>W</kbd></td>
+    <td>Move forward</td>
+  </tr>
+  <tr>
+    <td><code>Key::A</code></td>
+    <td><kbd>A</kbd></td>
+    <td>Move left (strafe)</td>
+  </tr>
+  <tr>
+    <td><code>Key::S</code></td>
+    <td><kbd>S</kbd></td>
+    <td>Move backward</td>
+  </tr>
+  <tr>
+    <td><code>Key::D</code></td>
+    <td><kbd>D</kbd></td>
+    <td>Move right (strafe)</td>
+  </tr>
+  <tr>
+    <td><code>Key::Up</code></td>
+    <td><kbd>&uarr;</kbd></td>
+    <td>Arrow-key alternative for forward</td>
+  </tr>
+  <tr>
+    <td><code>Key::Down</code></td>
+    <td><kbd>&darr;</kbd></td>
+    <td>Arrow-key alternative for backward</td>
+  </tr>
+  <tr>
+    <td><code>Key::Left</code></td>
+    <td><kbd>&larr;</kbd></td>
+    <td>Arrow-key alternative for left</td>
+  </tr>
+  <tr>
+    <td><code>Key::Right</code></td>
+    <td><kbd>&rarr;</kbd></td>
+    <td>Arrow-key alternative for right</td>
+  </tr>
+  <tr>
+    <td><code>Key::Space</code></td>
+    <td><kbd>Space</kbd></td>
+    <td>Jump, confirm, reset</td>
+  </tr>
+  <tr>
+    <td><code>Key::Escape</code></td>
+    <td><kbd>Escape</kbd></td>
+    <td>Quit, cancel, open/close menu</td>
+  </tr>
+</table>
+
+<p>
+  The full enum also covers letters <code>Key::A</code>&ndash;<code>Key::Z</code>,
+  digits <code>Key::Num0</code>&ndash;<code>Key::Num9</code>, function keys
+  <code>Key::F1</code>&ndash;<code>Key::F12</code>, modifier keys (<code>Key::LShift</code>,
+  <code>Key::LCtrl</code>, <code>Key::LAlt</code>, etc.), and the numpad. See the
+  <a href="api.html">C++ API reference</a> for the complete list.
+</p>
+
+<p>
+  Binding the same action to two different keys — WASD <em>and</em> arrow keys — is done with
+  a simple logical OR. Both alternatives are polled in the same <code>if</code> statement so
+  neither overrides the other:
+</p>
+
+<pre><span class="cm">// Either W or the up-arrow moves forward — whichever the player prefers.</span>
+<span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::W) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Up))
+    move.z_ += <span class="val">1.0f</span>;</pre>
+
+<div class="callout info">
+  <h4>Prefer Input Actions for real games</h4>
+  <p>
+    For a shipping game, consider using the higher-level <strong>Input Actions</strong> system
+    (covered in Part 16) instead of raw key polling. <code>BindAction("Move")</code> lets you
+    wire both keyboard keys <em>and</em> a gamepad button to the same named action, and players
+    can remap controls without touching your code. The raw <code>IsKeyDown</code> / <code>IsKeyPressed</code>
+    API shown here is the right foundation to understand before tackling that system.
+  </p>
+</div>
+
+<!-- ──────────────────────────────────────────────────────────── -->
+<h3>Frame-rate independent movement with dt</h3>
+
+<p>
+  The parameter <code>dt</code> passed to <code>Update(float dt)</code> is the <em>delta
+  time</em>: the number of seconds that elapsed since the previous frame. On a display
+  running at 60&nbsp;Hz, <code>dt</code> is approximately <code>0.0167</code>. On a 120&nbsp;Hz
+  display it is roughly <code>0.0083</code> — half as large.
+</p>
+
+<p>
+  If you move the player by a <em>fixed amount per frame</em>, the game runs twice as fast on
+  the faster display. Multiplying by <code>dt</code> converts the movement into <em>units per
+  second</em> so the result is identical regardless of frame rate:
+</p>
+
+<div class="col2">
+<div>
+<pre><span class="cm">// BAD: frame-rate dependent</span>
+<span class="cm">// 60 fps  → 30 units/sec</span>
+<span class="cm">// 120 fps → 60 units/sec ← 2x faster!</span>
+player_-&gt;<span class="fn">TranslateWorld</span>(
+    <span class="ty">Vector3</span>(<span class="val">0</span>, <span class="val">0</span>, <span class="val">0.5f</span>));  <span class="cm">// per frame</span></pre>
+</div>
+<div>
+<pre><span class="cm">// GOOD: frame-rate independent</span>
+<span class="cm">// 60 fps  → 5 units/sec</span>
+<span class="cm">// 120 fps → 5 units/sec ← same!</span>
+player_-&gt;<span class="fn">TranslateWorld</span>(
+    <span class="ty">Vector3</span>(<span class="val">0</span>, <span class="val">0</span>, <span class="val">1</span>) * speed_ * dt);</pre>
+</div>
+</div>
+
+<p>
+  The idiom is always: <strong>direction &times; speed &times; dt</strong>. <code>speed_</code> is in
+  world-units per second (e.g. <code>5.0f</code> means five metres per second). Multiplying by
+  <code>dt</code> converts that to the correct per-frame distance at whatever frame rate the
+  player's hardware achieves.
+</p>
+
+<div class="callout info">
+  <h4>dt also accounts for pauses and slow-motion</h4>
+  <p>
+    Because <code>dt</code> is the <em>actual</em> elapsed time — not a constant — it also
+    correctly handles frames that take longer than usual (e.g. a stutter), and it honours
+    <code>SetTimeScale()</code> automatically. At <code>SetTimeScale(0.5f)</code>, <code>dt</code>
+    is halved every frame, slowing all <code>dt</code>-based motion to half speed with no
+    extra work from you.
+  </p>
+</div>
+
+<!-- ──────────────────────────────────────────────────────────── -->
+<h3>Normalizing diagonal input</h3>
+
+<p>
+  When the player holds two direction keys at once — say W and D — the raw
+  <code>move</code> vector accumulates contributions from both axes:
+</p>
+
+<pre><span class="cm">// W pressed: move += (0, 0, +1)  →  move = (0, 0, 1)</span>
+<span class="cm">// D pressed: move += (+1, 0, 0)  →  move = (1, 0, 1)</span>
+<span class="cm">// Length of (1, 0, 1) = sqrt(1² + 0² + 1²) = sqrt(2) ≈ 1.414</span></pre>
+
+<p>
+  Without normalization the diagonal distance travelled per second is
+  <strong>1.414 &times; speed_ &asymp; 7.07</strong> instead of the intended <strong>5.0</strong>
+  — a 41&nbsp;% speed boost just for moving diagonally. Players notice this
+  immediately in competitive games and often exploit it.
+</p>
+
+<p>
+  Calling <code>Normalized()</code> scales the vector to unit length before multiplying by
+  speed and <code>dt</code>:
+</p>
+
+<pre><span class="cm">// After accumulating W + D, move = (1, 0, 1), length ≈ 1.414</span>
+<span class="ty">Vector3</span> dir = move.<span class="fn">Normalized</span>();   <span class="cm">// dir = (0.707, 0, 0.707), length = 1.0</span>
+player_-&gt;<span class="fn">TranslateWorld</span>(dir * speed_ * dt);  <span class="cm">// always travels at speed_ u/s</span></pre>
+
+<p>
+  The guard <code>if (move.Length() &gt; 0.0f)</code> prevents calling <code>Normalized()</code>
+  on the zero vector, which would produce a NaN. If no keys are pressed,
+  <code>move</code> is <code>(0, 0, 0)</code> and we skip the translation entirely.
+</p>
+
+<pre><span class="kw">if</span> (move.<span class="fn">Length</span>() &gt; <span class="val">0.0f</span>)
+    player_-&gt;<span class="fn">TranslateWorld</span>(move.<span class="fn">Normalized</span>() * speed_ * dt);</pre>
+
+<!-- ──────────────────────────────────────────────────────────── -->
+<h3>Live HUD label showing entity position</h3>
+
+<p>
+  A <code>Label</code> created with <code>CreateLabel()</code> renders text on the screen at a
+  fixed pixel position. Its content is static until you call <code>SetText()</code>. By
+  calling <code>SetText()</code> inside <code>Update()</code>, the label refreshes every frame,
+  turning it into a live readout of any game value.
+</p>
+
+<p>
+  This tutorial reads the player entity's current world-space position with
+  <code>GetPosition()</code>, which returns a <code>Vector3</code> whose <code>x_</code>,
+  <code>y_</code>, and <code>z_</code> members hold the three coordinates. We then format
+  them to two decimal places using <code>std::snprintf</code>:
+</p>
+
+<pre><span class="cm">// 1. Read the entity's current world-space position each frame.</span>
+<span class="ty">Vector3</span> pos = player_-&gt;<span class="fn">GetPosition</span>();
+
+<span class="cm">// 2. Format the three components into a fixed-width string.</span>
+<span class="cm">//    "%.2f" prints the float with exactly two decimal places.</span>
+<span class="kw">char</span> buf[<span class="val">80</span>];
+std::<span class="fn">snprintf</span>(buf, <span class="kw">sizeof</span>(buf),
+              <span class="st">"Position: (%.2f, %.2f, %.2f)"</span>,
+              pos.x_, pos.y_, pos.z_);
+
+<span class="cm">// 3. Push the new string to the label.  The old text is replaced immediately.</span>
+posLabel_-&gt;<span class="fn">SetText</span>(buf);</pre>
+
+<p>
+  <code>std::snprintf</code> writes at most <code>sizeof(buf)</code> bytes, including the null
+  terminator, making it safe even if the numbers grow large. The string is then passed
+  directly to <code>SetText()</code>, which accepts a <code>const char*</code> as well as
+  a <code>std::string</code>.
+</p>
+
+<div class="callout info">
+  <h4>When to use a live HUD label</h4>
+  <p>
+    Position readouts are invaluable during development — they let you verify that your
+    movement speed is correct, check that physics is behaving as expected, and debug
+    teleport/spawn logic. In a shipped game you would typically hide or remove the raw
+    position label and replace it with styled UI elements that represent meaningful
+    game state (health, score, minimap coordinates, etc.).
+  </p>
+</div>
+
+<!-- ─── LUA EQUIVALENT ──────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+
+<div class="callout lua">
+  <h4>Lua note</h4>
+  <p>
+    In Lua scripts attached to an entity via <code>entity-&gt;AddScript("...")</code>, the
+    <code>Input</code> global provides keyboard polling. The method names are
+    <code>Input:IsKeyDown("KeyName")</code> and <code>Input:IsKeyPress("KeyName")</code>
+    (note: <code>IsKeyPress</code>, not <code>IsKeyPressed</code>). Key names are plain
+    strings matching the enum value without the <code>Key::</code> prefix. Vector3 component
+    access in Lua uses <code>.x</code>, <code>.y</code>, <code>.z</code> (no trailing
+    underscores). To update a HUD label from a Lua entity script, store a reference to it
+    in a Lua global from C++ before calling <code>AddScript</code>.
+  </p>
+</div>
+
+<p>
+  The script below is a direct Lua translation of the C++ example. Save it as
+  <code>Data/Scripts/keyboard_input.lua</code> and attach it with
+  <code>player_-&gt;AddScript("Scripts/keyboard_input.lua");</code> in <code>Start()</code>.
+  The <code>posLabel</code> global must be set from C++ before the script runs
+  (see the note inside the code).
+</p>
+
+<pre><span class="lua-cm">-- Scripts/keyboard_input.lua</span>
+<span class="lua-cm">-- Attach with: player_->AddScript("Scripts/keyboard_input.lua");</span>
+<span class="lua-cm">--</span>
+<span class="lua-cm">-- To update the HUD label, set the global from C++ before calling AddScript:</span>
+<span class="lua-cm">--   lua_["posLabel"] = posLabel_;   -- expose the Label* to Lua</span>
+
+<span class="lua-kw">local</span> speed = <span class="lua-num">5.0</span>   <span class="lua-cm">-- world units per second</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node   <span class="lua-cm">-- simple-3d convention: alias self.node for cleaner syntax</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-cm">-- ── Continuous movement: IsKeyDown fires every frame the key is held ──</span>
+    <span class="lua-kw">local</span> move = <span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"W"</span>) <span class="lua-kw">or</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"Up"</span>)    <span class="lua-kw">then</span> move.z = move.z + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"S"</span>) <span class="lua-kw">or</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"Down"</span>)  <span class="lua-kw">then</span> move.z = move.z - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"A"</span>) <span class="lua-kw">or</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"Left"</span>)  <span class="lua-kw">then</span> move.x = move.x - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"D"</span>) <span class="lua-kw">or</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"Right"</span>) <span class="lua-kw">then</span> move.x = move.x + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Normalise diagonal movement, then scale by speed and delta time</span>
+    <span class="lua-kw">if</span> move:<span class="lua-fn">Length</span>() &gt; <span class="lua-num">0</span> <span class="lua-kw">then</span>
+        entity:<span class="lua-fn">TranslateWorld</span>(move:<span class="lua-fn">Normalized</span>() * speed * dt)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- ── One-shot actions: IsKeyPress fires only on the first frame ─────────</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyPress</span>(<span class="lua-str">"Space"</span>) <span class="lua-kw">then</span>
+        entity:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)   <span class="lua-cm">-- teleport to origin</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- ── Live HUD: update position label if the global reference is set ─────</span>
+    <span class="lua-kw">local</span> pos = entity:<span class="lua-fn">GetPosition</span>()
+    <span class="lua-kw">if</span> posLabel <span class="lua-kw">then</span>
+        posLabel:<span class="lua-fn">SetText</span>(string.<span class="lua-fn">format</span>(
+            <span class="lua-str">"Position: (%.2f, %.2f, %.2f)"</span>,
+            pos.x, pos.y, pos.z))
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<p>
+  Three differences from the C++ version are worth noting:
+</p>
+<ul>
+  <li>
+    <strong>Method name:</strong> Lua uses <code>Input:IsKeyPress("Space")</code> (without the
+    trailing <code>d</code>) to match the Urho3D Lua binding convention. The underlying
+    behaviour — fires exactly once per keypress — is identical to C++
+    <code>IsKeyPressed(Key::Space)</code>.
+  </li>
+  <li>
+    <strong>Vector3 components:</strong> In Lua, access the components as <code>pos.x</code>,
+    <code>pos.y</code>, <code>pos.z</code> (no trailing underscores). The Lua binding strips
+    the Urho3D C++ underscore convention.
+  </li>
+  <li>
+    <strong>String formatting:</strong> Lua's built-in <code>string.format</code> with
+    <code>"%.2f"</code> is the equivalent of C++ <code>std::snprintf</code> with the same
+    format specifier. Both produce a string with two decimal places.
+  </li>
+</ul>
+
+<!-- ─── COMMON MISTAKES ─────────────────────────────────────── -->
+<h2 id="mistakes">Common mistakes</h2>
+
+<div class="callout warn">
+  <h4>Pitfalls to avoid</h4>
+
+  <p><strong>1. Using IsKeyPressed for movement</strong><br>
+  <code>IsKeyPressed</code> returns <code>true</code> for exactly one frame per keypress.
+  If you use it for movement, the entity jolts forward one step per keypress and then
+  stops, even while the key is held. Use <code>IsKeyDown</code> for anything that should
+  repeat continuously while held.</p>
+
+  <p><strong>2. Forgetting to multiply by dt</strong><br>
+  <code>player_-&gt;TranslateWorld(Vector3(0, 0, 0.1f));</code> moves a constant
+  <em>per frame</em>. At 60&nbsp;fps that is 6 units/sec; at 144&nbsp;fps it is
+  14.4&nbsp;units/sec. The game behaves differently on every machine. Always write
+  <code>direction * speed * dt</code>.</p>
+
+  <p><strong>3. Not normalizing diagonal movement</strong><br>
+  Accumulating two perpendicular unit contributions produces a vector of length
+  &radic;2 &asymp; 1.414. Without calling <code>Normalized()</code>, diagonal movement
+  is 41&nbsp;% faster than axis-aligned movement. Always guard with
+  <code>if (move.Length() &gt; 0.0f)</code> before normalizing to avoid dividing a
+  zero vector.</p>
+
+  <p><strong>4. Not updating the label every frame</strong><br>
+  A <code>Label</code> does not automatically track a variable. If you call
+  <code>SetText()</code> only in <code>Start()</code>, the HUD will always show the
+  initial string. Position display requires <code>SetText()</code> inside
+  <code>Update()</code> so it refreshes with each new frame.</p>
+
+  <p><strong>5. Calling game API from the constructor</strong><br>
+  <code>CreateEntity()</code>, <code>CreateLabel()</code>, and all other scene-creation
+  methods require the engine to be fully initialised. Do not call them from
+  <code>KeyInputDemo()</code> — put everything in <code>Start()</code>.</p>
+
+  <p><strong>6. Comparing floating-point position for exact equality</strong><br>
+  After moving an entity with <code>TranslateWorld</code>, do not test
+  <code>if (pos.x_ == 5.0f)</code>. Floating-point accumulation introduces tiny
+  rounding errors. Use a tolerance check: <code>if (std::abs(pos.x_ - 5.0f) &lt; 0.01f)</code>.</p>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ────────────────────────────────────── -->
+<h2>What you learned</h2>
+
+<ul>
+  <li>
+    <strong><code>IsKeyDown(Key)</code></strong> returns <code>true</code> on every frame
+    the key is physically held, making it the right choice for continuous actions like
+    movement, camera rotation, and acceleration.
+  </li>
+  <li>
+    <strong><code>IsKeyPressed(Key)</code></strong> returns <code>true</code> on the first
+    frame of a keypress only — a rising-edge detector. Use it for one-shot events:
+    jumping, firing, toggling menus, and quitting.
+  </li>
+  <li>
+    The <strong><code>Key</code> enum</strong> provides named constants for every keyboard
+    key: <code>Key::W</code>, <code>Key::A</code>, <code>Key::S</code>, <code>Key::D</code>,
+    <code>Key::Up</code>, <code>Key::Down</code>, <code>Key::Left</code>,
+    <code>Key::Right</code>, <code>Key::Space</code>, <code>Key::Escape</code>, and many
+    more.
+  </li>
+  <li>
+    Providing <strong>two key alternatives</strong> (WASD and arrow keys) requires only a
+    logical OR: <code>if (IsKeyDown(Key::W) || IsKeyDown(Key::Up))</code>.
+  </li>
+  <li>
+    Multiplying the direction by <strong><code>dt</code></strong> converts per-frame movement
+    into per-second movement, making the game run identically at any frame rate. The formula
+    is always <code>direction * speed * dt</code>.
+  </li>
+  <li>
+    Calling <strong><code>Vector3::Normalized()</code></strong> before scaling prevents diagonal
+    movement from being faster than axis-aligned movement. Guard with
+    <code>if (move.Length() &gt; 0.0f)</code> to avoid normalizing the zero vector.
+  </li>
+  <li>
+    <strong><code>entity-&gt;GetPosition()</code></strong> returns the entity's current
+    world-space <code>Vector3</code>. Its <code>x_</code>, <code>y_</code>, and <code>z_</code>
+    members can be formatted with <code>std::snprintf</code> and displayed live via
+    <code>label-&gt;SetText()</code> inside <code>Update()</code>.
+  </li>
+  <li>
+    In Lua, the equivalents are <code>Input:IsKeyDown("W")</code> /
+    <code>Input:IsKeyPress("Space")</code>, and vector components are accessed as
+    <code>.x</code>, <code>.y</code>, <code>.z</code> (no trailing underscores).
+  </li>
+</ul>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-02.html">&#8592; Part 02: Lights and Colors</a>
+  <a href="tutorial-04.html">Part 04: 3D Physics &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

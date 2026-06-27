@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 18: UI Advanced — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li class="active"><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 18</div>
+
+<h1><span class="tutorial-part">Part 18 of 30</span>UI Advanced</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>CreateProgressBar()</code> &nbsp;&bull;&nbsp;
+    <code>ProgressBar::SetValue(0&ndash;1)</code> &nbsp;&bull;&nbsp;
+    <code>ProgressBar::SetColor()</code> &nbsp;&bull;&nbsp;
+    <code>ProgressBar::SetBackgroundColor()</code> &nbsp;&bull;&nbsp;
+    <code>ProgressBar::SetVertical()</code> &nbsp;&bull;&nbsp;
+    <code>CreateSlider(min, max)</code> &nbsp;&bull;&nbsp;
+    <code>Slider::SetValue()</code> &nbsp;&bull;&nbsp;
+    <code>Slider::GetValue()</code> &nbsp;&bull;&nbsp;
+    <code>Slider::SetOnChange(lambda)</code> &nbsp;&bull;&nbsp;
+    <code>panel&rarr;AddChild(element)</code> &nbsp;&bull;&nbsp;
+    <code>Element::SetZOrder()</code> &nbsp;&bull;&nbsp;
+    <code>Anchor::Center</code> &nbsp;&bull;&nbsp;
+    <code>SetFocusGroup()</code> &nbsp;&bull;&nbsp;
+    <code>EnableFocusNavigation()</code> &nbsp;&bull;&nbsp;
+    <code>SetOnFocusCancel()</code>
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ─────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How to create fill-based progress bars with <code>CreateProgressBar()</code> and drive them with <code>SetValue(0&ndash;1)</code></li>
+  <li>How to color-code a progress bar at runtime using <code>SetColor()</code> — for example switching green to red as health drops</li>
+  <li>How to display vertical progress bars using <code>SetVertical(true)</code> — useful for XP columns or audio level meters</li>
+  <li>How to create interactive value sliders using <code>CreateSlider(min, max)</code> with a custom numeric range</li>
+  <li>How to read the current slider value with <code>GetValue()</code> and write it programmatically with <code>SetValue()</code></li>
+  <li>How to react to user interaction in real time by supplying a lambda to <code>SetOnChange()</code></li>
+  <li>How to group UI widgets into panels using <code>panel-&gt;AddChild(element)</code> so that positions become panel-relative and visibility is inherited</li>
+  <li>How to control rendering order when UI layers overlap using <code>SetZOrder()</code> — higher values always render on top</li>
+  <li>How to center a panel on screen precisely with <code>SetAnchor(UI::Anchor::Center)</code></li>
+  <li>How to enable gamepad D-pad navigation between buttons using <code>SetFocusGroup()</code> and <code>EnableFocusNavigation()</code></li>
+  <li>How to handle the gamepad cancel (B) button with <code>SetOnFocusCancel()</code></li>
+</ul>
+
+<!-- ─── OVERVIEW ──────────────────────────────────────────────────── -->
+<h2>Overview</h2>
+<p>
+  Part 17 introduced the basic UI widgets: panels, buttons, labels, and images. This part builds on
+  that foundation and covers the two remaining interactive widget types &mdash; <strong>progress bars</strong>
+  and <strong>sliders</strong> &mdash; together with three techniques for structuring more complex UIs:
+  <em>parent-child hierarchies</em>, <em>Z-order layering</em>, and <em>gamepad focus navigation</em>.
+</p>
+<p>
+  The example program builds a working in-game settings menu. A 3D box spins in the background. A
+  permanent HUD layer shows a health bar (green, draining slowly) and an XP bar (vertical, blue). When
+  the player presses <kbd>Escape</kbd>, a centered settings panel slides into view over the top of the
+  HUD. The panel contains a volume slider, a brightness slider, a Resume button, and a Quit button.
+  D-pad navigation lets gamepad users move between the two buttons without a mouse.
+</p>
+
+<!-- ─── COMPLETE SOURCE ───────────────────────────────────────────── -->
+<h2>Complete source</h2>
+<p>
+  Copy this into <code>main.cpp</code>, build, and run. The step-by-step explanation that follows
+  breaks every new API call down in detail.
+</p>
+
+<pre><span class="cm">// main.cpp — Part 18: UI Advanced</span>
+<span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;string&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">UIAdvancedDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+
+    <span class="cm">// ── Start() ──────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"UI Advanced — simple-3d"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.05f</span>, <span class="val">0.07f</span>, <span class="val">0.12f</span>, <span class="val">1.0f</span>));
+
+        <span class="cm">// ── Background scene ──────────────────────────────────────────────────
+        // A simple spinning box gives us something to see behind the UI.</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.95f</span>, <span class="val">0.85f</span>), <span class="val">1.0f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45.0f</span>, <span class="val">30.0f</span>, <span class="val">0.0f</span>));
+
+        box_ = <span class="fn">CreateEntity</span>(<span class="st">"Box"</span>);
+        box_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        box_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);
+
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">2.0f</span>, -<span class="val">6.0f</span>);
+        cam_-&gt;<span class="fn">LookAt</span>(<span class="ty">Vector3</span>::ZERO);
+
+        <span class="cm">// ── HUD layer (ZOrder 1) ─────────────────────────────────────────────
+        // These widgets live directly on the screen root (no parent panel).
+        // ZOrder 1 keeps them below the settings menu (ZOrder 10).</span>
+
+        <span class="cm">// Health progress bar — horizontal, color-coded</span>
+        hpBar_ = <span class="fn">CreateProgressBar</span>();
+        hpBar_-&gt;<span class="fn">SetSize</span>(<span class="val">200</span>, <span class="val">18</span>);
+        hpBar_-&gt;<span class="fn">SetPosition</span>(<span class="val">12</span>, <span class="val">12</span>);
+        hpBar_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.85f</span>, <span class="val">0.25f</span>, <span class="val">1.0f</span>));      <span class="cm">// green fill</span>
+        hpBar_-&gt;<span class="fn">SetBackgroundColor</span>(<span class="ty">Color</span>(<span class="val">0.1f</span>, <span class="val">0.1f</span>, <span class="val">0.1f</span>, <span class="val">0.85f</span>));  <span class="cm">// dark trough</span>
+        hpBar_-&gt;<span class="fn">SetValue</span>(<span class="val">0.78f</span>);   <span class="cm">// 78% health to start</span>
+        hpBar_-&gt;<span class="fn">SetZOrder</span>(<span class="val">1</span>);
+
+        <span class="ty">Label</span>* hpLabel = <span class="fn">CreateLabel</span>(<span class="st">"HP"</span>);
+        hpLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">12</span>, <span class="val">34</span>);
+        hpLabel-&gt;<span class="fn">SetFontSize</span>(<span class="val">12</span>);
+        hpLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.6f</span>, <span class="val">0.9f</span>, <span class="val">0.6f</span>, <span class="val">1.0f</span>));
+
+        <span class="cm">// XP progress bar — vertical orientation</span>
+        xpBar_ = <span class="fn">CreateProgressBar</span>();
+        xpBar_-&gt;<span class="fn">SetSize</span>(<span class="val">12</span>, <span class="val">80</span>);
+        xpBar_-&gt;<span class="fn">SetPosition</span>(<span class="val">8</span>, <span class="val">55</span>);
+        xpBar_-&gt;<span class="fn">SetVertical</span>(<span class="kw">true</span>);       <span class="cm">// fill grows upward</span>
+        xpBar_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.5f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>));        <span class="cm">// blue fill</span>
+        xpBar_-&gt;<span class="fn">SetBackgroundColor</span>(<span class="ty">Color</span>(<span class="val">0.06f</span>, <span class="val">0.06f</span>, <span class="val">0.2f</span>, <span class="val">0.9f</span>));
+        xpBar_-&gt;<span class="fn">SetValue</span>(<span class="val">0.45f</span>);   <span class="cm">// 45% XP</span>
+        xpBar_-&gt;<span class="fn">SetZOrder</span>(<span class="val">1</span>);
+
+        <span class="ty">Label</span>* xpLabel = <span class="fn">CreateLabel</span>(<span class="st">"XP"</span>);
+        xpLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">5</span>, <span class="val">138</span>);
+        xpLabel-&gt;<span class="fn">SetFontSize</span>(<span class="val">12</span>);
+        xpLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.5f</span>, <span class="val">0.7f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>));
+
+        <span class="ty">Label</span>* hint = <span class="fn">CreateLabel</span>(<span class="st">"Press Esc to open Settings"</span>);
+        hint-&gt;<span class="fn">SetPosition</span>(<span class="val">12</span>, <span class="val">162</span>);
+        hint-&gt;<span class="fn">SetFontSize</span>(<span class="val">13</span>);
+        hint-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.55f</span>, <span class="val">0.55f</span>, <span class="val">0.65f</span>, <span class="val">1.0f</span>));
+
+        <span class="cm">// ── Settings menu panel (ZOrder 10) ──────────────────────────────────
+        // Anchor::Center places the panel's own centre at the screen centre.
+        // SetPosition(0, 0) means no additional offset from that centre point.
+        // ZOrder 10 ensures it renders on top of ZOrder-1 HUD elements.</span>
+        menuPanel_ = <span class="fn">CreatePanel</span>();
+        menuPanel_-&gt;<span class="fn">SetSize</span>(<span class="val">370</span>, <span class="val">310</span>);
+        menuPanel_-&gt;<span class="fn">SetAnchor</span>(<span class="ty">UI::Anchor</span>::Center);
+        menuPanel_-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">0</span>);
+        menuPanel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.04f</span>, <span class="val">0.06f</span>, <span class="val">0.14f</span>, <span class="val">0.94f</span>));
+        menuPanel_-&gt;<span class="fn">SetZOrder</span>(<span class="val">10</span>);
+        menuPanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);   <span class="cm">// hidden until Escape is pressed</span>
+
+        <span class="cm">// Title — position is relative to panel top-left after AddChild</span>
+        <span class="ty">Label</span>* titleLabel = <span class="fn">CreateLabel</span>(<span class="st">"SETTINGS"</span>);
+        titleLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">133</span>, <span class="val">20</span>);
+        titleLabel-&gt;<span class="fn">SetFontSize</span>(<span class="val">20</span>);
+        titleLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.85f</span>, <span class="val">0.85f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>));
+        menuPanel_-&gt;<span class="fn">AddChild</span>(titleLabel);   <span class="cm">// now owned by the panel</span>
+
+        <span class="cm">// ── Volume slider ────────────────────────────────────────────────────</span>
+        <span class="ty">Label</span>* volLabel = <span class="fn">CreateLabel</span>(<span class="st">"Volume"</span>);
+        volLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">24</span>, <span class="val">78</span>);
+        volLabel-&gt;<span class="fn">SetFontSize</span>(<span class="val">14</span>);
+        volLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.75f</span>, <span class="val">0.75f</span>, <span class="val">0.88f</span>, <span class="val">1.0f</span>));
+        menuPanel_-&gt;<span class="fn">AddChild</span>(volLabel);
+
+        volSlider_ = <span class="fn">CreateSlider</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>);
+        volSlider_-&gt;<span class="fn">SetSize</span>(<span class="val">220</span>, <span class="val">20</span>);
+        volSlider_-&gt;<span class="fn">SetPosition</span>(<span class="val">110</span>, <span class="val">75</span>);
+        volSlider_-&gt;<span class="fn">SetValue</span>(<span class="val">0.8f</span>);    <span class="cm">// default: 80%</span>
+        volSlider_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.3f</span>, <span class="val">0.55f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>));
+        volSlider_-&gt;<span class="fn">SetOnChange</span>([<span class="kw">this</span>](<span class="kw">float</span> v) {
+            <span class="fn">SetMasterVolume</span>(v);
+            volValueLabel_-&gt;<span class="fn">SetText</span>(std::<span class="fn">to_string</span>(<span class="kw">static_cast</span>&lt;<span class="kw">int</span>&gt;(v * <span class="val">100</span>)) + <span class="st">"%"</span>);
+        });
+        menuPanel_-&gt;<span class="fn">AddChild</span>(volSlider_);
+
+        volValueLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"80%"</span>);
+        volValueLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">336</span>, <span class="val">78</span>);
+        volValueLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">13</span>);
+        volValueLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.55f</span>, <span class="val">0.78f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>));
+        menuPanel_-&gt;<span class="fn">AddChild</span>(volValueLabel_);
+
+        <span class="cm">// ── Brightness slider (range 0–2 so 1.0 = neutral) ───────────────────</span>
+        <span class="ty">Label</span>* briLabel = <span class="fn">CreateLabel</span>(<span class="st">"Brightness"</span>);
+        briLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">24</span>, <span class="val">120</span>);
+        briLabel-&gt;<span class="fn">SetFontSize</span>(<span class="val">14</span>);
+        briLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.75f</span>, <span class="val">0.75f</span>, <span class="val">0.88f</span>, <span class="val">1.0f</span>));
+        menuPanel_-&gt;<span class="fn">AddChild</span>(briLabel);
+
+        briSlider_ = <span class="fn">CreateSlider</span>(<span class="val">0.0f</span>, <span class="val">2.0f</span>);   <span class="cm">// 0 = black, 1 = normal, 2 = max</span>
+        briSlider_-&gt;<span class="fn">SetSize</span>(<span class="val">220</span>, <span class="val">20</span>);
+        briSlider_-&gt;<span class="fn">SetPosition</span>(<span class="val">110</span>, <span class="val">117</span>);
+        briSlider_-&gt;<span class="fn">SetValue</span>(<span class="val">1.0f</span>);    <span class="cm">// default: 100%</span>
+        briSlider_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.85f</span>, <span class="val">0.25f</span>, <span class="val">1.0f</span>));   <span class="cm">// warm yellow</span>
+        briSlider_-&gt;<span class="fn">SetOnChange</span>([<span class="kw">this</span>](<span class="kw">float</span> v) {
+            <span class="cm">// Express as percentage of neutral (1.0 = 100%)</span>
+            briValueLabel_-&gt;<span class="fn">SetText</span>(std::<span class="fn">to_string</span>(<span class="kw">static_cast</span>&lt;<span class="kw">int</span>&gt;(v * <span class="val">100</span>)) + <span class="st">"%"</span>);
+        });
+        menuPanel_-&gt;<span class="fn">AddChild</span>(briSlider_);
+
+        briValueLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"100%"</span>);
+        briValueLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">336</span>, <span class="val">120</span>);
+        briValueLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">13</span>);
+        briValueLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.9f</span>, <span class="val">0.5f</span>, <span class="val">1.0f</span>));
+        menuPanel_-&gt;<span class="fn">AddChild</span>(briValueLabel_);
+
+        <span class="cm">// ── Divider label ────────────────────────────────────────────────────</span>
+        <span class="ty">Label</span>* divLabel = <span class="fn">CreateLabel</span>(<span class="st">"──────────────────────────────────────────"</span>);
+        divLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">14</span>, <span class="val">158</span>);
+        divLabel-&gt;<span class="fn">SetFontSize</span>(<span class="val">10</span>);
+        divLabel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.25f</span>, <span class="val">0.28f</span>, <span class="val">0.4f</span>, <span class="val">1.0f</span>));
+        menuPanel_-&gt;<span class="fn">AddChild</span>(divLabel);
+
+        <span class="cm">// ── Action buttons ────────────────────────────────────────────────────</span>
+        resumeBtn_ = <span class="fn">CreateButton</span>(<span class="st">"Resume"</span>);
+        resumeBtn_-&gt;<span class="fn">SetSize</span>(<span class="val">148</span>, <span class="val">42</span>);
+        resumeBtn_-&gt;<span class="fn">SetPosition</span>(<span class="val">24</span>, <span class="val">218</span>);
+        resumeBtn_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.08f</span>, <span class="val">0.42f</span>, <span class="val">0.12f</span>, <span class="val">0.92f</span>));
+        resumeBtn_-&gt;<span class="fn">SetOnClick</span>([<span class="kw">this</span>] { <span class="fn">CloseMenu</span>(); });
+        menuPanel_-&gt;<span class="fn">AddChild</span>(resumeBtn_);
+
+        quitBtn_ = <span class="fn">CreateButton</span>(<span class="st">"Quit"</span>);
+        quitBtn_-&gt;<span class="fn">SetSize</span>(<span class="val">148</span>, <span class="val">42</span>);
+        quitBtn_-&gt;<span class="fn">SetPosition</span>(<span class="val">198</span>, <span class="val">218</span>);
+        quitBtn_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.42f</span>, <span class="val">0.07f</span>, <span class="val">0.07f</span>, <span class="val">0.92f</span>));
+        quitBtn_-&gt;<span class="fn">SetOnClick</span>([<span class="kw">this</span>] { <span class="fn">Quit</span>(); });
+        menuPanel_-&gt;<span class="fn">AddChild</span>(quitBtn_);
+
+        <span class="cm">// ── Gamepad D-pad focus navigation ────────────────────────────────────
+        // SetFocusGroup defines the tab order: Resume → Quit → (wrap) → Resume.
+        // D-Pad Right / Down moves forward; D-Pad Left / Up moves backward.
+        // Pressing A fires SetOnClick on the focused button.
+        // Pressing B fires the cancel callback (close the menu).</span>
+        <span class="fn">SetFocusGroup</span>({resumeBtn_, quitBtn_});
+        <span class="fn">EnableFocusNavigation</span>(<span class="kw">true</span>);
+        <span class="fn">SetOnFocusCancel</span>([<span class="kw">this</span>] { <span class="fn">CloseMenu</span>(); });
+    }
+
+    <span class="cm">// ── Update() ─────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="kw">float</span> dt) <span class="kw">override</span> {
+        <span class="cm">// Spin the background box</span>
+        angle_ += <span class="val">30.0f</span> * dt;
+        box_-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(angle_ * <span class="val">0.55f</span>, angle_, <span class="val">0.0f</span>));
+
+        <span class="cm">// Slowly drain health to demonstrate runtime color changes on a progress bar</span>
+        <span class="kw">float</span> hp = hpBar_-&gt;<span class="fn">GetValue</span>() - <span class="val">0.008f</span> * dt;
+        <span class="kw">if</span> (hp &lt; <span class="val">0.0f</span>) hp = <span class="val">1.0f</span>;   <span class="cm">// wrap back to full for the demo</span>
+        hpBar_-&gt;<span class="fn">SetValue</span>(hp);
+
+        <span class="cm">// Color-code: green (healthy) → yellow (hurt) → red (critical)</span>
+        <span class="kw">if</span> (hp &gt; <span class="val">0.6f</span>)
+            hpBar_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.85f</span>, <span class="val">0.25f</span>, <span class="val">1.0f</span>));   <span class="cm">// green</span>
+        <span class="kw">else if</span> (hp &gt; <span class="val">0.3f</span>)
+            hpBar_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.9f</span>, <span class="val">0.75f</span>, <span class="val">0.1f</span>, <span class="val">1.0f</span>));    <span class="cm">// yellow</span>
+        <span class="kw">else</span>
+            hpBar_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.85f</span>, <span class="val">0.15f</span>, <span class="val">0.1f</span>, <span class="val">1.0f</span>));   <span class="cm">// red</span>
+
+        <span class="cm">// Toggle settings menu on Escape</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::Escape)) {
+            <span class="kw">if</span> (menuPanel_-&gt;<span class="fn">IsVisible</span>())
+                <span class="fn">CloseMenu</span>();
+            <span class="kw">else</span>
+                <span class="fn">OpenMenu</span>();
+        }
+    }
+
+<span class="kw">private</span>:
+    <span class="kw">void</span> <span class="fn">OpenMenu</span>() {
+        menuPanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+        <span class="fn">EnableFocusNavigation</span>(<span class="kw">true</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">CloseMenu</span>() {
+        menuPanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);
+        <span class="fn">EnableFocusNavigation</span>(<span class="kw">false</span>);
+    }
+
+    <span class="ty">Entity</span>*              box_            = <span class="kw">nullptr</span>;
+    <span class="ty">Camera</span>*              cam_            = <span class="kw">nullptr</span>;
+
+    <span class="ty">UI::ProgressBar</span>*     hpBar_          = <span class="kw">nullptr</span>;
+    <span class="ty">UI::ProgressBar</span>*     xpBar_          = <span class="kw">nullptr</span>;
+
+    <span class="ty">UI::Panel</span>*           menuPanel_      = <span class="kw">nullptr</span>;
+    <span class="ty">UI::Slider</span>*          volSlider_      = <span class="kw">nullptr</span>;
+    <span class="ty">UI::Slider</span>*          briSlider_      = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*               volValueLabel_  = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*               briValueLabel_  = <span class="kw">nullptr</span>;
+    <span class="ty">UI::Button</span>*          resumeBtn_      = <span class="kw">nullptr</span>;
+    <span class="ty">UI::Button</span>*          quitBtn_        = <span class="kw">nullptr</span>;
+
+    <span class="kw">float</span> angle_ = <span class="val">0.0f</span>;
+};
+
+<span class="kw">int</span> <span class="fn">main</span>(<span class="kw">int</span>, <span class="kw">char</span>**) {
+    <span class="kw">auto</span> game = <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">UIAdvancedDemo</span>&gt;();
+    game-&gt;<span class="fn">SetResourcePrefixPaths</span>(<span class="st">"/path/to/u3d/bin"</span>);
+    <span class="kw">return</span> game-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ──────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<!-- 1. CreateProgressBar -->
+<h3>1. <code>CreateProgressBar()</code></h3>
+<pre>hpBar_ = <span class="fn">CreateProgressBar</span>();
+hpBar_-&gt;<span class="fn">SetSize</span>(<span class="val">200</span>, <span class="val">18</span>);
+hpBar_-&gt;<span class="fn">SetPosition</span>(<span class="val">12</span>, <span class="val">12</span>);
+hpBar_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.85f</span>, <span class="val">0.25f</span>, <span class="val">1.0f</span>));
+hpBar_-&gt;<span class="fn">SetBackgroundColor</span>(<span class="ty">Color</span>(<span class="val">0.1f</span>, <span class="val">0.1f</span>, <span class="val">0.1f</span>, <span class="val">0.85f</span>));
+hpBar_-&gt;<span class="fn">SetValue</span>(<span class="val">0.78f</span>);</pre>
+<p>
+  <code>CreateProgressBar()</code> returns a <code>UI::ProgressBar*</code> that renders as two
+  rectangles stacked in the same bounding box: a <em>trough</em> (background) that always fills
+  the full widget size, and a <em>fill</em> that expands from left to right proportional to the
+  current value.
+</p>
+<p>
+  <strong><code>SetColor()</code></strong> sets the fill colour — that is, the part that represents
+  the actual quantity (health remaining, XP earned, download progress, etc.). In the example the
+  fill starts green. <strong><code>SetBackgroundColor()</code></strong> sets the trough colour shown
+  behind the fill. Using a dark semi-transparent background makes the bar readable on any scene.
+</p>
+<p>
+  <strong><code>SetValue(float v)</code></strong> accepts a normalised float in the range
+  <code>[0.0, 1.0]</code>. Values outside this range are clamped automatically. A value of
+  <code>0.0</code> shows an empty bar (only the trough is visible); <code>1.0</code> shows a
+  completely filled bar; <code>0.78</code> shows 78 percent filled. You can call
+  <code>SetValue()</code> at any time, including inside <code>Update()</code>, to animate the bar.
+</p>
+
+<!-- 2. SetValue runtime color coding -->
+<h3>2. Runtime color coding with <code>SetValue()</code> and <code>SetColor()</code></h3>
+<pre><span class="kw">float</span> hp = hpBar_-&gt;<span class="fn">GetValue</span>() - <span class="val">0.008f</span> * dt;
+<span class="kw">if</span> (hp &lt; <span class="val">0.0f</span>) hp = <span class="val">1.0f</span>;
+hpBar_-&gt;<span class="fn">SetValue</span>(hp);
+
+<span class="kw">if</span> (hp &gt; <span class="val">0.6f</span>)
+    hpBar_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.85f</span>, <span class="val">0.25f</span>, <span class="val">1.0f</span>));   <span class="cm">// green</span>
+<span class="kw">else if</span> (hp &gt; <span class="val">0.3f</span>)
+    hpBar_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.9f</span>, <span class="val">0.75f</span>, <span class="val">0.1f</span>, <span class="val">1.0f</span>));    <span class="cm">// yellow</span>
+<span class="kw">else</span>
+    hpBar_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.85f</span>, <span class="val">0.15f</span>, <span class="val">0.1f</span>, <span class="val">1.0f</span>));   <span class="cm">// red</span></pre>
+<p>
+  <code>GetValue()</code> reads back the current fill fraction. In <code>Update()</code> we subtract
+  a small delta-time-scaled amount each frame to create a slow drain animation, and call
+  <code>SetValue()</code> to apply the new fraction.
+</p>
+<p>
+  After updating the value we immediately update the fill colour by calling <code>SetColor()</code>
+  again with a different <code>Color</code>. This is a common pattern for health bars in games:
+  the bar itself stays the same size; only the fill fraction and fill colour change. Calling
+  <code>SetColor()</code> on a progress bar is cheap — it simply updates the vertex colour of the
+  fill rectangle and has no impact on layout.
+</p>
+
+<!-- 3. SetVertical -->
+<h3>3. Vertical progress bars with <code>SetVertical(true)</code></h3>
+<pre>xpBar_ = <span class="fn">CreateProgressBar</span>();
+xpBar_-&gt;<span class="fn">SetSize</span>(<span class="val">12</span>, <span class="val">80</span>);
+xpBar_-&gt;<span class="fn">SetVertical</span>(<span class="kw">true</span>);   <span class="cm">// fill grows from bottom upward</span>
+xpBar_-&gt;<span class="fn">SetValue</span>(<span class="val">0.45f</span>);</pre>
+<p>
+  By default progress bars fill horizontally from left to right. Calling
+  <code>SetVertical(true)</code> switches the fill direction so it grows from the bottom of the
+  widget upward. This is useful for audio level meters, XP columns, tower charge indicators, or
+  any quantity that is naturally represented as a vertical fill. The value semantics (0 = empty,
+  1 = full) are identical; only the rendering direction changes. The trough still occupies the
+  full widget bounds.
+</p>
+
+<!-- 4. CreateSlider -->
+<h3>4. <code>CreateSlider(min, max)</code></h3>
+<pre>volSlider_ = <span class="fn">CreateSlider</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>);
+volSlider_-&gt;<span class="fn">SetSize</span>(<span class="val">220</span>, <span class="val">20</span>);
+volSlider_-&gt;<span class="fn">SetPosition</span>(<span class="val">110</span>, <span class="val">75</span>);
+volSlider_-&gt;<span class="fn">SetValue</span>(<span class="val">0.8f</span>);
+volSlider_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.3f</span>, <span class="val">0.55f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>));</pre>
+<p>
+  <code>CreateSlider(min, max)</code> creates an interactive horizontal drag widget. The user clicks
+  and drags the thumb knob along the slider track. <code>min</code> and <code>max</code> define the
+  numeric range the slider represents. They are plain floats and can be any range you need: the
+  volume slider uses <code>(0.0, 1.0)</code> for a 0&ndash;100% gain; the brightness slider uses
+  <code>(0.0, 2.0)</code> so that the midpoint of travel corresponds to normal (100%) brightness.
+</p>
+<p>
+  <strong><code>SetValue(float v)</code></strong> positions the thumb at the given value, clamped to
+  <code>[min, max]</code>. Call it in <code>Start()</code> to establish the initial position of the
+  thumb, or at any time to set it programmatically (for example when loading a saved settings file).
+</p>
+<p>
+  <strong><code>GetValue()</code></strong> returns the current thumb position as a float in
+  <code>[min, max]</code>. Use it when you need to read the value on demand (such as when a
+  "Apply Settings" button is pressed) rather than reacting to each drag movement.
+</p>
+
+<!-- 5. SetOnChange -->
+<h3>5. <code>SetOnChange(lambda)</code></h3>
+<pre>volSlider_-&gt;<span class="fn">SetOnChange</span>([<span class="kw">this</span>](<span class="kw">float</span> v) {
+    <span class="fn">SetMasterVolume</span>(v);
+    volValueLabel_-&gt;<span class="fn">SetText</span>(std::<span class="fn">to_string</span>(<span class="kw">static_cast</span>&lt;<span class="kw">int</span>&gt;(v * <span class="val">100</span>)) + <span class="st">"%"</span>);
+});</pre>
+<p>
+  <code>SetOnChange()</code> accepts a <code>std::function&lt;void(float)&gt;</code> that the engine
+  calls every time the slider value changes. The single argument <code>v</code> is the new value
+  in the slider's own <code>[min, max]</code> range &mdash; no need to convert it yourself.
+</p>
+<p>
+  The callback fires on every mouse-drag pixel, not just on mouse button release, so the audio
+  volume in the example changes in real time as the user drags the knob. The companion label
+  (<code>volValueLabel_</code>) is also updated inside the same callback so the numeric percentage
+  always stays in sync with the knob position.
+</p>
+<p>
+  Lambda capture: <code>[this]</code> captures the game object by pointer so the callback can call
+  methods like <code>SetMasterVolume()</code> and access member variables like
+  <code>volValueLabel_</code>. This is the standard C++ idiom for UI callbacks in simple-3d.
+</p>
+
+<!-- 6. AddChild UI hierarchy -->
+<h3>6. <code>panel-&gt;AddChild(element)</code> — UI hierarchy</h3>
+<pre><span class="cm">// Create the panel</span>
+menuPanel_ = <span class="fn">CreatePanel</span>();
+menuPanel_-&gt;<span class="fn">SetSize</span>(<span class="val">370</span>, <span class="val">310</span>);
+
+<span class="cm">// Create a child element — position is relative to the panel top-left</span>
+<span class="ty">Label</span>* titleLabel = <span class="fn">CreateLabel</span>(<span class="st">"SETTINGS"</span>);
+titleLabel-&gt;<span class="fn">SetPosition</span>(<span class="val">133</span>, <span class="val">20</span>);   <span class="cm">// 133px right, 20px down from panel origin</span>
+menuPanel_-&gt;<span class="fn">AddChild</span>(titleLabel);   <span class="cm">// reparents; position is now panel-relative</span></pre>
+<p>
+  By default every UI widget you create is a child of the UI root (the screen). Calling
+  <code>parent-&gt;AddChild(child)</code> moves the child out of the root and makes it a direct
+  child of <code>parent</code>. From that point on:
+</p>
+<ul>
+  <li>The child's <code>SetPosition()</code> values are interpreted as pixel offsets from the
+    <em>parent's top-left corner</em>, not from the top-left of the screen.</li>
+  <li>When the parent moves, all children move with it automatically.</li>
+  <li>When the parent is hidden with <code>SetVisible(false)</code>, the entire subtree is hidden
+    without needing to iterate children manually.</li>
+  <li>When the parent is destroyed, all children are destroyed with it.</li>
+</ul>
+<p>
+  The method is overloaded for both <code>UI::Element*</code> (panels, buttons, sliders,
+  progress bars, images) and <code>Label*</code> (labels live in a slightly different class
+  hierarchy but are accepted by the same <code>AddChild</code> call).
+</p>
+<p>
+  In the example <em>every</em> widget inside the settings menu is added to <code>menuPanel_</code>.
+  When the user presses Escape, calling <code>menuPanel_-&gt;SetVisible(false)</code> hides the
+  title label, both sliders, their value labels, the divider, and both buttons in a single call.
+  No loop over children is required.
+</p>
+
+<!-- 7. SetZOrder -->
+<h3>7. <code>SetZOrder()</code> — layer ordering</h3>
+<pre><span class="cm">// HUD widgets</span>
+hpBar_-&gt;<span class="fn">SetZOrder</span>(<span class="val">1</span>);
+xpBar_-&gt;<span class="fn">SetZOrder</span>(<span class="val">1</span>);
+
+<span class="cm">// Settings menu panel — on top of the HUD</span>
+menuPanel_-&gt;<span class="fn">SetZOrder</span>(<span class="val">10</span>);</pre>
+<p>
+  <code>SetZOrder(int z)</code> controls the rendering order of UI elements when they overlap on
+  screen. Elements with a <strong>higher Z-order value are drawn on top</strong>. The default
+  Z-order for newly created elements is <code>0</code>.
+</p>
+<p>
+  In the example the HUD bars sit at Z-order 1, slightly above the default (0) so they render
+  on top of any plain background panels you might add later. The settings menu panel sits at
+  Z-order 10, guaranteeing it is always visible on top of the HUD when shown &mdash; no matter
+  how many HUD elements you add in the future, as long as they stay below 10.
+</p>
+<p>
+  Z-order applies to the element itself and is <em>not</em> inherited by children. If you need
+  all children of a panel to appear above an external element, give the panel a high Z-order and
+  then use small relative Z-orders among the children.
+</p>
+<div class="callout info">
+  <h4>Tip — reserved Z-order values</h4>
+  <p>
+    The engine uses Z-order <code>0</code> for scene-attached labels and Z-order
+    <code>100</code> and above for the engine's own debug overlays. Keep your game UI widgets in
+    the range <code>1&ndash;90</code> to avoid conflicts. Good conventions: HUD at 1&ndash;5,
+    in-game menus at 10&ndash;20, dialog boxes at 30, fade-to-black overlays at 50.
+  </p>
+</div>
+
+<!-- 8. Anchor::Center -->
+<h3>8. <code>Anchor::Center</code> — screen-centered panels</h3>
+<pre>menuPanel_-&gt;<span class="fn">SetAnchor</span>(<span class="ty">UI::Anchor</span>::Center);
+menuPanel_-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">0</span>);    <span class="cm">// (0,0) = exactly centered, no offset</span></pre>
+<p>
+  Setting an anchor on a UI element changes what the <code>SetPosition()</code> call means.
+  Without an anchor, position is measured from the screen's <strong>top-left corner</strong> to
+  the element's own top-left corner. With <code>Anchor::Center</code>, position is measured from
+  the <strong>screen's geometric center</strong> to the element's own geometric center. Passing
+  <code>(0, 0)</code> therefore places the panel's centre exactly at the screen's centre.
+</p>
+<p>
+  The panel stays centered even if you resize the window at runtime, because the anchor is
+  re-evaluated every frame relative to the current window dimensions. To nudge the panel away
+  from the exact centre, use a non-zero <code>SetPosition</code> offset: for example
+  <code>SetPosition(0, -30)</code> would shift the panel 30 pixels above the exact centre,
+  which is a common trick for placing menu dialogs slightly above the mathematical midpoint for
+  a more pleasing visual result.
+</p>
+<p>
+  Other available anchor values:
+</p>
+<table>
+  <tr><th>Value</th><th>Screen anchor point</th></tr>
+  <tr><td><code>Anchor::TopLeft</code></td><td>Top-left corner (default)</td></tr>
+  <tr><td><code>Anchor::TopCenter</code></td><td>Top edge, horizontally centered</td></tr>
+  <tr><td><code>Anchor::TopRight</code></td><td>Top-right corner</td></tr>
+  <tr><td><code>Anchor::CenterLeft</code></td><td>Left edge, vertically centered</td></tr>
+  <tr><td><code>Anchor::Center</code></td><td>Exact screen centre</td></tr>
+  <tr><td><code>Anchor::CenterRight</code></td><td>Right edge, vertically centered</td></tr>
+  <tr><td><code>Anchor::BottomLeft</code></td><td>Bottom-left corner</td></tr>
+  <tr><td><code>Anchor::BottomCenter</code></td><td>Bottom edge, horizontally centered</td></tr>
+  <tr><td><code>Anchor::BottomRight</code></td><td>Bottom-right corner</td></tr>
+</table>
+
+<!-- 9. Focus navigation -->
+<h3>9. Gamepad D-pad focus navigation</h3>
+<pre><span class="fn">SetFocusGroup</span>({resumeBtn_, quitBtn_});
+<span class="fn">EnableFocusNavigation</span>(<span class="kw">true</span>);
+<span class="fn">SetOnFocusCancel</span>([<span class="kw">this</span>] { <span class="fn">CloseMenu</span>(); });</pre>
+<p>
+  These three calls wire up gamepad controller navigation for the buttons inside the settings
+  menu. The engine's focus system handles D-pad input automatically once you configure it.
+</p>
+<p>
+  <strong><code>SetFocusGroup(vector&lt;UI::Element*&gt;)</code></strong> registers an ordered list
+  of focusable elements and immediately highlights the first element in the list (the Resume
+  button in this case). The order of the list defines the navigation order: D-Pad Down or D-Pad
+  Right moves to the next element; D-Pad Up or D-Pad Left moves to the previous element. The
+  list wraps around at both ends.
+</p>
+<p>
+  <strong><code>EnableFocusNavigation(bool)</code></strong> activates or deactivates the D-pad
+  input handler. In the example it is enabled when the menu opens and disabled when the menu
+  closes. Leaving it enabled while the menu is hidden would still consume D-pad input, which
+  could interfere with gameplay that uses D-pad for other actions.
+</p>
+<p>
+  While a button is focused, pressing the <strong>A button</strong> fires that button's
+  <code>SetOnClick</code> callback exactly as if the user had clicked it with the mouse. No
+  additional code is required to wire up the A button.
+</p>
+<p>
+  <strong><code>SetOnFocusCancel(callback)</code></strong> registers a callback for the
+  <strong>B button</strong>. In the example the cancel action closes the menu, matching the
+  conventional game-UI pattern where B dismisses the current screen. The cancel callback is
+  fired even if no element is currently focused, so it provides a reliable "escape hatch" for
+  any controller user.
+</p>
+<div class="callout info">
+  <h4>Focus navigation and sliders</h4>
+  <p>
+    The current focus system is designed for buttons. Sliders inside the panel are interacted
+    with via mouse click-and-drag. If you need full controller support for sliders (adjusting
+    the value with the D-pad or analog stick), read the slider value with <code>GetValue()</code>
+    in <code>Update()</code> and call <code>SetValue()</code> manually when the relevant stick or
+    D-pad axis is moved while the slider has logical focus.
+  </p>
+</div>
+
+<!-- 10. OpenMenu / CloseMenu pattern -->
+<h3>10. The open/close menu pattern</h3>
+<pre><span class="kw">void</span> <span class="fn">OpenMenu</span>() {
+    menuPanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+    <span class="fn">EnableFocusNavigation</span>(<span class="kw">true</span>);
+}
+
+<span class="kw">void</span> <span class="fn">CloseMenu</span>() {
+    menuPanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);
+    <span class="fn">EnableFocusNavigation</span>(<span class="kw">false</span>);
+}</pre>
+<p>
+  Factoring the open and close operations into private helper methods keeps <code>Update()</code>
+  clean and ensures the two operations are always symmetrical. Every code path that opens the menu
+  (keyboard Escape, a "settings" button, etc.) calls <code>OpenMenu()</code>; every path that
+  closes it (Resume button click, B button cancel, Escape again) calls <code>CloseMenu()</code>.
+  There is no risk of accidentally leaving focus navigation enabled while the menu is hidden.
+</p>
+<p>
+  Note that <code>SetFocusGroup()</code> only needs to be called once in <code>Start()</code> because
+  the element list never changes. <code>EnableFocusNavigation(true/false)</code> is called repeatedly
+  to gate the D-pad input on and off.
+</p>
+
+<!-- ─── LUA EQUIVALENT ──────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+<div class="callout lua">
+  <h4>Lua note</h4>
+  <p>
+    Lua callbacks for <code>SetOnChange</code> and <code>SetOnClick</code> use plain anonymous
+    functions. The <code>Anchor</code> enum is accessed as <code>Anchor.Center</code> (dot
+    notation, not <code>::</code>). The <code>SetFocusGroup</code> call accepts a Lua table used
+    as an array.
+  </p>
+</div>
+
+<pre><span class="lua-cm">-- game.lua — Part 18: UI Advanced (Lua)</span>
+
+<span class="lua-kw">local</span> box, cam
+<span class="lua-kw">local</span> hpBar, xpBar
+<span class="lua-kw">local</span> menuPanel
+<span class="lua-kw">local</span> volSlider, briSlider
+<span class="lua-kw">local</span> volValueLabel, briValueLabel
+<span class="lua-kw">local</span> resumeBtn, quitBtn
+<span class="lua-kw">local</span> angle = <span class="lua-num">0</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    game:<span class="lua-fn">SetWindowTitle</span>(<span class="lua-str">"UI Advanced — simple-3d"</span>)
+    game:<span class="lua-fn">SetClearColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.05</span>, <span class="lua-num">0.07</span>, <span class="lua-num">0.12</span>, <span class="lua-num">1.0</span>))
+
+    <span class="lua-cm">-- Scene</span>
+    <span class="lua-kw">local</span> sun = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Sun"</span>)
+    sun:<span class="lua-fn">AddDirectionalLight</span>(<span class="lua-fn">Color</span>(<span class="lua-num">1.0</span>, <span class="lua-num">0.95</span>, <span class="lua-num">0.85</span>), <span class="lua-num">1.0</span>)
+    sun:<span class="lua-fn">SetRotation</span>(<span class="lua-fn">Quaternion</span>(<span class="lua-num">45</span>, <span class="lua-num">30</span>, <span class="lua-num">0</span>))
+    box = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Box"</span>)
+    box:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+    cam = game:<span class="lua-fn">CreateCamera</span>()
+    cam:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">2</span>, <span class="lua-num">-6</span>)
+    cam:<span class="lua-fn">LookAt</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>))
+
+    <span class="lua-cm">-- Health progress bar (HUD, ZOrder 1)</span>
+    hpBar = game:<span class="lua-fn">CreateProgressBar</span>()
+    hpBar:<span class="lua-fn">SetSize</span>(<span class="lua-num">200</span>, <span class="lua-num">18</span>)
+    hpBar:<span class="lua-fn">SetPosition</span>(<span class="lua-num">12</span>, <span class="lua-num">12</span>)
+    hpBar:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.2</span>, <span class="lua-num">0.85</span>, <span class="lua-num">0.25</span>, <span class="lua-num">1.0</span>))
+    hpBar:<span class="lua-fn">SetBackgroundColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.1</span>, <span class="lua-num">0.1</span>, <span class="lua-num">0.1</span>, <span class="lua-num">0.85</span>))
+    hpBar:<span class="lua-fn">SetValue</span>(<span class="lua-num">0.78</span>)
+    hpBar:<span class="lua-fn">SetZOrder</span>(<span class="lua-num">1</span>)
+
+    <span class="lua-cm">-- XP progress bar (vertical)</span>
+    xpBar = game:<span class="lua-fn">CreateProgressBar</span>()
+    xpBar:<span class="lua-fn">SetSize</span>(<span class="lua-num">12</span>, <span class="lua-num">80</span>)
+    xpBar:<span class="lua-fn">SetPosition</span>(<span class="lua-num">8</span>, <span class="lua-num">55</span>)
+    xpBar:<span class="lua-fn">SetVertical</span>(<span class="lua-kw">true</span>)
+    xpBar:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.2</span>, <span class="lua-num">0.5</span>, <span class="lua-num">1.0</span>, <span class="lua-num">1.0</span>))
+    xpBar:<span class="lua-fn">SetBackgroundColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.06</span>, <span class="lua-num">0.06</span>, <span class="lua-num">0.2</span>, <span class="lua-num">0.9</span>))
+    xpBar:<span class="lua-fn">SetValue</span>(<span class="lua-num">0.45</span>)
+    xpBar:<span class="lua-fn">SetZOrder</span>(<span class="lua-num">1</span>)
+
+    <span class="lua-cm">-- Centered settings panel (ZOrder 10, hidden)</span>
+    menuPanel = game:<span class="lua-fn">CreatePanel</span>()
+    menuPanel:<span class="lua-fn">SetSize</span>(<span class="lua-num">370</span>, <span class="lua-num">310</span>)
+    menuPanel:<span class="lua-fn">SetAnchor</span>(Anchor.Center)
+    menuPanel:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>)
+    menuPanel:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.04</span>, <span class="lua-num">0.06</span>, <span class="lua-num">0.14</span>, <span class="lua-num">0.94</span>))
+    menuPanel:<span class="lua-fn">SetZOrder</span>(<span class="lua-num">10</span>)
+    menuPanel:<span class="lua-fn">SetVisible</span>(<span class="lua-kw">false</span>)
+
+    <span class="lua-cm">-- Title (panel-relative)</span>
+    <span class="lua-kw">local</span> titleLabel = game:<span class="lua-fn">CreateLabel</span>(<span class="lua-str">"SETTINGS"</span>)
+    titleLabel:<span class="lua-fn">SetPosition</span>(<span class="lua-num">133</span>, <span class="lua-num">20</span>)
+    titleLabel:<span class="lua-fn">SetFontSize</span>(<span class="lua-num">20</span>)
+    titleLabel:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.85</span>, <span class="lua-num">0.85</span>, <span class="lua-num">1.0</span>, <span class="lua-num">1.0</span>))
+    menuPanel:<span class="lua-fn">AddChild</span>(titleLabel)
+
+    <span class="lua-cm">-- Volume slider</span>
+    <span class="lua-kw">local</span> volLabel = game:<span class="lua-fn">CreateLabel</span>(<span class="lua-str">"Volume"</span>)
+    volLabel:<span class="lua-fn">SetPosition</span>(<span class="lua-num">24</span>, <span class="lua-num">78</span>)
+    volLabel:<span class="lua-fn">SetFontSize</span>(<span class="lua-num">14</span>)
+    menuPanel:<span class="lua-fn">AddChild</span>(volLabel)
+
+    volSlider = game:<span class="lua-fn">CreateSlider</span>(<span class="lua-num">0.0</span>, <span class="lua-num">1.0</span>)
+    volSlider:<span class="lua-fn">SetSize</span>(<span class="lua-num">220</span>, <span class="lua-num">20</span>)
+    volSlider:<span class="lua-fn">SetPosition</span>(<span class="lua-num">110</span>, <span class="lua-num">75</span>)
+    volSlider:<span class="lua-fn">SetValue</span>(<span class="lua-num">0.8</span>)
+    volSlider:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.3</span>, <span class="lua-num">0.55</span>, <span class="lua-num">1.0</span>, <span class="lua-num">1.0</span>))
+    volValueLabel = game:<span class="lua-fn">CreateLabel</span>(<span class="lua-str">"80%"</span>)
+    volValueLabel:<span class="lua-fn">SetPosition</span>(<span class="lua-num">336</span>, <span class="lua-num">78</span>)
+    volValueLabel:<span class="lua-fn">SetFontSize</span>(<span class="lua-num">13</span>)
+    menuPanel:<span class="lua-fn">AddChild</span>(volValueLabel)
+    volSlider:<span class="lua-fn">SetOnChange</span>(<span class="lua-kw">function</span>(v)
+        game:<span class="lua-fn">SetMasterVolume</span>(v)
+        volValueLabel:<span class="lua-fn">SetText</span>(tostring(<span class="lua-fn">math.floor</span>(v * <span class="lua-num">100</span>)) .. <span class="lua-str">"%"</span>)
+    <span class="lua-kw">end</span>)
+    menuPanel:<span class="lua-fn">AddChild</span>(volSlider)
+
+    <span class="lua-cm">-- Brightness slider (range 0–2)</span>
+    <span class="lua-kw">local</span> briLabel = game:<span class="lua-fn">CreateLabel</span>(<span class="lua-str">"Brightness"</span>)
+    briLabel:<span class="lua-fn">SetPosition</span>(<span class="lua-num">24</span>, <span class="lua-num">120</span>)
+    briLabel:<span class="lua-fn">SetFontSize</span>(<span class="lua-num">14</span>)
+    menuPanel:<span class="lua-fn">AddChild</span>(briLabel)
+
+    briSlider = game:<span class="lua-fn">CreateSlider</span>(<span class="lua-num">0.0</span>, <span class="lua-num">2.0</span>)
+    briSlider:<span class="lua-fn">SetSize</span>(<span class="lua-num">220</span>, <span class="lua-num">20</span>)
+    briSlider:<span class="lua-fn">SetPosition</span>(<span class="lua-num">110</span>, <span class="lua-num">117</span>)
+    briSlider:<span class="lua-fn">SetValue</span>(<span class="lua-num">1.0</span>)
+    briSlider:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">1.0</span>, <span class="lua-num">0.85</span>, <span class="lua-num">0.25</span>, <span class="lua-num">1.0</span>))
+    briValueLabel = game:<span class="lua-fn">CreateLabel</span>(<span class="lua-str">"100%"</span>)
+    briValueLabel:<span class="lua-fn">SetPosition</span>(<span class="lua-num">336</span>, <span class="lua-num">120</span>)
+    briValueLabel:<span class="lua-fn">SetFontSize</span>(<span class="lua-num">13</span>)
+    menuPanel:<span class="lua-fn">AddChild</span>(briValueLabel)
+    briSlider:<span class="lua-fn">SetOnChange</span>(<span class="lua-kw">function</span>(v)
+        briValueLabel:<span class="lua-fn">SetText</span>(tostring(<span class="lua-fn">math.floor</span>(v * <span class="lua-num">100</span>)) .. <span class="lua-str">"%"</span>)
+    <span class="lua-kw">end</span>)
+    menuPanel:<span class="lua-fn">AddChild</span>(briSlider)
+
+    <span class="lua-cm">-- Action buttons</span>
+    resumeBtn = game:<span class="lua-fn">CreateButton</span>(<span class="lua-str">"Resume"</span>)
+    resumeBtn:<span class="lua-fn">SetSize</span>(<span class="lua-num">148</span>, <span class="lua-num">42</span>)
+    resumeBtn:<span class="lua-fn">SetPosition</span>(<span class="lua-num">24</span>, <span class="lua-num">218</span>)
+    resumeBtn:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.08</span>, <span class="lua-num">0.42</span>, <span class="lua-num">0.12</span>, <span class="lua-num">0.92</span>))
+    resumeBtn:<span class="lua-fn">SetOnClick</span>(<span class="lua-kw">function</span>()
+        menuPanel:<span class="lua-fn">SetVisible</span>(<span class="lua-kw">false</span>)
+        game:<span class="lua-fn">EnableFocusNavigation</span>(<span class="lua-kw">false</span>)
+    <span class="lua-kw">end</span>)
+    menuPanel:<span class="lua-fn">AddChild</span>(resumeBtn)
+
+    quitBtn = game:<span class="lua-fn">CreateButton</span>(<span class="lua-str">"Quit"</span>)
+    quitBtn:<span class="lua-fn">SetSize</span>(<span class="lua-num">148</span>, <span class="lua-num">42</span>)
+    quitBtn:<span class="lua-fn">SetPosition</span>(<span class="lua-num">198</span>, <span class="lua-num">218</span>)
+    quitBtn:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.42</span>, <span class="lua-num">0.07</span>, <span class="lua-num">0.07</span>, <span class="lua-num">0.92</span>))
+    quitBtn:<span class="lua-fn">SetOnClick</span>(<span class="lua-kw">function</span>() game:<span class="lua-fn">Quit</span>() <span class="lua-kw">end</span>)
+    menuPanel:<span class="lua-fn">AddChild</span>(quitBtn)
+
+    <span class="lua-cm">-- Gamepad navigation</span>
+    game:<span class="lua-fn">SetFocusGroup</span>({resumeBtn, quitBtn})
+    game:<span class="lua-fn">EnableFocusNavigation</span>(<span class="lua-kw">true</span>)
+    game:<span class="lua-fn">SetOnFocusCancel</span>(<span class="lua-kw">function</span>()
+        menuPanel:<span class="lua-fn">SetVisible</span>(<span class="lua-kw">false</span>)
+        game:<span class="lua-fn">EnableFocusNavigation</span>(<span class="lua-kw">false</span>)
+    <span class="lua-kw">end</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    angle = angle + <span class="lua-num">30</span> * dt
+    box:<span class="lua-fn">SetRotation</span>(<span class="lua-fn">Quaternion</span>(angle * <span class="lua-num">0.55</span>, angle, <span class="lua-num">0</span>))
+
+    <span class="lua-cm">-- Drain health demo</span>
+    <span class="lua-kw">local</span> hp = hpBar:<span class="lua-fn">GetValue</span>() - <span class="lua-num">0.008</span> * dt
+    <span class="lua-kw">if</span> hp &lt; <span class="lua-num">0</span> <span class="lua-kw">then</span> hp = <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    hpBar:<span class="lua-fn">SetValue</span>(hp)
+    <span class="lua-kw">if</span> hp &gt; <span class="lua-num">0.6</span> <span class="lua-kw">then</span>
+        hpBar:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.2</span>, <span class="lua-num">0.85</span>, <span class="lua-num">0.25</span>, <span class="lua-num">1</span>))
+    <span class="lua-kw">elseif</span> hp &gt; <span class="lua-num">0.3</span> <span class="lua-kw">then</span>
+        hpBar:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.9</span>, <span class="lua-num">0.75</span>, <span class="lua-num">0.1</span>, <span class="lua-num">1</span>))
+    <span class="lua-kw">else</span>
+        hpBar:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.85</span>, <span class="lua-num">0.15</span>, <span class="lua-num">0.1</span>, <span class="lua-num">1</span>))
+    <span class="lua-kw">end</span>
+
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyPressed</span>(<span class="lua-str">"Escape"</span>) <span class="lua-kw">then</span>
+        <span class="lua-kw">local</span> visible = <span class="lua-kw">not</span> menuPanel:<span class="lua-fn">IsVisible</span>()
+        menuPanel:<span class="lua-fn">SetVisible</span>(visible)
+        game:<span class="lua-fn">EnableFocusNavigation</span>(visible)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── API QUICK REFERENCE ──────────────────────────────────── -->
+<h2>API quick reference — this part</h2>
+<table>
+  <tr><th>Method</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>CreateProgressBar()</code></td>
+    <td><code>UI::ProgressBar*</code></td>
+    <td>Creates a two-rectangle fill widget; value range <code>[0, 1]</code></td>
+  </tr>
+  <tr>
+    <td><code>progressBar-&gt;SetValue(float v)</code></td>
+    <td>—</td>
+    <td>Normalised fill fraction; clamped to <code>[0, 1]</code></td>
+  </tr>
+  <tr>
+    <td><code>progressBar-&gt;GetValue()</code></td>
+    <td><code>float</code></td>
+    <td>Current fill fraction</td>
+  </tr>
+  <tr>
+    <td><code>progressBar-&gt;SetColor(Color)</code></td>
+    <td>—</td>
+    <td>Fill (foreground) colour</td>
+  </tr>
+  <tr>
+    <td><code>progressBar-&gt;SetBackgroundColor(Color)</code></td>
+    <td>—</td>
+    <td>Trough (background) colour</td>
+  </tr>
+  <tr>
+    <td><code>progressBar-&gt;SetVertical(bool)</code></td>
+    <td>—</td>
+    <td>Default <code>false</code> (horizontal fill left→right); <code>true</code> = fill bottom→top</td>
+  </tr>
+  <tr>
+    <td><code>CreateSlider(float min, float max)</code></td>
+    <td><code>UI::Slider*</code></td>
+    <td>Interactive drag knob; value range is <code>[min, max]</code></td>
+  </tr>
+  <tr>
+    <td><code>slider-&gt;SetValue(float v)</code></td>
+    <td>—</td>
+    <td>Positions the thumb; clamped to <code>[min, max]</code></td>
+  </tr>
+  <tr>
+    <td><code>slider-&gt;GetValue()</code></td>
+    <td><code>float</code></td>
+    <td>Current thumb position in <code>[min, max]</code></td>
+  </tr>
+  <tr>
+    <td><code>slider-&gt;SetOnChange(function&lt;void(float)&gt;)</code></td>
+    <td>—</td>
+    <td>Callback fired on every drag event; argument is the new value</td>
+  </tr>
+  <tr>
+    <td><code>slider-&gt;SetRange(float min, float max)</code></td>
+    <td>—</td>
+    <td>Change range after creation; existing value is clamped</td>
+  </tr>
+  <tr>
+    <td><code>panel-&gt;AddChild(Element*)</code></td>
+    <td>—</td>
+    <td>Reparents element; position becomes relative to panel top-left</td>
+  </tr>
+  <tr>
+    <td><code>panel-&gt;AddChild(Label*)</code></td>
+    <td>—</td>
+    <td>Same as above for <code>Label</code></td>
+  </tr>
+  <tr>
+    <td><code>element-&gt;SetZOrder(int z)</code></td>
+    <td>—</td>
+    <td>Rendering priority; higher = drawn on top; default <code>0</code></td>
+  </tr>
+  <tr>
+    <td><code>element-&gt;SetAnchor(Anchor a)</code></td>
+    <td>—</td>
+    <td>Changes the reference point for <code>SetPosition()</code></td>
+  </tr>
+  <tr>
+    <td><code>SetFocusGroup(vector&lt;UI::Element*&gt;)</code></td>
+    <td>—</td>
+    <td>Ordered tab list; first element is pre-selected</td>
+  </tr>
+  <tr>
+    <td><code>EnableFocusNavigation(bool)</code></td>
+    <td>—</td>
+    <td>Activates D-pad input handling; default <code>false</code></td>
+  </tr>
+  <tr>
+    <td><code>SetOnFocusCancel(function&lt;void()&gt;)</code></td>
+    <td>—</td>
+    <td>Callback fired when the gamepad B button is pressed</td>
+  </tr>
+  <tr>
+    <td><code>ClearFocusGroup()</code></td>
+    <td>—</td>
+    <td>Removes all elements from the focus list and clears selection</td>
+  </tr>
+</table>
+
+<!-- ─── COMMON MISTAKES ──────────────────────────────────────────── -->
+<h2>Common mistakes</h2>
+<div class="callout warn">
+  <h4>Common mistakes — Part 18</h4>
+  <ul style="margin-left:1.3rem;margin-top:0.4rem;">
+    <li style="margin-bottom:0.7rem;">
+      <strong>Calling <code>AddChild()</code> and then <code>SetPosition()</code> in the wrong order.</strong>
+      The position must be set to the panel-relative coordinates you intend <em>before</em> calling
+      <code>AddChild()</code>. If you call <code>SetPosition()</code> after <code>AddChild()</code>, the
+      position is still applied, but if you previously set it to screen-space coordinates, those will now
+      be interpreted as panel-relative offsets and the element will appear in the wrong location.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Forgetting to set <code>SetZOrder</code> on overlapping UI layers.</strong>
+      If the settings menu appears behind the HUD health bar, it is because both are at the default
+      Z-order of <code>0</code>. The drawing order is unspecified when Z-orders are equal. Always
+      assign explicit Z-orders to any elements that you know may overlap.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Leaving <code>EnableFocusNavigation(true)</code> when the menu is hidden.</strong>
+      If focus navigation is enabled while the menu panel is hidden, pressing the D-pad still moves
+      focus between the (invisible) buttons and pressing A fires their click callbacks silently. Always
+      pair <code>menuPanel-&gt;SetVisible(false)</code> with <code>EnableFocusNavigation(false)</code>.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Passing the slider's min/max range incorrectly to display logic.</strong>
+      <code>SetOnChange(float v)</code> gives you <code>v</code> in the slider's own
+      <code>[min, max]</code> range, not in <code>[0, 1]</code>. If the brightness slider range is
+      <code>(0.0, 2.0)</code>, <code>v = 1.0</code> corresponds to 100% and you display it as
+      <code>static_cast&lt;int&gt;(v * 100)</code> which gives <code>100</code>. A common bug is
+      forgetting this scaling and displaying <code>static_cast&lt;int&gt;(v * 100)</code> for a
+      <code>(0, 2)</code> slider, which would print <code>200</code> at max instead of
+      <code>100</code>. Decide upfront whether to scale inside the callback or in the display string.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Confusing <code>Anchor::Center</code> with zero-position.</strong>
+      <code>SetAnchor(UI::Anchor::Center)</code> does not set the position to the screen centre by
+      itself. It changes what <em>zero</em> means. Without the anchor call, <code>SetPosition(0, 0)</code>
+      places the element at the top-left corner of the screen. With the anchor, <code>SetPosition(0, 0)</code>
+      places the element's center at the screen center. You need <em>both</em> the anchor call and
+      <code>SetPosition(0, 0)</code> to achieve exact centering.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Using <code>SetValue()</code> before <code>SetOnChange()</code> and expecting the callback
+      to fire.</strong>
+      Calling <code>SetValue(0.8f)</code> in <code>Start()</code> to set the initial thumb position does
+      <em>not</em> fire the <code>SetOnChange</code> callback if the callback has not been registered yet.
+      Always register the callback before calling <code>SetValue()</code> if you need the initial value to
+      trigger side effects (like updating a companion label). Alternatively, explicitly update the label
+      after setting the initial value.
+    </li>
+    <li style="margin-bottom:0.0rem;">
+      <strong>Not assigning a value label before the <code>SetOnChange</code> lambda captures it.</strong>
+      If <code>volValueLabel_</code> is <code>nullptr</code> when the <code>SetOnChange</code> lambda
+      runs, you will get a null pointer dereference. Create and assign <em>all</em> widgets the lambda
+      references <em>before</em> registering the callback. In the example <code>volValueLabel_</code> is
+      assigned just before the <code>SetOnChange</code> call for exactly this reason.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── TRY IT YOURSELF ───────────────────────────────────────────── -->
+<h2>Try it yourself</h2>
+<ol>
+  <li>
+    Add a third slider to the settings panel for "Music Volume" with a range of
+    <code>(0.0f, 1.0f)</code>. Wire its <code>SetOnChange</code> to print the value to the window
+    title with <code>SetWindowTitle("Music: " + std::to_string(int(v * 100)) + "%")</code>
+    so you can confirm it is firing.
+  </li>
+  <li>
+    Change the XP bar to be horizontal and make it refill slowly over time (the reverse of the
+    health drain). Observe how <code>GetValue()</code> reads back the current fraction each frame.
+  </li>
+  <li>
+    Create a second panel with a "Load" and "Delete" button at Z-order 20, and verify that it
+    renders on top of the settings panel (Z-order 10) when both are visible simultaneously. Then
+    try swapping the Z-orders and observe which one is drawn on top.
+  </li>
+  <li>
+    Add a third button "Options" to the focus group so the D-pad cycles through
+    Resume &rarr; Options &rarr; Quit &rarr; Resume. Notice that <code>SetFocusGroup</code> must
+    be called again with the new three-element list.
+  </li>
+  <li>
+    Change the settings panel anchor to <code>UI::Anchor::BottomCenter</code> and set
+    <code>SetPosition(0, -20)</code>. Observe the panel appearing at the bottom-center of the screen
+    with a 20-pixel upward offset, useful for dialog-bar style menus.
+  </li>
+</ol>
+
+<!-- ─── WHAT YOU LEARNED ─────────────────────────────────────────── -->
+<h2>What you learned</h2>
+<p>
+  This part introduced the remaining interactive UI widgets and three structural techniques that
+  make complex UIs manageable:
+</p>
+<ul>
+  <li>
+    <strong><code>CreateProgressBar()</code></strong> creates a normalised fill widget driven by
+    <code>SetValue(0&ndash;1)</code>. <code>SetColor()</code> controls the fill colour and can be
+    called at any time for dynamic color coding. <code>SetBackgroundColor()</code> sets the trough.
+    <code>SetVertical(true)</code> switches to a bottom-up fill direction.
+  </li>
+  <li>
+    <strong><code>CreateSlider(min, max)</code></strong> creates a draggable thumb widget with
+    a user-defined numeric range. <code>SetValue()</code> positions the thumb;
+    <code>GetValue()</code> reads it. <code>SetOnChange(lambda)</code> fires a callback on every
+    drag event with the current value as its argument.
+  </li>
+  <li>
+    <strong><code>panel-&gt;AddChild(element)</code></strong> reparents a widget so its position
+    is relative to the panel's top-left corner. Hiding or destroying the parent automatically
+    affects the entire subtree. This is the primary mechanism for building reusable, toggleable
+    UI groups like menus and dialog boxes.
+  </li>
+  <li>
+    <strong><code>SetZOrder(int)</code></strong> controls the rendering order of overlapping UI
+    elements. Higher values render on top. Assign explicit Z-orders to any layers that can
+    overlap to avoid undefined drawing order.
+  </li>
+  <li>
+    <strong><code>SetAnchor(UI::Anchor::Center)</code></strong> redefines what
+    <code>SetPosition(0, 0)</code> means: the center of the element is placed at the named anchor
+    point on the screen. Combined with <code>SetPosition(0, 0)</code>, this is the simplest way
+    to center a panel on any resolution.
+  </li>
+  <li>
+    <strong><code>SetFocusGroup()</code>, <code>EnableFocusNavigation()</code>, and
+    <code>SetOnFocusCancel()</code></strong> together implement gamepad D-pad navigation between
+    buttons. The focus group defines tab order; D-Pad Down/Right and D-Pad Up/Left cycle through
+    it; A fires the focused button's click callback; B fires the cancel callback. Enable and
+    disable navigation in sync with panel visibility.
+  </li>
+</ul>
+<p>
+  The next part covers the Save and Load system, which lets you persist player settings (like
+  the volume and brightness values set by those sliders) across sessions.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-17.html">&#8592; Part 17: UI System</a>
+  <a href="tutorial-19.html">Part 19: Save and Load &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

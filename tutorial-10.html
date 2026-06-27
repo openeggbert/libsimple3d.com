@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 10: Audio — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li class="active"><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 10</div>
+
+<h1><span class="tutorial-part">Part 10 of 30</span>Audio</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>PlayMusic(path, loop)</code> &mdash;
+    <code>StopMusic()</code> &mdash;
+    <code>PlaySound(path, volume)</code> &mdash;
+    <code>PlaySound(path, volume, channel)</code> &mdash;
+    <code>StopSound(channel)</code> &mdash;
+    <code>IsChannelPlaying(channel)</code> &mdash;
+    <code>SetChannelVolume(channel, 0&ndash;1)</code> &mdash;
+    <code>SetMasterVolume(0&ndash;1)</code> &mdash;
+    OGG for streaming music, WAV for low-latency sound effects.
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ──────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How to stream background music from an OGG file with automatic looping.</li>
+  <li>How to stop or switch the background music track at runtime.</li>
+  <li>How to trigger short, fire-and-forget WAV sound effects with a single call.</li>
+  <li>How to play a sound on a numbered <em>channel</em> so you can track and control it later.</li>
+  <li>How to stop a specific channel mid-playback with <code>StopSound(channel)</code>.</li>
+  <li>How to poll whether a channel is still active with <code>IsChannelPlaying(channel)</code>.</li>
+  <li>How to adjust the per-channel volume at runtime with <code>SetChannelVolume(channel, v)</code>.</li>
+  <li>How to scale the overall audio output with <code>SetMasterVolume(v)</code>.</li>
+  <li>Best-practice asset organisation: OGG for music, WAV for SFX.</li>
+</ul>
+
+<!-- ─── BACKGROUND ───────────────────────────────────────────────── -->
+<h2>Background: two kinds of audio</h2>
+
+<p>
+  simple-3d separates audio into two clear categories, each with its own API surface:
+</p>
+
+<div class="grid2">
+  <div class="card card-green">
+    <h3>Music (streaming)</h3>
+    <p>
+      A single background track decoded on the fly from disk.
+      Only one music track plays at a time.
+      Use <strong>OGG Vorbis</strong> (<code>.ogg</code>) — it compresses well and
+      streams efficiently without holding the entire file in RAM.
+    </p>
+  </div>
+  <div class="card card-blue">
+    <h3>Sound effects (channels)</h3>
+    <p>
+      Short clips loaded once and played immediately.
+      Use <strong>WAV</strong> (<code>.wav</code>) — uncompressed means
+      zero decode latency, which matters for responsive game feel.
+      Channels let you reference a playing sound so you can stop or
+      adjust it after the fact.
+    </p>
+  </div>
+</div>
+
+<p>
+  A good rule of thumb: anything longer than a few seconds belongs in OGG music;
+  anything shorter belongs in WAV effects.
+</p>
+
+<!-- ─── ASSET LAYOUT ─────────────────────────────────────────────── -->
+<h2>Recommended asset layout</h2>
+
+<p>Put your audio files under <code>Data/</code> in your project tree so the
+resource cache can find them by relative path:</p>
+
+<pre>Data/
+  Music/
+    theme.ogg          <span class="cm">// main menu / gameplay theme — OGG</span>
+    boss.ogg           <span class="cm">// boss encounter track — OGG</span>
+  Sounds/
+    jump.wav           <span class="cm">// player jump — WAV</span>
+    land.wav           <span class="cm">// landing impact — WAV</span>
+    coin.wav           <span class="cm">// collectible pickup — WAV</span>
+    footstep.wav       <span class="cm">// footstep — WAV</span>
+    engine_loop.wav    <span class="cm">// vehicle engine (channel-managed) — WAV</span>
+    explosion.wav      <span class="cm">// one-shot explosion — WAV</span></pre>
+
+<!-- ─── COMPLETE EXAMPLE ──────────────────────────────────────────── -->
+<h2>Complete working example</h2>
+
+<p>
+  The example below builds a small interactive scene that demonstrates every audio
+  API covered in this part.  The player controls a character and the game
+  reacts with music crossfades, footstep sounds, an engine loop on a dedicated
+  channel, and a global volume slider driven by keyboard input.
+</p>
+
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="cm">// ── Channel indices ──────────────────────────────────────────────────
+// Assigning named constants avoids magic numbers scattered across Update().</span>
+<span class="kw">static constexpr</span> <span class="ty">int</span> CH_ENGINE  = <span class="val">0</span>;   <span class="cm">// looping engine rumble</span>
+<span class="kw">static constexpr</span> <span class="ty">int</span> CH_VOICE   = <span class="val">1</span>;   <span class="cm">// character voice lines</span>
+<span class="kw">static constexpr</span> <span class="ty">int</span> CH_AMBIENT = <span class="val">2</span>;   <span class="cm">// wind / rain loop</span>
+
+<span class="kw">class</span> <span class="ty">AudioDemo</span> : <span class="kw">public</span> <span class="ty">Game</span>
+{
+<span class="kw">public</span>:
+    <span class="cm">// ── Scene objects ────────────────────────────────────────────────</span>
+    <span class="ty">Entity</span>*  player_        = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*  ground_        = <span class="kw">nullptr</span>;
+    <span class="ty">Camera</span>*  cam_           = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*   statusLabel_   = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*   volumeLabel_   = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── Runtime state ────────────────────────────────────────────────</span>
+    <span class="ty">float</span>  masterVol_       = <span class="val">0.8f</span>;
+    <span class="ty">float</span>  footstepTimer_   = <span class="val">0.0f</span>;
+    <span class="ty">bool</span>   bossTrackActive_ = <span class="kw">false</span>;
+    <span class="ty">bool</span>   engineRunning_   = <span class="kw">false</span>;
+
+    <span class="cm">// ── Footstep timing ──────────────────────────────────────────────</span>
+    <span class="kw">static constexpr</span> <span class="ty">float</span> FOOTSTEP_INTERVAL = <span class="val">0.38f</span>; <span class="cm">// seconds between steps</span>
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="cm">// ── Scene setup ─────────────────────────────────────────────</span>
+        ground_ = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground_-&gt;<span class="fn">SetScale</span>(<span class="val">20.0f</span>);
+        ground_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        ground_-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">20.0f</span>, <span class="val">0.1f</span>, <span class="val">20.0f</span>));
+
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>);
+        <span class="ty">CharacterController</span>* cc = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+        cc-&gt;<span class="fn">SetGravity</span>(<span class="val">20.0f</span>);
+
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>, <span class="val">1.0f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45.0f</span>, <span class="val">30.0f</span>, <span class="val">0.0f</span>));
+
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">Follow</span>(player_, <span class="val">7.0f</span>, <span class="val">3.0f</span>);
+        cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">5.0f</span>);
+
+        <span class="cm">// ── HUD labels ───────────────────────────────────────────────</span>
+        statusLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Press M = boss music | E = engine | B = voice | +/- = vol"</span>);
+        statusLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">10</span>);
+        statusLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">14</span>);
+        statusLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>);
+
+        volumeLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Master volume: 80%"</span>);
+        volumeLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">34</span>);
+        volumeLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">14</span>);
+        volumeLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.7f</span>, <span class="val">1.0f</span>, <span class="val">0.7f</span>, <span class="val">1.0f</span>));
+
+        <span class="cm">// ── Audio setup ──────────────────────────────────────────────</span>
+
+        <span class="cm">// Set master volume before playing anything.</span>
+        <span class="fn">SetMasterVolume</span>(masterVol_);
+
+        <span class="cm">// Start the main theme immediately; loop = true (default).</span>
+        <span class="fn">PlayMusic</span>(<span class="st">"Music/theme.ogg"</span>);
+
+        <span class="cm">// Pre-warm the engine channel at low volume (silent until
+        // the player presses E, but the buffer is ready).</span>
+        <span class="fn">SetChannelVolume</span>(CH_ENGINE, <span class="val">0.0f</span>);
+        <span class="fn">PlaySound</span>(<span class="st">"Sounds/engine_loop.wav"</span>, <span class="val">0.0f</span>, CH_ENGINE);
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="fn">HandleMovementAndFootsteps</span>(dt);
+        <span class="fn">HandleMusicKeys</span>();
+        <span class="fn">HandleEngineKey</span>();
+        <span class="fn">HandleVoiceKey</span>();
+        <span class="fn">HandleVolumeKeys</span>();
+        <span class="fn">HandleQuit</span>();
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">HandleMovementAndFootsteps</span>(<span class="ty">float</span> dt)
+    {
+        <span class="ty">CharacterController</span>* cc = player_-&gt;<span class="fn">GetComponent</span>&lt;<span class="ty">CharacterController</span>&gt;();
+        <span class="kw">if</span> (!cc) <span class="kw">return</span>;
+
+        <span class="ty">float</span> mx = <span class="val">0.0f</span>, mz = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Left</span>)  || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">A</span>)) mx -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Right</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">D</span>)) mx += <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Up</span>)    || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">W</span>)) mz -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Down</span>)  || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">S</span>)) mz += <span class="val">1.0f</span>;
+
+        <span class="ty">bool</span> moving = (mx != <span class="val">0.0f</span> || mz != <span class="val">0.0f</span>);
+        cc-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(mx, <span class="val">0.0f</span>, mz) * <span class="val">5.0f</span>, dt);
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Space</span>) &amp;&amp; cc-&gt;<span class="fn">IsOnGround</span>())
+            cc-&gt;<span class="fn">Jump</span>(<span class="val">10.0f</span>);
+
+        <span class="cm">// Footstep sounds — fire-and-forget (no channel needed).</span>
+        <span class="kw">if</span> (moving &amp;&amp; cc-&gt;<span class="fn">IsOnGround</span>())
+        {
+            footstepTimer_ -= dt;
+            <span class="kw">if</span> (footstepTimer_ &lt;= <span class="val">0.0f</span>)
+            {
+                <span class="fn">PlaySound</span>(<span class="st">"Sounds/footstep.wav"</span>, <span class="val">0.55f</span>);
+                footstepTimer_ = FOOTSTEP_INTERVAL;
+            }
+        }
+        <span class="kw">else</span>
+        {
+            footstepTimer_ = <span class="val">0.0f</span>; <span class="cm">// reset so first step fires immediately</span>
+        }
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">HandleMusicKeys</span>()
+    {
+        <span class="cm">// M toggles between the main theme and the boss track.</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">M</span>))
+        {
+            <span class="kw">if</span> (!bossTrackActive_)
+            {
+                <span class="cm">// PlayMusic stops whatever is currently playing, then starts
+                // the new track.  Passing loop=true (second arg, the default).</span>
+                <span class="fn">PlayMusic</span>(<span class="st">"Music/boss.ogg"</span>, <span class="kw">true</span>);
+                bossTrackActive_ = <span class="kw">true</span>;
+            }
+            <span class="kw">else</span>
+            {
+                <span class="fn">PlayMusic</span>(<span class="st">"Music/theme.ogg"</span>, <span class="kw">true</span>);
+                bossTrackActive_ = <span class="kw">false</span>;
+            }
+        }
+
+        <span class="cm">// N stops the music entirely (no music until PlayMusic is called again).</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">N</span>))
+            <span class="fn">StopMusic</span>();
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">HandleEngineKey</span>()
+    {
+        <span class="cm">// E toggles the engine channel on/off.
+        // Because the sound was pre-loaded on CH_ENGINE in Start(), we
+        // only need to adjust the volume — no disk I/O happens here.</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">E</span>))
+        {
+            <span class="kw">if</span> (!engineRunning_)
+            {
+                <span class="cm">// Ramp the channel volume up to audible level.</span>
+                <span class="fn">SetChannelVolume</span>(CH_ENGINE, <span class="val">0.75f</span>);
+
+                <span class="cm">// If StopSound() was called previously, restart the loop.</span>
+                <span class="kw">if</span> (!<span class="fn">IsChannelPlaying</span>(CH_ENGINE))
+                    <span class="fn">PlaySound</span>(<span class="st">"Sounds/engine_loop.wav"</span>, <span class="val">0.75f</span>, CH_ENGINE);
+
+                engineRunning_ = <span class="kw">true</span>;
+            }
+            <span class="kw">else</span>
+            {
+                <span class="cm">// Hard stop — the channel index becomes free immediately.</span>
+                <span class="fn">StopSound</span>(CH_ENGINE);
+                engineRunning_ = <span class="kw">false</span>;
+            }
+        }
+
+        <span class="cm">// While the engine is running, pressing R plays a rev sound
+        // on the same channel, which cancels the loop and plays once.</span>
+        <span class="kw">if</span> (engineRunning_ &amp;&amp; <span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">R</span>))
+        {
+            <span class="cm">// PlaySound with a channel stops whatever is on that channel first,
+            // then plays the new clip — perfect for rev-over-loop.</span>
+            <span class="fn">PlaySound</span>(<span class="st">"Sounds/engine_rev.wav"</span>, <span class="val">1.0f</span>, CH_ENGINE);
+        }
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">HandleVoiceKey</span>()
+    {
+        <span class="cm">// B plays a voice bark on CH_VOICE.  IsChannelPlaying prevents
+        // overlapping the same bark before it finishes.</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">B</span>))
+        {
+            <span class="kw">if</span> (!<span class="fn">IsChannelPlaying</span>(CH_VOICE))
+            {
+                <span class="fn">PlaySound</span>(<span class="st">"Sounds/voice_bark.wav"</span>, <span class="val">0.9f</span>, CH_VOICE);
+            }
+            <span class="cm">// If the bark is still playing we silently ignore the key press —
+            // no stutter, no abrupt restart.</span>
+        }
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">HandleVolumeKeys</span>()
+    {
+        <span class="kw">const</span> <span class="ty">float</span> STEP = <span class="val">0.05f</span>;
+        <span class="ty">bool</span> changed = <span class="kw">false</span>;
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">KPPlus</span>))
+        {
+            masterVol_ = <span class="fn">Min</span>(<span class="val">1.0f</span>, masterVol_ + STEP);
+            changed = <span class="kw">true</span>;
+        }
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">KPMinus</span>))
+        {
+            masterVol_ = <span class="fn">Max</span>(<span class="val">0.0f</span>, masterVol_ - STEP);
+            changed = <span class="kw">true</span>;
+        }
+
+        <span class="kw">if</span> (changed)
+        {
+            <span class="fn">SetMasterVolume</span>(masterVol_);
+            <span class="ty">int</span> pct = <span class="kw">static_cast</span>&lt;<span class="ty">int</span>&gt;(masterVol_ * <span class="val">100.0f</span>);
+            volumeLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Master volume: "</span> + <span class="ty">String</span>(pct) + <span class="st">"%"</span>);
+        }
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">HandleQuit</span>()
+    {
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Escape</span>))
+            <span class="fn">Quit</span>();
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Stop</span>() <span class="kw">override</span>
+    {
+        <span class="cm">// Good practice: silence everything before the engine shuts down.</span>
+        <span class="fn">StopMusic</span>();
+        <span class="fn">StopSound</span>(CH_ENGINE);
+        <span class="fn">StopSound</span>(CH_VOICE);
+        <span class="fn">StopSound</span>(CH_AMBIENT);
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">AudioDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ──────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<!-- PlayMusic -->
+<h3>PlayMusic(path, loop)</h3>
+<p>
+  <code>PlayMusic</code> opens the given OGG file and begins streaming it from disk.
+  The <code>loop</code> parameter defaults to <code>true</code>, which makes the track
+  repeat seamlessly at the end.  Pass <code>false</code> for a one-shot jingle that
+  stops at the final sample.  Calling <code>PlayMusic</code> a second time
+  <em>automatically stops the previous track</em> before starting the new one —
+  there is no separate crossfade call required.  Always prefer OGG here:
+  it reduces shipping size by 8&ndash;12&times; compared to WAV with minimal quality loss.
+</p>
+<pre><span class="cm">// Looping background theme (default second arg)</span>
+<span class="fn">PlayMusic</span>(<span class="st">"Music/theme.ogg"</span>);
+
+<span class="cm">// One-shot victory fanfare — stops when it reaches the end</span>
+<span class="fn">PlayMusic</span>(<span class="st">"Music/victory.ogg"</span>, <span class="kw">false</span>);
+
+<span class="cm">// Switch to a different looping track (stops the current one first)</span>
+<span class="fn">PlayMusic</span>(<span class="st">"Music/boss.ogg"</span>, <span class="kw">true</span>);</pre>
+
+<!-- StopMusic -->
+<h3>StopMusic()</h3>
+<p>
+  Halts the current music stream immediately and releases the streaming buffer.
+  The call is a no-op if no music is playing, so it is always safe to call
+  unconditionally — for instance, in <code>Stop()</code> during shutdown,
+  or when entering a cutscene that should play in silence.
+</p>
+<pre><span class="cm">// Silence the music for a dramatic pause</span>
+<span class="fn">StopMusic</span>();
+
+<span class="cm">// Resume later by calling PlayMusic again</span>
+<span class="fn">PlayMusic</span>(<span class="st">"Music/theme.ogg"</span>);</pre>
+
+<!-- PlaySound (fire-and-forget) -->
+<h3>PlaySound(path, volume) &mdash; fire-and-forget</h3>
+<p>
+  The two-argument form of <code>PlaySound</code> loads the WAV file, plays it at
+  the requested volume (0.0 &ndash; 1.0), and returns immediately.  You get no
+  handle back.  Use this for short, overlapping effects that you never need to
+  stop early or query: footsteps, bullet impacts, GUI clicks, collectible pickups.
+  The engine manages the lifetime; once the clip finishes the buffer is freed automatically.
+  Multiple calls can overlap simultaneously without stepping on each other.
+</p>
+<pre><span class="cm">// Full volume coin pickup</span>
+<span class="fn">PlaySound</span>(<span class="st">"Sounds/coin.wav"</span>, <span class="val">1.0f</span>);
+
+<span class="cm">// Softer footstep (55% volume)</span>
+<span class="fn">PlaySound</span>(<span class="st">"Sounds/footstep.wav"</span>, <span class="val">0.55f</span>);
+
+<span class="cm">// Distant explosion at 30% volume</span>
+<span class="fn">PlaySound</span>(<span class="st">"Sounds/explosion.wav"</span>, <span class="val">0.3f</span>);</pre>
+
+<!-- PlaySound (channel) -->
+<h3>PlaySound(path, volume, channel) &mdash; indexed channels</h3>
+<p>
+  Adding a third integer argument routes the sound through a <em>named channel</em>.
+  If that channel already has a sound playing, it is stopped first and the new
+  clip takes over immediately.  This makes channels ideal for sounds that must
+  not stack on top of themselves — engine hum, a talking character, an alarm loop.
+  Channels are plain integers; by convention, define them as constants at the top
+  of your class (as <code>CH_ENGINE = 0</code>, etc.) to keep code readable.
+</p>
+<pre><span class="cm">// Engine loop on channel 0 — starts immediately</span>
+<span class="fn">PlaySound</span>(<span class="st">"Sounds/engine_loop.wav"</span>, <span class="val">0.75f</span>, <span class="val">0</span>);
+
+<span class="cm">// Revving replaces the loop on the same channel without stacking</span>
+<span class="fn">PlaySound</span>(<span class="st">"Sounds/engine_rev.wav"</span>,  <span class="val">1.0f</span>,  <span class="val">0</span>);
+
+<span class="cm">// Voice bark on a separate channel so it doesn't kill the engine</span>
+<span class="fn">PlaySound</span>(<span class="st">"Sounds/voice_bark.wav"</span>, <span class="val">0.9f</span>, <span class="val">1</span>);</pre>
+
+<!-- StopSound -->
+<h3>StopSound(channel)</h3>
+<p>
+  Immediately halts playback on the given channel.  The call is a no-op if the
+  channel was never started or has already finished — it never throws or prints
+  a warning.  After <code>StopSound</code> returns, <code>IsChannelPlaying</code>
+  will report <code>false</code> for that channel.  Use this when you need clean,
+  instant silence: shutting down an engine when the vehicle is destroyed, stopping
+  an alarm when the puzzle is solved, or halting a reload loop when the gun is empty.
+</p>
+<pre><span class="kw">if</span> (vehicleDestroyed_)
+    <span class="fn">StopSound</span>(CH_ENGINE);  <span class="cm">// clean silence; no-op if already stopped</span></pre>
+
+<!-- IsChannelPlaying -->
+<h3>IsChannelPlaying(channel)</h3>
+<p>
+  Returns <code>true</code> while the channel source is actively playing, and
+  <code>false</code> once it has finished naturally or was stopped with
+  <code>StopSound</code>.  The main use cases are:
+</p>
+<ul>
+  <li>Guarding a <code>PlaySound</code> call so a short clip cannot be re-triggered
+      while it is still in progress (prevents stuttering).</li>
+  <li>Detecting when a non-looped clip has ended so you can react —
+      e.g., switch a state machine back to idle after a grunt animation finishes.</li>
+  <li>Deciding whether to restart a loop that ended due to <code>StopSound</code>.</li>
+</ul>
+<pre><span class="cm">// Only play if the previous bark has finished</span>
+<span class="kw">if</span> (!<span class="fn">IsChannelPlaying</span>(CH_VOICE))
+    <span class="fn">PlaySound</span>(<span class="st">"Sounds/voice_bark.wav"</span>, <span class="val">0.9f</span>, CH_VOICE);
+
+<span class="cm">// In Update: detect natural end-of-clip and loop manually</span>
+<span class="kw">if</span> (needsLoop_ &amp;&amp; !<span class="fn">IsChannelPlaying</span>(CH_AMBIENT))
+    <span class="fn">PlaySound</span>(<span class="st">"Sounds/wind_loop.wav"</span>, <span class="val">0.6f</span>, CH_AMBIENT);</pre>
+
+<!-- SetChannelVolume -->
+<h3>SetChannelVolume(channel, volume)</h3>
+<p>
+  Adjusts the gain of a single channel without stopping or restarting the clip.
+  The <code>volume</code> parameter is a 0.0 &ndash; 1.0 linear scale applied on top
+  of the master volume.  Typical uses include:
+</p>
+<ul>
+  <li>Fading an engine loop in or out as speed changes.</li>
+  <li>Ducking an ambient track under dialogue without stopping it.</li>
+  <li>Letting the player balance individual audio categories (SFX vs. voice).</li>
+</ul>
+<p>
+  You can call <code>SetChannelVolume</code> every frame — the change takes effect
+  for the next audio buffer mix with no pop or click.
+</p>
+<pre><span class="cm">// Fade engine volume with throttle (0..1)</span>
+<span class="kw">float</span> throttle = GetThrottle();   <span class="cm">// 0 = idle, 1 = full</span>
+<span class="fn">SetChannelVolume</span>(CH_ENGINE, <span class="val">0.3f</span> + throttle * <span class="val">0.7f</span>);
+
+<span class="cm">// Duck ambient while dialogue is playing</span>
+<span class="kw">if</span> (<span class="fn">IsChannelPlaying</span>(CH_VOICE))
+    <span class="fn">SetChannelVolume</span>(CH_AMBIENT, <span class="val">0.15f</span>);
+<span class="kw">else</span>
+    <span class="fn">SetChannelVolume</span>(CH_AMBIENT, <span class="val">0.6f</span>);</pre>
+
+<!-- SetMasterVolume -->
+<h3>SetMasterVolume(volume)</h3>
+<p>
+  Scales the output of <em>all</em> audio &mdash; music, channels, and ambient sources
+  &mdash; by a single factor in the 0.0 &ndash; 1.0 range.  This is the correct place
+  to honour a "master volume" setting slider in your options menu.  Calling it
+  is cheap; you can safely call it every frame if you are animating a volume fade,
+  or once when the player adjusts the slider.  A value of <code>0.0f</code> mutes
+  everything without stopping any clips; <code>1.0f</code> restores full output.
+</p>
+<pre><span class="cm">// Options menu slider callback</span>
+volSlider_-&gt;<span class="fn">SetOnChange</span>([<span class="kw">this</span>](<span class="ty">float</span> v) {
+    <span class="fn">SetMasterVolume</span>(v);           <span class="cm">// v is already 0..1</span>
+    masterVol_ = v;
+    <span class="fn">SaveVolumePref</span>(v);
+});
+
+<span class="cm">// Hard mute on window minimise</span>
+<span class="fn">SetMasterVolume</span>(<span class="val">0.0f</span>);
+
+<span class="cm">// Restore on window restore</span>
+<span class="fn">SetMasterVolume</span>(masterVol_);</pre>
+
+<!-- ─── QUICK REFERENCE TABLE ─────────────────────────────────────── -->
+<h2>Quick reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Returns</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>PlayMusic(path, loop=true)</code></td>
+      <td>&mdash;</td>
+      <td>Stream OGG; stops previous track automatically.</td>
+    </tr>
+    <tr>
+      <td><code>StopMusic()</code></td>
+      <td>&mdash;</td>
+      <td>Halt music stream; no-op if not playing.</td>
+    </tr>
+    <tr>
+      <td><code>PlaySound(path, volume=1.0f)</code></td>
+      <td>&mdash;</td>
+      <td>Fire-and-forget WAV; overlaps freely.</td>
+    </tr>
+    <tr>
+      <td><code>PlaySound(path, volume, channel)</code></td>
+      <td>&mdash;</td>
+      <td>Stops the channel first, then plays clip.</td>
+    </tr>
+    <tr>
+      <td><code>StopSound(channel)</code></td>
+      <td>&mdash;</td>
+      <td>Immediate silence on channel; no-op if idle.</td>
+    </tr>
+    <tr>
+      <td><code>IsChannelPlaying(channel)</code></td>
+      <td><code>bool</code></td>
+      <td>True while clip is active on channel.</td>
+    </tr>
+    <tr>
+      <td><code>SetChannelVolume(channel, 0&ndash;1)</code></td>
+      <td>&mdash;</td>
+      <td>Per-channel gain; applied on top of master.</td>
+    </tr>
+    <tr>
+      <td><code>SetMasterVolume(0&ndash;1)</code></td>
+      <td>&mdash;</td>
+      <td>Global scale for all audio output.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ─── LUA EQUIVALENT ───────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+
+<p>
+  All audio methods are available on the <code>game</code> global inside any Lua
+  script attached with <code>entity:AddScript()</code>.  The signatures are
+  identical to C++, channel indices and all.
+</p>
+
+<pre><span class="lua-cm">-- Scripts/audio_controller.lua
+-- Attach this to any entity; it manages music and a footstep timer.</span>
+
+<span class="lua-kw">local</span> CH_ENGINE  = <span class="lua-num">0</span>
+<span class="lua-kw">local</span> CH_VOICE   = <span class="lua-num">1</span>
+<span class="lua-kw">local</span> CH_AMBIENT = <span class="lua-num">2</span>
+
+<span class="lua-kw">local</span> masterVol       = <span class="lua-num">0.8</span>
+<span class="lua-kw">local</span> bossActive      = <span class="lua-kw">false</span>
+<span class="lua-kw">local</span> engineRunning   = <span class="lua-kw">false</span>
+<span class="lua-kw">local</span> footstepTimer   = <span class="lua-num">0.0</span>
+<span class="lua-kw">local</span> FOOTSTEP_INTV   = <span class="lua-num">0.38</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-cm">-- Master volume first</span>
+    game:<span class="lua-fn">SetMasterVolume</span>(masterVol)
+
+    <span class="lua-cm">-- Stream background music (looped by default)</span>
+    game:<span class="lua-fn">PlayMusic</span>(<span class="lua-str">"Music/theme.ogg"</span>)
+
+    <span class="lua-cm">-- Pre-warm engine channel silently</span>
+    game:<span class="lua-fn">SetChannelVolume</span>(CH_ENGINE, <span class="lua-num">0.0</span>)
+    game:<span class="lua-fn">PlaySound</span>(<span class="lua-str">"Sounds/engine_loop.wav"</span>, <span class="lua-num">0.0</span>, CH_ENGINE)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-cm">-- Toggle music with M</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.M) <span class="lua-kw">then</span>
+        <span class="lua-kw">if</span> <span class="lua-kw">not</span> bossActive <span class="lua-kw">then</span>
+            game:<span class="lua-fn">PlayMusic</span>(<span class="lua-str">"Music/boss.ogg"</span>, <span class="lua-kw">true</span>)
+            bossActive = <span class="lua-kw">true</span>
+        <span class="lua-kw">else</span>
+            game:<span class="lua-fn">PlayMusic</span>(<span class="lua-str">"Music/theme.ogg"</span>, <span class="lua-kw">true</span>)
+            bossActive = <span class="lua-kw">false</span>
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- N = stop music entirely</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.N) <span class="lua-kw">then</span>
+        game:<span class="lua-fn">StopMusic</span>()
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- E toggles engine channel</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.E) <span class="lua-kw">then</span>
+        <span class="lua-kw">if</span> <span class="lua-kw">not</span> engineRunning <span class="lua-kw">then</span>
+            game:<span class="lua-fn">SetChannelVolume</span>(CH_ENGINE, <span class="lua-num">0.75</span>)
+            <span class="lua-kw">if</span> <span class="lua-kw">not</span> game:<span class="lua-fn">IsChannelPlaying</span>(CH_ENGINE) <span class="lua-kw">then</span>
+                game:<span class="lua-fn">PlaySound</span>(<span class="lua-str">"Sounds/engine_loop.wav"</span>, <span class="lua-num">0.75</span>, CH_ENGINE)
+            <span class="lua-kw">end</span>
+            engineRunning = <span class="lua-kw">true</span>
+        <span class="lua-kw">else</span>
+            game:<span class="lua-fn">StopSound</span>(CH_ENGINE)
+            engineRunning = <span class="lua-kw">false</span>
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- B plays a voice bark if not already talking</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.B) <span class="lua-kw">then</span>
+        <span class="lua-kw">if</span> <span class="lua-kw">not</span> game:<span class="lua-fn">IsChannelPlaying</span>(CH_VOICE) <span class="lua-kw">then</span>
+            game:<span class="lua-fn">PlaySound</span>(<span class="lua-str">"Sounds/voice_bark.wav"</span>, <span class="lua-num">0.9</span>, CH_VOICE)
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Numpad +/- adjusts master volume</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.KPPlus) <span class="lua-kw">then</span>
+        masterVol = math.<span class="lua-fn">min</span>(<span class="lua-num">1.0</span>, masterVol + <span class="lua-num">0.05</span>)
+        game:<span class="lua-fn">SetMasterVolume</span>(masterVol)
+    <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.KPMinus) <span class="lua-kw">then</span>
+        masterVol = math.<span class="lua-fn">max</span>(<span class="lua-num">0.0</span>, masterVol - <span class="lua-num">0.05</span>)
+        game:<span class="lua-fn">SetMasterVolume</span>(masterVol)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Footstep example — one-shot, fire-and-forget</span>
+    footstepTimer = footstepTimer - dt
+    <span class="lua-kw">if</span> footstepTimer &lt;= <span class="lua-num">0.0</span> <span class="lua-kw">then</span>
+        game:<span class="lua-fn">PlaySound</span>(<span class="lua-str">"Sounds/footstep.wav"</span>, <span class="lua-num">0.55</span>)
+        footstepTimer = FOOTSTEP_INTV
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── PATTERNS AND TIPS ─────────────────────────────────────────── -->
+<h2>Patterns and tips</h2>
+
+<h3>Music crossfade pattern</h3>
+<p>
+  simple-3d does not have a built-in crossfade, but you can fake a quick volume dip
+  using a <code>Tween</code> on the master volume, then switch tracks at the trough:
+</p>
+<pre><span class="cm">// Dip master to 0 over 0.5 s, swap track, ramp back up</span>
+<span class="fn">CreateTween</span>(masterVol_, <span class="val">0.0f</span>, <span class="val">0.5f</span>,
+    [<span class="kw">this</span>](<span class="ty">float</span> v) { <span class="fn">SetMasterVolume</span>(v); },
+    [<span class="kw">this</span>]() {
+        <span class="fn">PlayMusic</span>(<span class="st">"Music/boss.ogg"</span>);
+        <span class="fn">CreateTween</span>(<span class="val">0.0f</span>, masterVol_, <span class="val">0.5f</span>,
+            [<span class="kw">this</span>](<span class="ty">float</span> v) { <span class="fn">SetMasterVolume</span>(v); });
+    },
+    <span class="ty">TweenEase</span>::<span class="val">EaseIn</span>
+);</pre>
+
+<h3>Saving and restoring volume</h3>
+<p>
+  Persist the master volume across sessions using <code>SaveData</code> from Part 19.
+  Call <code>SetMasterVolume</code> in <code>Start()</code> after loading:
+</p>
+<pre><span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+    <span class="kw">auto</span>&amp; save = <span class="fn">GetSaveData</span>(<span class="val">0</span>);
+    save.<span class="fn">Load</span>(<span class="val">0</span>);
+    masterVol_ = save.<span class="fn">GetFloat</span>(<span class="st">"masterVol"</span>, <span class="val">0.8f</span>);
+    <span class="fn">SetMasterVolume</span>(masterVol_);
+    <span class="fn">PlayMusic</span>(<span class="st">"Music/theme.ogg"</span>);
+    <span class="cm">// ...</span>
+}
+
+<span class="kw">void</span> <span class="fn">Stop</span>() <span class="kw">override</span> {
+    <span class="kw">auto</span>&amp; save = <span class="fn">GetSaveData</span>(<span class="val">0</span>);
+    save.<span class="fn">Set</span>(<span class="st">"masterVol"</span>, masterVol_);
+    save.<span class="fn">Save</span>(<span class="val">0</span>);
+    <span class="fn">StopMusic</span>();
+}</pre>
+
+<h3>Varying footstep sounds</h3>
+<p>
+  Fire-and-forget is ideal for footsteps because each call plays an independent,
+  overlapping buffer.  To avoid repetitive sound, keep a small array of variants
+  and cycle through them:
+</p>
+<pre><span class="kw">const</span> <span class="ty">char</span>* steps[] = {
+    <span class="st">"Sounds/step1.wav"</span>,
+    <span class="st">"Sounds/step2.wav"</span>,
+    <span class="st">"Sounds/step3.wav"</span>,
+    <span class="st">"Sounds/step4.wav"</span>
+};
+<span class="ty">int</span> stepIdx_ = <span class="val">0</span>;
+
+<span class="cm">// In Update:</span>
+<span class="fn">PlaySound</span>(steps[stepIdx_], <span class="val">0.55f</span>);
+stepIdx_ = (stepIdx_ + <span class="val">1</span>) % <span class="val">4</span>;</pre>
+
+<!-- ─── COMMON MISTAKES ───────────────────────────────────────────── -->
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Using WAV for music.</strong>
+      A 3-minute stereo WAV at 44.1 kHz takes roughly 30 MB in RAM —
+      an OGG of the same content is 3&ndash;5 MB.  Always use OGG for anything
+      that streams in the background.
+    </li>
+    <li>
+      <strong>Using OGG for sound effects.</strong>
+      OGG requires decoding time.  For sub-100 ms reaction sounds (shots, hits,
+      button clicks) the decode latency adds an audible delay.
+      Always use WAV for SFX.
+    </li>
+    <li>
+      <strong>Re-triggering a looped WAV on a channel every frame.</strong>
+      <code>PlaySound</code> with a channel stops the current clip before starting
+      the new one.  If you call it every frame to "keep the loop playing" you will
+      hear a constant stutter because each call restarts from the beginning.
+      Play once, then use <code>IsChannelPlaying</code> to decide whether to
+      restart after a natural end.
+    </li>
+    <li>
+      <strong>Using channel 0 for multiple unrelated sounds.</strong>
+      Each channel index is a single slot.  If you play a voice line on channel 0
+      and then play an engine sound also on channel 0, the engine sound cuts off
+      the voice mid-sentence.  Define distinct channel constants for each category.
+    </li>
+    <li>
+      <strong>Forgetting to call <code>StopMusic()</code> / <code>StopSound()</code>
+      before scene transitions.</strong>
+      Music keeps streaming after <code>UnloadScene()</code>.  Call
+      <code>StopMusic()</code> at the start of any transition to avoid
+      the theme from the previous level leaking into the new one.
+    </li>
+    <li>
+      <strong>Setting <code>SetMasterVolume</code> to a value outside 0&ndash;1.</strong>
+      Values above 1.0 can cause clipping distortion; values below 0.0 are clamped
+      to silence.  Always clamp your input before passing it to the function.
+    </li>
+    <li>
+      <strong>Assuming <code>IsChannelPlaying</code> detects fire-and-forget sounds.</strong>
+      The no-channel form of <code>PlaySound</code> does not occupy a numbered slot.
+      You cannot query its status.  If you need to know when a clip ends, use the
+      three-argument form with an explicit channel index.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ─────────────────────────────────────────── -->
+<h2>What you learned</h2>
+
+<p>
+  In this part you mastered the full flat-audio API in simple-3d:
+</p>
+<ul>
+  <li>
+    <strong>Music:</strong> <code>PlayMusic(path, loop)</code> streams an OGG
+    file and replaces any previous track.  <code>StopMusic()</code> silences it.
+  </li>
+  <li>
+    <strong>Fire-and-forget SFX:</strong> <code>PlaySound(path, volume)</code>
+    plays a WAV clip that manages its own lifetime — ideal for overlapping,
+    short sounds that you never need to cancel.
+  </li>
+  <li>
+    <strong>Managed channels:</strong> <code>PlaySound(path, volume, channel)</code>
+    routes audio through a numbered slot, stopping anything already on that
+    slot first.  Define channel constants to keep code readable.
+  </li>
+  <li>
+    <strong>Channel control:</strong> <code>StopSound(channel)</code> halts
+    a channel; <code>IsChannelPlaying(channel)</code> polls its live state;
+    <code>SetChannelVolume(channel, v)</code> adjusts gain without
+    restarting the clip.
+  </li>
+  <li>
+    <strong>Global volume:</strong> <code>SetMasterVolume(v)</code> scales all
+    audio output, making it the single point of control for an options menu slider.
+  </li>
+  <li>
+    <strong>Asset conventions:</strong> OGG for music (compressed streaming),
+    WAV for SFX (uncompressed, zero-latency).
+  </li>
+</ul>
+
+<p>
+  Next up: <a href="tutorial-11.html">Part 11: Spatial Audio</a> — attaching
+  <code>AudioSource</code> components to scene entities so sounds attenuate
+  with distance and pan in 3D space.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-09.html">&#8592; Part 09: Animation State Machine</a>
+  <a href="tutorial-11.html">Part 11: Spatial Audio &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

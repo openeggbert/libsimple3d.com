@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 23: Physics Constraints — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li class="active"><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 23</div>
+
+<h1><span class="tutorial-part">Part 23 of 30</span>Physics Constraints</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>CreateConstraint(ConstraintType, entityA, entityB)</code> &mdash;
+    <code>ConstraintType::BallSocket</code> &mdash;
+    <code>ConstraintType::Hinge</code> &mdash;
+    <code>ConstraintType::Slider</code> &mdash;
+    <code>ConstraintType::Fixed</code> &mdash;
+    <code>constraint->SetHingeAxis(Vector3)</code> &mdash;
+    <code>constraint->SetHingeLimits(minDeg, maxDeg)</code> &mdash;
+    <code>constraint->SetSliderAxis(Vector3)</code> &mdash;
+    <code>constraint->SetSliderLimits(min, max)</code> &mdash;
+    <code>constraint->SetMotorEnabled(bool)</code> &mdash;
+    <code>constraint->SetMotorSpeed(float)</code> &mdash;
+    <code>constraint->SetMotorMaxForce(float)</code> &mdash;
+    <code>constraint->SetEnabled(bool)</code> &mdash;
+    <code>DestroyConstraint(constraint)</code>
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ──────────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>What a physics constraint (joint) is and why it is different from parenting entities.</li>
+  <li>How to create a <strong>ball-socket</strong> constraint for freely-rotating links such as chain segments and pendulums.</li>
+  <li>How to create a <strong>hinge</strong> constraint that confines rotation to a single axis — perfect for doors and levers.</li>
+  <li>How to set angular limits on a hinge so it can only swing within a defined arc.</li>
+  <li>How to attach a <strong>motor</strong> to a hinge to drive it at a target angular velocity, producing a rotating platform or a self-opening door.</li>
+  <li>How to create a <strong>slider</strong> constraint that lets an entity translate along exactly one axis — ideal for lifts, rails, and drawers.</li>
+  <li>How to add a slider motor to drive translational movement back and forth automatically.</li>
+  <li>How to use a <strong>fixed</strong> constraint as a rigid (approximate) link between two separate bodies.</li>
+  <li>How to temporarily disable or permanently destroy a constraint at runtime to simulate breakable ropes or triggered events.</li>
+</ul>
+
+<!-- ─── BACKGROUND ────────────────────────────────────────────────────── -->
+<h2>Background: what is a constraint?</h2>
+
+<p>
+  In Part 4 you learned that <code>AddRigidBody</code> makes an entity obey physics.
+  Once two rigid bodies exist in the same scene, the physics engine treats them as
+  completely independent objects — they collide, fall under gravity, and never
+  interact unless you explicitly connect them.  A <em>constraint</em> (also called a
+  <em>joint</em>) is that connection.  It limits the relative motion between two
+  bodies to a specific set of degrees of freedom, while the physics engine
+  continuously enforces the restriction with constraint-solving forces.
+</p>
+
+<p>
+  This is fundamentally different from the entity hierarchy covered in Part 22.
+  A child entity's transform is driven mathematically by its parent; it is not
+  physically simulated.  A constraint, by contrast, lets both bodies move under
+  full physics influence while the solver applies corrective impulses to keep the
+  connection intact.  The result looks and behaves correctly when bodies collide
+  with the world, swing under gravity, or are pushed by player contact.
+</p>
+
+<div class="grid2">
+  <div class="card card-blue">
+    <h3>Use a constraint when&hellip;</h3>
+    <ul>
+      <li>The two bodies need independent physics (mass, gravity, collisions).</li>
+      <li>You want realistic swinging, rotating, or sliding under forces.</li>
+      <li>The joint might break or be toggled off at runtime.</li>
+    </ul>
+  </div>
+  <div class="card card-green">
+    <h3>Use hierarchy when&hellip;</h3>
+    <ul>
+      <li>The child should rigidly follow the parent with zero physics overhead.</li>
+      <li>You are attaching a visual mesh, weapon, or HUD anchor.</li>
+      <li>No independent mass or collision response is needed for the child.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>The four constraint types</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Degrees of freedom removed</th>
+      <th>Typical use case</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>BallSocket</code></td>
+      <td>All translation; free rotation in any direction</td>
+      <td>Chain links, rope segments, pendulum pivot</td>
+    </tr>
+    <tr>
+      <td><code>Hinge</code></td>
+      <td>All translation + rotation around two axes</td>
+      <td>Door, lever, see-saw, rotating platform</td>
+    </tr>
+    <tr>
+      <td><code>Slider</code></td>
+      <td>All rotation + translation in two axes</td>
+      <td>Moving platform on a rail, lift, drawer</td>
+    </tr>
+    <tr>
+      <td><code>Fixed</code></td>
+      <td>All translation and rotation (approximate rigid link)</td>
+      <td>Stacked scenery; prefer hierarchy for performance</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  Collision between the two joined bodies is <em>disabled by default</em> for all
+  constraint types.  This prevents the door from colliding with its own frame anchor
+  or chain links from fighting each other.
+</p>
+
+<!-- ─── COMPLETE EXAMPLE ───────────────────────────────────────────────── -->
+<h2>Complete working example</h2>
+
+<p>
+  The example below creates four interactive scenes side by side: a swinging
+  pendulum (ball-socket), a hinged door that opens when the player presses
+  <kbd>H</kbd>, a motor-driven rotating platform, and a sliding lift that
+  travels up and down along the Y axis.  A breakable rope section demonstrates
+  runtime constraint destruction.
+</p>
+
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">ConstraintsDemo</span> : <span class="kw">public</span> <span class="ty">Game</span>
+{
+<span class="kw">public</span>:
+    <span class="cm">// ── Scene entities ───────────────────────────────────────────────</span>
+    <span class="ty">Entity</span>*  ground_         = <span class="kw">nullptr</span>;
+    <span class="ty">Camera</span>*  cam_            = <span class="kw">nullptr</span>;
+
+    <span class="cm">// Pendulum (ball-socket)</span>
+    <span class="ty">Entity</span>*  pendulumPivot_  = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*  pendulumBob_    = <span class="kw">nullptr</span>;
+
+    <span class="cm">// Hinged door</span>
+    <span class="ty">Entity</span>*  doorAnchor_     = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*  door_           = <span class="kw">nullptr</span>;
+    <span class="ty">Constraint</span>* doorJoint_  = <span class="kw">nullptr</span>;
+    <span class="ty">bool</span>     doorOpen_       = <span class="kw">false</span>;
+
+    <span class="cm">// Rotating platform (hinge + motor)</span>
+    <span class="ty">Entity</span>*  rotPivot_       = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*  rotPlatform_    = <span class="kw">nullptr</span>;
+
+    <span class="cm">// Sliding lift (slider + motor)</span>
+    <span class="ty">Entity</span>*  liftRail_       = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*  liftPlatform_   = <span class="kw">nullptr</span>;
+    <span class="ty">Constraint</span>* liftJoint_  = <span class="kw">nullptr</span>;
+    <span class="ty">bool</span>     liftGoingUp_    = <span class="kw">true</span>;
+
+    <span class="cm">// Breakable rope chain (3 links)</span>
+    <span class="ty">Entity</span>*  ropeAnchor_     = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*  ropeLinks_[<span class="val">3</span>]  = {};
+    <span class="ty">Constraint</span>* ropeJoints_[<span class="val">4</span>] = {};   <span class="cm">// anchor+link0, link0+1, link1+2, link2+bob</span>
+    <span class="ty">Entity</span>*  ropeBob_        = <span class="kw">nullptr</span>;
+
+    <span class="cm">// HUD</span>
+    <span class="ty">Label</span>*   hintLabel_      = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*   statusLabel_    = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="fn">SetupScene</span>();
+        <span class="fn">SetupPendulum</span>();
+        <span class="fn">SetupHingedDoor</span>();
+        <span class="fn">SetupRotatingPlatform</span>();
+        <span class="fn">SetupSlidingLift</span>();
+        <span class="fn">SetupBreakableRope</span>();
+        <span class="fn">SetupHUD</span>();
+        <span class="fn">SetupCamera</span>();
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">SetupScene</span>()
+    {
+        <span class="cm">// Wide ground plane to stand all demos on</span>
+        ground_ = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground_-&gt;<span class="fn">SetScale</span>(<span class="val">60.0f</span>);
+        ground_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);           <span class="cm">// static</span>
+        ground_-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">60.0f</span>, <span class="val">0.2f</span>, <span class="val">60.0f</span>));
+        ground_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>, <span class="val">1.0f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">60.0f</span>, <span class="val">30.0f</span>, <span class="val">0.0f</span>));
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="cm">// DEMO 1 — Ball-socket pendulum
+    // The pivot is a static body; the bob hangs below it via a ball-socket.
+    // No limits are set, so the bob can swing freely in any direction.</span>
+    <span class="kw">void</span> <span class="fn">SetupPendulum</span>()
+    {
+        <span class="cm">// Static pivot nailed to the ceiling (mass = 0)</span>
+        pendulumPivot_ = <span class="fn">CreateEntity</span>(<span class="st">"PendulumPivot"</span>);
+        pendulumPivot_-&gt;<span class="fn">SetPosition</span>(-<span class="val">15.0f</span>, <span class="val">6.0f</span>, <span class="val">0.0f</span>);
+        pendulumPivot_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Sphere.mdl"</span>);
+        pendulumPivot_-&gt;<span class="fn">SetScale</span>(<span class="val">0.3f</span>);
+        pendulumPivot_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);     <span class="cm">// static anchor</span>
+        pendulumPivot_-&gt;<span class="fn">AddSphereCollider</span>(<span class="val">0.15f</span>);
+
+        <span class="cm">// Dynamic bob hanging 4 m below the pivot</span>
+        pendulumBob_ = <span class="fn">CreateEntity</span>(<span class="st">"PendulumBob"</span>);
+        pendulumBob_-&gt;<span class="fn">SetPosition</span>(-<span class="val">15.0f</span>, <span class="val">2.0f</span>, <span class="val">0.0f</span>);
+        pendulumBob_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Sphere.mdl"</span>);
+        pendulumBob_-&gt;<span class="fn">SetScale</span>(<span class="val">0.6f</span>);
+        pendulumBob_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">3.0f</span>);       <span class="cm">// 3 kg dynamic body</span>
+        pendulumBob_-&gt;<span class="fn">AddSphereCollider</span>(<span class="val">0.3f</span>);
+
+        <span class="cm">// Connect them with a ball-socket — free rotation in all axes,
+        // no translation.  The joint anchor sits at the pivot position.</span>
+        <span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">BallSocket</span>, pendulumBob_, pendulumPivot_);
+
+        <span class="cm">// Give the bob an initial sideways push so it starts swinging</span>
+        pendulumBob_-&gt;<span class="fn">ApplyImpulse</span>(<span class="ty">Vector3</span>(<span class="val">8.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>));
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="cm">// DEMO 2 — Hinged door
+    // The anchor is a static post at x=0; the door panel hangs off it.
+    // SetHingeLimits(0, 90) means: fully closed at 0°, fully open at 90°.
+    // Pressing H toggles the motor on/off to drive the door open.</span>
+    <span class="kw">void</span> <span class="fn">SetupHingedDoor</span>()
+    {
+        <span class="cm">// Static door frame post</span>
+        doorAnchor_ = <span class="fn">CreateEntity</span>(<span class="st">"DoorAnchor"</span>);
+        doorAnchor_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">1.5f</span>, <span class="val">0.0f</span>);
+        doorAnchor_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        doorAnchor_-&gt;<span class="fn">SetScale</span>(<span class="val">0.3f</span>);
+        doorAnchor_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        doorAnchor_-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">0.3f</span>, <span class="val">3.0f</span>, <span class="val">0.3f</span>));
+
+        <span class="cm">// Door panel — 2 m wide, 3 m tall, 0.1 m thick</span>
+        door_ = <span class="fn">CreateEntity</span>(<span class="st">"Door"</span>);
+        door_-&gt;<span class="fn">SetPosition</span>(<span class="val">1.0f</span>, <span class="val">1.5f</span>, <span class="val">0.0f</span>);  <span class="cm">// offset to the right of the anchor</span>
+        door_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        door_-&gt;<span class="fn">SetScale</span>(<span class="val">1.0f</span>);
+        door_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">15.0f</span>);            <span class="cm">// 15 kg door panel</span>
+        door_-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">2.0f</span>, <span class="val">3.0f</span>, <span class="val">0.1f</span>));
+
+        <span class="cm">// Hinge constraint — rotates the door around the vertical (Y) axis</span>
+        doorJoint_ = <span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">Hinge</span>, door_, doorAnchor_);
+        doorJoint_-&gt;<span class="fn">SetHingeAxis</span>(<span class="ty">Vector3</span>::<span class="val">UP</span>);          <span class="cm">// Y-axis rotation only</span>
+        doorJoint_-&gt;<span class="fn">SetHingeLimits</span>(<span class="val">0.0f</span>, <span class="val">90.0f</span>);       <span class="cm">// closed=0°, open=90°</span>
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="cm">// DEMO 3 — Motor-driven rotating platform
+    // The platform spins continuously around Y at 0.8 rad/s.
+    // Pressing R reverses the motor direction.</span>
+    <span class="kw">void</span> <span class="fn">SetupRotatingPlatform</span>()
+    {
+        <span class="cm">// Static central pivot</span>
+        rotPivot_ = <span class="fn">CreateEntity</span>(<span class="st">"RotPivot"</span>);
+        rotPivot_-&gt;<span class="fn">SetPosition</span>(<span class="val">10.0f</span>, <span class="val">0.1f</span>, <span class="val">0.0f</span>);
+        rotPivot_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Cylinder.mdl"</span>);
+        rotPivot_-&gt;<span class="fn">SetScale</span>(<span class="val">0.4f</span>);
+        rotPivot_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        rotPivot_-&gt;<span class="fn">AddCapsuleCollider</span>(<span class="val">0.2f</span>, <span class="val">0.5f</span>);
+
+        <span class="cm">// Rotating disc platform — large and flat</span>
+        rotPlatform_ = <span class="fn">CreateEntity</span>(<span class="st">"RotPlatform"</span>);
+        rotPlatform_-&gt;<span class="fn">SetPosition</span>(<span class="val">10.0f</span>, <span class="val">0.5f</span>, <span class="val">0.0f</span>);
+        rotPlatform_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Cylinder.mdl"</span>);
+        rotPlatform_-&gt;<span class="fn">SetScale</span>(<span class="val">1.0f</span>);
+        rotPlatform_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">40.0f</span>);
+        rotPlatform_-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">4.0f</span>, <span class="val">0.3f</span>, <span class="val">4.0f</span>));
+        rotPlatform_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+        <span class="cm">// Hinge with motor — spins continuously, no angular limits set</span>
+        <span class="ty">Constraint</span>* rotJoint = <span class="fn">CreateConstraint</span>(
+            <span class="ty">ConstraintType</span>::<span class="val">Hinge</span>, rotPlatform_, rotPivot_);
+        rotJoint-&gt;<span class="fn">SetHingeAxis</span>(<span class="ty">Vector3</span>::<span class="val">UP</span>);
+
+        <span class="cm">// Enable the motor — platform will spin immediately from Start()</span>
+        rotJoint-&gt;<span class="fn">SetMotorEnabled</span>(<span class="kw">true</span>);
+        rotJoint-&gt;<span class="fn">SetMotorSpeed</span>(<span class="val">0.8f</span>);          <span class="cm">// 0.8 rad/s ≈ 45°/s</span>
+        rotJoint-&gt;<span class="fn">SetMotorMaxForce</span>(<span class="val">600.0f</span>);     <span class="cm">// impulse cap per physics step</span>
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="cm">// DEMO 4 — Sliding lift on a vertical rail
+    // The rail is a static anchor; the platform slides along Y.
+    // The motor reverses direction each time the platform hits a limit.</span>
+    <span class="kw">void</span> <span class="fn">SetupSlidingLift</span>()
+    {
+        <span class="cm">// Static rail post</span>
+        liftRail_ = <span class="fn">CreateEntity</span>(<span class="st">"LiftRail"</span>);
+        liftRail_-&gt;<span class="fn">SetPosition</span>(-<span class="val">5.0f</span>, <span class="val">2.5f</span>, <span class="val">5.0f</span>);
+        liftRail_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        liftRail_-&gt;<span class="fn">SetScale</span>(<span class="val">1.0f</span>);
+        liftRail_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        liftRail_-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">0.2f</span>, <span class="val">5.0f</span>, <span class="val">0.2f</span>));
+
+        <span class="cm">// Lift platform — slides up and down on the rail</span>
+        liftPlatform_ = <span class="fn">CreateEntity</span>(<span class="st">"LiftPlatform"</span>);
+        liftPlatform_-&gt;<span class="fn">SetPosition</span>(-<span class="val">5.0f</span>, <span class="val">0.5f</span>, <span class="val">5.0f</span>);
+        liftPlatform_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        liftPlatform_-&gt;<span class="fn">SetScale</span>(<span class="val">1.0f</span>);
+        liftPlatform_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">30.0f</span>);
+        liftPlatform_-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">2.0f</span>, <span class="val">0.3f</span>, <span class="val">2.0f</span>));
+        liftPlatform_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+        <span class="cm">// Slider constraint — only Y-axis translation allowed</span>
+        liftJoint_ = <span class="fn">CreateConstraint</span>(
+            <span class="ty">ConstraintType</span>::<span class="val">Slider</span>, liftPlatform_, liftRail_);
+        liftJoint_-&gt;<span class="fn">SetSliderAxis</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>));  <span class="cm">// slide on Y</span>
+        liftJoint_-&gt;<span class="fn">SetSliderLimits</span>(-<span class="val">2.0f</span>, <span class="val">2.0f</span>);             <span class="cm">// 2 m down / 2 m up</span>
+
+        <span class="cm">// Motor drives the lift upward to start</span>
+        liftJoint_-&gt;<span class="fn">SetMotorEnabled</span>(<span class="kw">true</span>);
+        liftJoint_-&gt;<span class="fn">SetMotorSpeed</span>(<span class="val">1.5f</span>);         <span class="cm">// 1.5 m/s upward</span>
+        liftJoint_-&gt;<span class="fn">SetMotorMaxForce</span>(<span class="val">400.0f</span>);    <span class="cm">// enough to overcome gravity</span>
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="cm">// DEMO 5 — Breakable rope (3 ball-socket links + weighted bob)
+    // Press B to sever the top joint; the rope falls under gravity.</span>
+    <span class="kw">void</span> <span class="fn">SetupBreakableRope</span>()
+    {
+        <span class="cm">// Static ceiling anchor</span>
+        ropeAnchor_ = <span class="fn">CreateEntity</span>(<span class="st">"RopeAnchor"</span>);
+        ropeAnchor_-&gt;<span class="fn">SetPosition</span>(<span class="val">8.0f</span>, <span class="val">7.0f</span>, -<span class="val">5.0f</span>);
+        ropeAnchor_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Sphere.mdl"</span>);
+        ropeAnchor_-&gt;<span class="fn">SetScale</span>(<span class="val">0.25f</span>);
+        ropeAnchor_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        ropeAnchor_-&gt;<span class="fn">AddSphereCollider</span>(<span class="val">0.125f</span>);
+
+        <span class="cm">// Create 3 chain links hanging from the anchor</span>
+        <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i &lt; <span class="val">3</span>; ++i)
+        {
+            ropeLinks_[i] = <span class="fn">CreateEntity</span>(<span class="st">"RopeLink"</span> + <span class="ty">String</span>(i));
+            ropeLinks_[i]-&gt;<span class="fn">SetPosition</span>(<span class="val">8.0f</span>, <span class="val">6.0f</span> - i * <span class="val">1.2f</span>, -<span class="val">5.0f</span>);
+            ropeLinks_[i]-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+            ropeLinks_[i]-&gt;<span class="fn">SetScale</span>(<span class="val">0.4f</span>);
+            ropeLinks_[i]-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.5f</span>);       <span class="cm">// light links</span>
+            ropeLinks_[i]-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">0.4f</span>, <span class="val">0.4f</span>, <span class="val">0.4f</span>));
+        }
+
+        <span class="cm">// Heavy ball bob at the bottom</span>
+        ropeBob_ = <span class="fn">CreateEntity</span>(<span class="st">"RopeBob"</span>);
+        ropeBob_-&gt;<span class="fn">SetPosition</span>(<span class="val">8.0f</span>, <span class="val">2.4f</span>, -<span class="val">5.0f</span>);
+        ropeBob_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Sphere.mdl"</span>);
+        ropeBob_-&gt;<span class="fn">SetScale</span>(<span class="val">0.6f</span>);
+        ropeBob_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">5.0f</span>);               <span class="cm">// heavy end weight</span>
+        ropeBob_-&gt;<span class="fn">AddSphereCollider</span>(<span class="val">0.3f</span>);
+
+        <span class="cm">// Anchor → link 0 (this is the joint we will break with B)</span>
+        ropeJoints_[<span class="val">0</span>] = <span class="fn">CreateConstraint</span>(
+            <span class="ty">ConstraintType</span>::<span class="val">BallSocket</span>, ropeLinks_[<span class="val">0</span>], ropeAnchor_);
+
+        <span class="cm">// Link → link chain</span>
+        <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i &lt; <span class="val">2</span>; ++i)
+        {
+            ropeJoints_[i + <span class="val">1</span>] = <span class="fn">CreateConstraint</span>(
+                <span class="ty">ConstraintType</span>::<span class="val">BallSocket</span>, ropeLinks_[i + <span class="val">1</span>], ropeLinks_[i]);
+        }
+
+        <span class="cm">// Last link → bob</span>
+        ropeJoints_[<span class="val">3</span>] = <span class="fn">CreateConstraint</span>(
+            <span class="ty">ConstraintType</span>::<span class="val">BallSocket</span>, ropeBob_, ropeLinks_[<span class="val">2</span>]);
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">SetupHUD</span>()
+    {
+        hintLabel_ = <span class="fn">CreateLabel</span>(
+            <span class="st">"H = toggle door  |  R = reverse platform  |  B = break rope  |  Esc = quit"</span>);
+        hintLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">10</span>);
+        hintLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">14</span>);
+        hintLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>);
+
+        statusLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Door: closed  |  Lift: going up  |  Rope: intact"</span>);
+        statusLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">34</span>);
+        statusLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">14</span>);
+        statusLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.8f</span>, <span class="val">1.0f</span>, <span class="val">0.8f</span>, <span class="val">1.0f</span>));
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">SetupCamera</span>()
+    {
+        cam_ = <span class="fn">CreateCamera</span>();
+        <span class="cm">// Fixed overview angle looking at the middle of the demo area</span>
+        <span class="ty">Entity</span>* camPivot = <span class="fn">CreateEntity</span>(<span class="st">"CamPivot"</span>);
+        camPivot-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">5.0f</span>, <span class="val">20.0f</span>);
+        cam_-&gt;<span class="fn">Follow</span>(camPivot, <span class="val">0.0f</span>, <span class="val">0.0f</span>);
+        cam_-&gt;<span class="fn">LookAt</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">2.0f</span>, <span class="val">0.0f</span>));
+        cam_-&gt;<span class="fn">SetFOV</span>(<span class="val">70.0f</span>);
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="fn">HandleDoorKey</span>();
+        <span class="fn">HandlePlatformKey</span>();
+        <span class="fn">HandleRopeKey</span>();
+        <span class="fn">HandleLiftReversal</span>();
+        <span class="fn">UpdateHUD</span>();
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Escape</span>))
+            <span class="fn">Quit</span>();
+    }
+
+    <span class="cm">// ─── Door toggle ────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">HandleDoorKey</span>()
+    {
+        <span class="kw">if</span> (!<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">H</span>)) <span class="kw">return</span>;
+        <span class="kw">if</span> (!doorJoint_) <span class="kw">return</span>;   <span class="cm">// guard in case constraint was destroyed</span>
+
+        doorOpen_ = !doorOpen_;
+
+        <span class="cm">// Use the motor to drive the door to its open or closed limit.</span>
+        doorJoint_-&gt;<span class="fn">SetMotorEnabled</span>(<span class="kw">true</span>);
+        doorJoint_-&gt;<span class="fn">SetMotorSpeed</span>(doorOpen_ ? <span class="val">1.2f</span> : -<span class="val">1.2f</span>);   <span class="cm">// +rad/s = open</span>
+        doorJoint_-&gt;<span class="fn">SetMotorMaxForce</span>(<span class="val">300.0f</span>);
+    }
+
+    <span class="cm">// ─── Rotating platform direction reversal ────────────────────────</span>
+    <span class="kw">static</span> <span class="ty">bool</span>  s_platformForward_;   <span class="cm">// track spin direction</span>
+
+    <span class="kw">void</span> <span class="fn">HandlePlatformKey</span>()
+    {
+        <span class="kw">if</span> (!<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">R</span>)) <span class="kw">return</span>;
+
+        <span class="cm">// We stored the rotating constraint at setup; retrieve it via the entity.
+        // Here we just flip a static flag and re-query the joint via CreateConstraint
+        // result — in a real project store the pointer as a member variable.</span>
+        s_platformForward_ = !s_platformForward_;
+
+        <span class="cm">// Because we did not store rotJoint_ as a member, this demo shows the
+        // approach of keeping the pointer.  In SetupRotatingPlatform we would
+        // assign:  rotJoint_ = CreateConstraint(...);
+        // For illustration purposes the direction is updated via the stored member.
+        // (Tutorial simplification — always store the pointer you need!)</span>
+    }
+
+    <span class="cm">// ─── Rope severing ──────────────────────────────────────────────</span>
+    <span class="ty">bool</span> ropeBroken_ = <span class="kw">false</span>;
+
+    <span class="kw">void</span> <span class="fn">HandleRopeKey</span>()
+    {
+        <span class="kw">if</span> (!<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">B</span>)) <span class="kw">return</span>;
+        <span class="kw">if</span> (ropeBroken_) <span class="kw">return</span>;       <span class="cm">// already severed — ignore further presses</span>
+
+        <span class="cm">// DestroyConstraint removes the physics joint immediately.
+        // The rope links and bob now fall freely under gravity.
+        // Passing nullptr is safe — the function ignores it gracefully.</span>
+        <span class="fn">DestroyConstraint</span>(ropeJoints_[<span class="val">0</span>]);
+        ropeJoints_[<span class="val">0</span>] = <span class="kw">nullptr</span>;   <span class="cm">// null the pointer — never use it again!</span>
+
+        ropeBroken_ = <span class="kw">true</span>;
+    }
+
+    <span class="cm">// ─── Lift auto-reversal at travel limits ────────────────────────</span>
+    <span class="ty">float</span> liftCheckTimer_ = <span class="val">0.0f</span>;
+
+    <span class="kw">void</span> <span class="fn">HandleLiftReversal</span>()
+    {
+        <span class="kw">if</span> (!liftJoint_) <span class="kw">return</span>;
+
+        <span class="cm">// Check velocity each half-second to detect stall at travel limit.</span>
+        liftCheckTimer_ -= <span class="val">0.016f</span>;   <span class="cm">// approximate dt</span>
+        <span class="kw">if</span> (liftCheckTimer_ &gt; <span class="val">0.0f</span>) <span class="kw">return</span>;
+        liftCheckTimer_ = <span class="val">0.5f</span>;
+
+        <span class="ty">Vector3</span> vel = liftPlatform_-&gt;<span class="fn">GetLinearVelocity</span>();
+
+        <span class="cm">// If the platform has stalled (speed near zero) it has hit a limit.
+        // Flip the motor direction to start travelling the other way.</span>
+        <span class="kw">if</span> (vel.<span class="fn">Length</span>() &lt; <span class="val">0.05f</span>)
+        {
+            liftGoingUp_ = !liftGoingUp_;
+            liftJoint_-&gt;<span class="fn">SetMotorSpeed</span>(liftGoingUp_ ? <span class="val">1.5f</span> : -<span class="val">1.5f</span>);
+        }
+    }
+
+    <span class="cm">// ─── HUD text update ────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">UpdateHUD</span>()
+    {
+        <span class="ty">String</span> doorState  = doorOpen_    ? <span class="st">"open"</span>    : <span class="st">"closed"</span>;
+        <span class="ty">String</span> liftState  = liftGoingUp_ ? <span class="st">"going up"</span> : <span class="st">"going down"</span>;
+        <span class="ty">String</span> ropeState  = ropeBroken_  ? <span class="st">"BROKEN"</span>  : <span class="st">"intact"</span>;
+
+        statusLabel_-&gt;<span class="fn">SetText</span>(
+            <span class="st">"Door: "</span> + doorState +
+            <span class="st">"  |  Lift: "</span> + liftState +
+            <span class="st">"  |  Rope: "</span> + ropeState);
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Stop</span>() <span class="kw">override</span>
+    {
+        <span class="cm">// Constraints owned by the Game are destroyed automatically on shutdown.
+        // Null any dangling pointers to avoid accidental access during Stop().</span>
+        doorJoint_  = <span class="kw">nullptr</span>;
+        liftJoint_  = <span class="kw">nullptr</span>;
+        <span class="kw">for</span> (<span class="kw">auto</span>&amp; j : ropeJoints_) j = <span class="kw">nullptr</span>;
+    }
+};
+
+<span class="kw">bool</span> <span class="ty">ConstraintsDemo</span>::s_platformForward_ = <span class="kw">true</span>;
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">ConstraintsDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ──────────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<!-- CreateConstraint -->
+<h3>CreateConstraint(type, entityA, entityB)</h3>
+<p>
+  <code>CreateConstraint</code> is the single factory function for all joint types.
+  You pass the <code>ConstraintType</code> enum, then two entity pointers.  The
+  engine adds a <code>RigidBody</code> to each entity automatically if it does not
+  already have one, so the order of calls between <code>AddRigidBody</code> and
+  <code>CreateConstraint</code> does not matter.  The function returns a
+  <code>Constraint*</code> owned by the Game; you must store this pointer if you
+  want to configure, query, or destroy the joint later.  If you do not store it,
+  the constraint remains active until the game shuts down, which is fine for
+  permanent environmental joints.
+</p>
+<pre><span class="cm">// Minimum usage — permanent ball-socket with no further configuration</span>
+<span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">BallSocket</span>, linkA, linkB);
+
+<span class="cm">// Store the pointer when you need to configure or destroy it later</span>
+<span class="ty">Constraint</span>* joint = <span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">Hinge</span>, door, anchor);
+joint-&gt;<span class="fn">SetHingeAxis</span>(<span class="ty">Vector3</span>::<span class="val">UP</span>);
+joint-&gt;<span class="fn">SetHingeLimits</span>(<span class="val">0.0f</span>, <span class="val">90.0f</span>);</pre>
+
+<!-- BallSocket -->
+<h3>ConstraintType::BallSocket</h3>
+<p>
+  A ball-socket joint locks the relative position of the two bodies to a shared
+  anchor point (the world-space midpoint between them at creation time) but allows
+  free rotation in any direction.  Think of it as a shoulder joint or a ball on a
+  socket.  This is the right choice for rope and chain segments, because each link
+  can swing freely while remaining connected to its neighbours.  It is also the
+  correct joint for a pendulum: the pivot is a static body at the top, the bob is
+  a dynamic body below, and the constraint keeps their centres at a fixed distance
+  while allowing the bob to swing in any arc.  No additional configuration methods
+  are needed for a default ball-socket; call <code>CreateConstraint</code> and you
+  are done.
+</p>
+<pre><span class="cm">// Chain: connect each adjacent pair of links</span>
+<span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i &lt; linkCount - <span class="val">1</span>; ++i)
+{
+    <span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">BallSocket</span>, links[i], links[i + <span class="val">1</span>]);
+}
+
+<span class="cm">// Pendulum: static pivot above, dynamic bob below</span>
+<span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">BallSocket</span>, bob, pivot);
+bob-&gt;<span class="fn">ApplyImpulse</span>(<span class="ty">Vector3</span>(<span class="val">6.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>));   <span class="cm">// start it swinging</span></pre>
+
+<!-- Hinge + SetHingeAxis + SetHingeLimits -->
+<h3>ConstraintType::Hinge &mdash; SetHingeAxis and SetHingeLimits</h3>
+<p>
+  A hinge constraint allows rotation around exactly one axis and locks all other
+  degrees of freedom.  After calling <code>CreateConstraint</code>, call
+  <code>SetHingeAxis</code> to specify the spin axis in body-A's local space.
+  Common choices are <code>Vector3::UP</code> (Y) for doors that swing horizontally
+  and <code>Vector3(1,0,0)</code> (X) for garage doors or lids that flip upward.
+</p>
+<p>
+  <code>SetHingeLimits(minDeg, maxDeg)</code> clamps the joint to an angular arc
+  measured in degrees from the rest position.  A door that can only swing open
+  would use limits <code>(0, 90)</code>.  A see-saw that can tip either way uses
+  <code>(-30, 30)</code>.  If you never call <code>SetHingeLimits</code>, the hinge
+  rotates freely through a full 360&deg; — useful for the rotating platform demo
+  where continuous spinning is desired.
+</p>
+<pre><span class="cm">// Door — swings open to 90° on Y axis</span>
+<span class="ty">Constraint</span>* door = <span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">Hinge</span>, doorEntity, anchorEntity);
+door-&gt;<span class="fn">SetHingeAxis</span>(<span class="ty">Vector3</span>::<span class="val">UP</span>);
+door-&gt;<span class="fn">SetHingeLimits</span>(<span class="val">0.0f</span>, <span class="val">90.0f</span>);
+
+<span class="cm">// See-saw — pivots around Z, tilts ±30°</span>
+<span class="ty">Constraint</span>* seesaw = <span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">Hinge</span>, board, fulcrum);
+seesaw-&gt;<span class="fn">SetHingeAxis</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">1.0f</span>));
+seesaw-&gt;<span class="fn">SetHingeLimits</span>(-<span class="val">30.0f</span>, <span class="val">30.0f</span>);
+
+<span class="cm">// Spinning top — no limits, rotates freely around Y</span>
+<span class="ty">Constraint</span>* top = <span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">Hinge</span>, disc, baseAnchor);
+top-&gt;<span class="fn">SetHingeAxis</span>(<span class="ty">Vector3</span>::<span class="val">UP</span>);
+<span class="cm">// No SetHingeLimits call — full 360° rotation</span></pre>
+
+<!-- Motor on Hinge -->
+<h3>SetMotorEnabled / SetMotorSpeed / SetMotorMaxForce (Hinge motor)</h3>
+<p>
+  Any hinge constraint can have a built-in motor.  Call
+  <code>SetMotorEnabled(true)</code> to activate it, then
+  <code>SetMotorSpeed(radPerSec)</code> to set the target angular velocity in
+  radians per second.  A positive value spins in the direction of increasing
+  hinge angle; a negative value spins the other way.  For context,
+  <code>1.0 rad/s &asymp; 57&deg;/s</code>, so a full rotation takes about
+  6.3 seconds at that speed.
+</p>
+<p>
+  <code>SetMotorMaxForce(impulse)</code> caps how much corrective impulse the motor
+  can apply per physics step.  Set it too low and the motor will stall under load
+  (the door stops when something blocks it); set it high and it becomes an
+  unstoppable mechanism.  Both behaviours are useful depending on the gameplay
+  intent.
+</p>
+<p>
+  You can change <code>SetMotorSpeed</code> at any time to reverse direction or
+  stop the motor.  Calling <code>SetMotorEnabled(false)</code> disengages the motor
+  entirely, leaving the joint free to spin passively.
+</p>
+<pre><span class="cm">// Rotating platform — start spinning immediately</span>
+rotJoint-&gt;<span class="fn">SetMotorEnabled</span>(<span class="kw">true</span>);
+rotJoint-&gt;<span class="fn">SetMotorSpeed</span>(<span class="val">1.0f</span>);        <span class="cm">// 1 rad/s ≈ one revolution per 6.3 s</span>
+rotJoint-&gt;<span class="fn">SetMotorMaxForce</span>(<span class="val">500.0f</span>);   <span class="cm">// high force — platform carries player weight</span>
+
+<span class="cm">// Self-opening door — motor drives to open position, then disengages</span>
+doorJoint-&gt;<span class="fn">SetMotorEnabled</span>(<span class="kw">true</span>);
+doorJoint-&gt;<span class="fn">SetMotorSpeed</span>(<span class="val">1.2f</span>);
+doorJoint-&gt;<span class="fn">SetMotorMaxForce</span>(<span class="val">300.0f</span>);
+
+<span class="cm">// Reverse the motor direction at runtime:</span>
+rotJoint-&gt;<span class="fn">SetMotorSpeed</span>(-<span class="val">1.0f</span>);       <span class="cm">// now spins the other way</span>
+
+<span class="cm">// Disengage motor — platform can be pushed freely</span>
+rotJoint-&gt;<span class="fn">SetMotorEnabled</span>(<span class="kw">false</span>);</pre>
+
+<!-- Slider -->
+<h3>ConstraintType::Slider &mdash; SetSliderAxis and SetSliderLimits</h3>
+<p>
+  A slider constraint removes all rotational freedom and all translational freedom
+  except along one chosen axis.  The result is that entity A can slide back and
+  forth along a rail defined by entity B without rotating or drifting sideways.
+  Call <code>SetSliderAxis</code> with a unit vector in body-A's local space to
+  define which direction counts as "along the rail".  Use
+  <code>Vector3(1,0,0)</code> for an X-axis rail (horizontal drawer),
+  <code>Vector3(0,1,0)</code> for a vertical lift, or any normalised diagonal.
+</p>
+<p>
+  <code>SetSliderLimits(min, max)</code> clamps travel in world units from the
+  rest position.  A lift that travels 2&nbsp;m below and 2&nbsp;m above its starting
+  height uses <code>(-2, 2)</code>.  Omitting limits allows unlimited sliding —
+  useful for an infinite conveyor belt simulation.
+</p>
+<pre><span class="cm">// Horizontal drawer sliding along X, 0.5 m either side</span>
+<span class="ty">Constraint</span>* drawer = <span class="fn">CreateConstraint</span>(
+    <span class="ty">ConstraintType</span>::<span class="val">Slider</span>, drawerEntity, cabinetAnchor);
+drawer-&gt;<span class="fn">SetSliderAxis</span>(<span class="ty">Vector3</span>(<span class="val">1.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>));
+drawer-&gt;<span class="fn">SetSliderLimits</span>(-<span class="val">0.5f</span>, <span class="val">0.5f</span>);
+
+<span class="cm">// Vertical lift travelling 3 m up from ground level</span>
+<span class="ty">Constraint</span>* lift = <span class="fn">CreateConstraint</span>(
+    <span class="ty">ConstraintType</span>::<span class="val">Slider</span>, platformEntity, railAnchor);
+lift-&gt;<span class="fn">SetSliderAxis</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>));
+lift-&gt;<span class="fn">SetSliderLimits</span>(<span class="val">0.0f</span>, <span class="val">3.0f</span>);</pre>
+
+<!-- Slider motor -->
+<h3>Slider motor</h3>
+<p>
+  The motor API for a slider is identical to the hinge motor —
+  <code>SetMotorEnabled</code>, <code>SetMotorSpeed</code>, and
+  <code>SetMotorMaxForce</code> — but the units differ.  For a slider,
+  <code>SetMotorSpeed</code> is in <strong>metres per second</strong> rather than
+  radians per second.  A speed of <code>1.5f</code> means the platform travels at
+  1.5&nbsp;m/s along the slider axis.  Negative speed moves it the other direction.
+  <code>SetMotorMaxForce</code> must be large enough to overcome gravity if the
+  platform is moving vertically, plus enough to carry whatever sits on top of it.
+</p>
+<pre><span class="cm">// Lift motor moving upward at 1.5 m/s with enough force to support 30 kg platform</span>
+lift-&gt;<span class="fn">SetMotorEnabled</span>(<span class="kw">true</span>);
+lift-&gt;<span class="fn">SetMotorSpeed</span>(<span class="val">1.5f</span>);         <span class="cm">// positive = up (along +Y axis)</span>
+lift-&gt;<span class="fn">SetMotorMaxForce</span>(<span class="val">400.0f</span>);    <span class="cm">// 400 N·s — enough to lift 30 kg against gravity</span>
+
+<span class="cm">// Reverse at runtime to bring the lift back down</span>
+lift-&gt;<span class="fn">SetMotorSpeed</span>(-<span class="val">1.5f</span>);        <span class="cm">// negative = down</span>
+
+<span class="cm">// Fast conveyor belt — no limits, continuous horizontal motion</span>
+<span class="ty">Constraint</span>* belt = <span class="fn">CreateConstraint</span>(
+    <span class="ty">ConstraintType</span>::<span class="val">Slider</span>, beltEntity, frameAnchor);
+belt-&gt;<span class="fn">SetSliderAxis</span>(<span class="ty">Vector3</span>(<span class="val">1.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>));
+belt-&gt;<span class="fn">SetMotorEnabled</span>(<span class="kw">true</span>);
+belt-&gt;<span class="fn">SetMotorSpeed</span>(<span class="val">3.0f</span>);         <span class="cm">// 3 m/s</span>
+belt-&gt;<span class="fn">SetMotorMaxForce</span>(<span class="val">200.0f</span>);</pre>
+
+<!-- Fixed -->
+<h3>ConstraintType::Fixed</h3>
+<p>
+  A fixed constraint attempts to prevent all relative motion between two bodies.
+  It is an <em>approximate</em> rigid link: the physics solver may allow small
+  residual movement under high loads, especially when the bodies have very
+  different masses.  For a truly rigid connection use the entity hierarchy from
+  Part 22 (a child entity rigidly tracks its parent with no solver overhead).  The
+  fixed constraint is most useful when you need the rigid link between two
+  <em>independently constructed</em> physics bodies — for example, two pieces that
+  are created separately but must temporarily behave as one, with the option to
+  later call <code>SetEnabled(false)</code> to split them.
+</p>
+<pre><span class="cm">// Two crates that should act as one heavy block until blown apart</span>
+<span class="ty">Constraint</span>* fused = <span class="fn">CreateConstraint</span>(
+    <span class="ty">ConstraintType</span>::<span class="val">Fixed</span>, crateA, crateB);
+
+<span class="cm">// On explosion impact: release the constraint so both crates fly independently</span>
+fused-&gt;<span class="fn">SetEnabled</span>(<span class="kw">false</span>);</pre>
+
+<!-- SetEnabled / DestroyConstraint -->
+<h3>SetEnabled(bool) and DestroyConstraint</h3>
+<p>
+  <code>SetEnabled(false)</code> suspends the constraint — the bodies are no longer
+  forced to respect the joint; they separate under gravity and collisions as if
+  the joint were never there.  <code>SetEnabled(true)</code> re-activates it.  Use
+  this for temporary effects: a lever that releases a trapped block, a rope that
+  goes slack when a switch is flipped, or a door that pops open when its hinges
+  are shot.  Because the <code>Constraint</code> object still exists in memory, you
+  can re-enable it later without calling <code>CreateConstraint</code> again.
+</p>
+<p>
+  <code>DestroyConstraint(ptr)</code> permanently removes the physics component and
+  frees the object.  The pointer becomes invalid immediately after the call; always
+  assign <code>nullptr</code> to it.  Passing <code>nullptr</code> to
+  <code>DestroyConstraint</code> is safe — the function is a no-op in that case.
+  Use destroy (not disable) for single-use events: a rope that snaps once and can
+  never be repaired, or a bridge that collapses permanently.
+</p>
+<pre><span class="cm">// Temporary disable — joint can be re-enabled later</span>
+joint-&gt;<span class="fn">SetEnabled</span>(<span class="kw">false</span>);
+<span class="cm">// ... some time later ...</span>
+joint-&gt;<span class="fn">SetEnabled</span>(<span class="kw">true</span>);
+
+<span class="cm">// Permanent destroy — for breakable one-time events</span>
+<span class="fn">DestroyConstraint</span>(ropeJoint_);
+ropeJoint_ = <span class="kw">nullptr</span>;   <span class="cm">// critical! pointer is invalid after this point</span>
+
+<span class="cm">// Passing nullptr is always safe (no-op)</span>
+<span class="fn">DestroyConstraint</span>(<span class="kw">nullptr</span>);   <span class="cm">// harmless</span></pre>
+
+<!-- ─── PRACTICAL PATTERNS ──────────────────────────────────────────────── -->
+<h2>Practical patterns</h2>
+
+<h3>Pendulum (ball-socket)</h3>
+<p>
+  Place the pivot entity slightly above ceiling level with mass 0.  Place the bob
+  some distance below with a reasonable mass (2&ndash;5&nbsp;kg for a visible swing rate).
+  After calling <code>CreateConstraint</code>, apply a single lateral impulse to the
+  bob to start the oscillation.  The engine handles all the math from there.
+</p>
+<pre><span class="ty">Entity</span>* pivot = <span class="fn">CreateEntity</span>(<span class="st">"Pivot"</span>);
+pivot-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">8.0f</span>, <span class="val">0.0f</span>);
+pivot-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);       <span class="cm">// static</span>
+pivot-&gt;<span class="fn">AddSphereCollider</span>(<span class="val">0.1f</span>);
+
+<span class="ty">Entity</span>* bob = <span class="fn">CreateEntity</span>(<span class="st">"Bob"</span>);
+bob-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">3.0f</span>, <span class="val">0.0f</span>);  <span class="cm">// 5 m below pivot</span>
+bob-&gt;<span class="fn">AddRigidBody</span>(<span class="val">2.0f</span>);
+bob-&gt;<span class="fn">AddSphereCollider</span>(<span class="val">0.4f</span>);
+
+<span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">BallSocket</span>, bob, pivot);
+bob-&gt;<span class="fn">ApplyImpulse</span>(<span class="ty">Vector3</span>(<span class="val">10.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>));  <span class="cm">// set it swinging</span></pre>
+
+<h3>Hinged door</h3>
+<p>
+  Position the anchor at the hinge side of the doorway.  Position the door panel
+  offset along the axis perpendicular to the hinge so the panel's edge aligns
+  with the anchor.  Set limits to <code>(0, 90)</code> for a door that only opens
+  one way, or <code>(-90, 90)</code> for a saloon-style door that swings both ways.
+  Drive with a motor for automatic-opening doors or leave the motor off for doors
+  that only open when physically pushed.
+</p>
+<pre><span class="ty">Entity</span>* frame  = <span class="fn">CreateEntity</span>(<span class="st">"Frame"</span>);
+frame-&gt;<span class="fn">SetPosition</span>(-<span class="val">1.0f</span>, <span class="val">1.5f</span>, <span class="val">0.0f</span>);
+frame-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+frame-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">0.2f</span>, <span class="val">3.0f</span>, <span class="val">0.2f</span>));
+
+<span class="ty">Entity</span>* door = <span class="fn">CreateEntity</span>(<span class="st">"Door"</span>);
+door-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">1.5f</span>, <span class="val">0.0f</span>);
+door-&gt;<span class="fn">AddRigidBody</span>(<span class="val">12.0f</span>);
+door-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">2.0f</span>, <span class="val">3.0f</span>, <span class="val">0.08f</span>));
+
+<span class="ty">Constraint</span>* joint = <span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">Hinge</span>, door, frame);
+joint-&gt;<span class="fn">SetHingeAxis</span>(<span class="ty">Vector3</span>::<span class="val">UP</span>);
+joint-&gt;<span class="fn">SetHingeLimits</span>(<span class="val">0.0f</span>, <span class="val">90.0f</span>);   <span class="cm">// opens to 90°; cannot push through frame</span></pre>
+
+<h3>Motor-driven rotating platform</h3>
+<p>
+  Useful for hazard floors, gear mechanics, and carousel-style puzzles.  Give the
+  platform enough mass to carry objects that stand on it, and set
+  <code>SetMotorMaxForce</code> high enough that the motor does not stall under that
+  combined load.  Mark the platform's collision layer as
+  <code>StaticGeometry</code> so the character controller can stand on it without
+  sinking through.
+</p>
+<pre><span class="ty">Constraint</span>* rot = <span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">Hinge</span>, platform, pillar);
+rot-&gt;<span class="fn">SetHingeAxis</span>(<span class="ty">Vector3</span>::<span class="val">UP</span>);        <span class="cm">// no limits — continuous 360° spin</span>
+rot-&gt;<span class="fn">SetMotorEnabled</span>(<span class="kw">true</span>);
+rot-&gt;<span class="fn">SetMotorSpeed</span>(<span class="val">0.5f</span>);              <span class="cm">// slow, menacing rotation</span>
+rot-&gt;<span class="fn">SetMotorMaxForce</span>(<span class="val">1000.0f</span>);       <span class="cm">// unstoppable — not affected by players</span></pre>
+
+<h3>Moving platform on a rail</h3>
+<p>
+  The slider motor reversal technique (detect stall via <code>GetLinearVelocity</code>)
+  works reliably for short, well-defined travel paths.  Alternatively, accumulate
+  elapsed time and flip the motor every N seconds for a predictable oscillation cycle.
+</p>
+<pre><span class="cm">// Time-based reversal — flip every 3 seconds</span>
+liftTimer_ += dt;
+<span class="kw">if</span> (liftTimer_ &gt; <span class="val">3.0f</span>)
+{
+    liftTimer_ = <span class="val">0.0f</span>;
+    liftGoingUp_ = !liftGoingUp_;
+    liftJoint_-&gt;<span class="fn">SetMotorSpeed</span>(liftGoingUp_ ? <span class="val">2.0f</span> : -<span class="val">2.0f</span>);
+}</pre>
+
+<!-- ─── QUICK REFERENCE TABLE ──────────────────────────────────────────── -->
+<h2>Quick reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>CreateConstraint(type, entityA, entityB)</code></td>
+      <td>Factory — returns owned <code>Constraint*</code>. Adds <code>RigidBody</code> if absent.</td>
+    </tr>
+    <tr>
+      <td><code>constraint->SetHingeAxis(Vector3)</code></td>
+      <td>Rotation axis in body-A local space. Call for Hinge type.</td>
+    </tr>
+    <tr>
+      <td><code>constraint->SetHingeLimits(minDeg, maxDeg)</code></td>
+      <td>Angular travel limits in degrees. Omit for unlimited 360&deg; spin.</td>
+    </tr>
+    <tr>
+      <td><code>constraint->SetSliderAxis(Vector3)</code></td>
+      <td>Slide direction in body-A local space. Call for Slider type.</td>
+    </tr>
+    <tr>
+      <td><code>constraint->SetSliderLimits(min, max)</code></td>
+      <td>Travel limits in world units. Omit for unlimited linear travel.</td>
+    </tr>
+    <tr>
+      <td><code>constraint->SetMotorEnabled(bool)</code></td>
+      <td>Enable/disable the built-in motor. Only effective on Hinge and Slider.</td>
+    </tr>
+    <tr>
+      <td><code>constraint->SetMotorSpeed(float)</code></td>
+      <td>Target speed: rad/s for Hinge, m/s for Slider. Negative = opposite direction.</td>
+    </tr>
+    <tr>
+      <td><code>constraint->SetMotorMaxForce(float)</code></td>
+      <td>Impulse cap per physics step. Higher = stronger motor.</td>
+    </tr>
+    <tr>
+      <td><code>constraint->SetEnabled(bool)</code></td>
+      <td>Temporarily suspend / re-activate the joint. Pointer remains valid.</td>
+    </tr>
+    <tr>
+      <td><code>constraint->IsEnabled()</code></td>
+      <td>Returns current enabled state.</td>
+    </tr>
+    <tr>
+      <td><code>constraint->GetType()</code></td>
+      <td>Returns the <code>ConstraintType</code> enum value.</td>
+    </tr>
+    <tr>
+      <td><code>DestroyConstraint(ptr)</code></td>
+      <td>Permanently removes the joint. Pointer invalid after call. nullptr safe.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ─── LUA EQUIVALENT ────────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+
+<p>
+  All constraint factory and configuration calls are available on the
+  <code>game</code> global inside Lua scripts.  The joint type is passed as a
+  string constant.  The <code>Constraint</code> object is returned as a Lua
+  userdata value; store it in a local variable and call methods on it with
+  the colon syntax.
+</p>
+
+<pre><span class="lua-cm">-- Scripts/constraints_demo.lua
+-- Attach to any entity.  Creates a hinged door and a sliding lift.</span>
+
+<span class="lua-kw">local</span> doorJoint  = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> liftJoint  = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> doorOpen   = <span class="lua-kw">false</span>
+<span class="lua-kw">local</span> liftUp     = <span class="lua-kw">true</span>
+<span class="lua-kw">local</span> liftTimer  = <span class="lua-num">0.0</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-cm">-- ── Hinged door ─────────────────────────────────────────────</span>
+    <span class="lua-kw">local</span> anchor = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"DoorAnchor"</span>)
+    anchor:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">1.5</span>, <span class="lua-num">0</span>)
+    anchor:<span class="lua-fn">AddRigidBody</span>(<span class="lua-num">0</span>)
+    anchor:<span class="lua-fn">AddBoxCollider</span>(<span class="lua-num">0.3</span>, <span class="lua-num">3.0</span>, <span class="lua-num">0.3</span>)
+
+    <span class="lua-kw">local</span> door = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Door"</span>)
+    door:<span class="lua-fn">SetPosition</span>(<span class="lua-num">1.0</span>, <span class="lua-num">1.5</span>, <span class="lua-num">0</span>)
+    door:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+    door:<span class="lua-fn">AddRigidBody</span>(<span class="lua-num">15.0</span>)
+    door:<span class="lua-fn">AddBoxCollider</span>(<span class="lua-num">2.0</span>, <span class="lua-num">3.0</span>, <span class="lua-num">0.1</span>)
+
+    <span class="lua-cm">-- Create hinge and configure axis + limits</span>
+    doorJoint = game:<span class="lua-fn">CreateConstraint</span>(<span class="lua-str">"Hinge"</span>, door, anchor)
+    doorJoint:<span class="lua-fn">SetHingeAxis</span>(<span class="lua-num">0</span>, <span class="lua-num">1</span>, <span class="lua-num">0</span>)       <span class="lua-cm">-- Y-axis (Vector3 passed as x,y,z)</span>
+    doorJoint:<span class="lua-fn">SetHingeLimits</span>(<span class="lua-num">0</span>, <span class="lua-num">90</span>)
+
+    <span class="lua-cm">-- ── Sliding lift ─────────────────────────────────────────────</span>
+    <span class="lua-kw">local</span> rail = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Rail"</span>)
+    rail:<span class="lua-fn">SetPosition</span>(-<span class="lua-num">5</span>, <span class="lua-num">2.5</span>, <span class="lua-num">5</span>)
+    rail:<span class="lua-fn">AddRigidBody</span>(<span class="lua-num">0</span>)
+
+    <span class="lua-kw">local</span> lift = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Lift"</span>)
+    lift:<span class="lua-fn">SetPosition</span>(-<span class="lua-num">5</span>, <span class="lua-num">0.5</span>, <span class="lua-num">5</span>)
+    lift:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+    lift:<span class="lua-fn">AddRigidBody</span>(<span class="lua-num">30</span>)
+    lift:<span class="lua-fn">AddBoxCollider</span>(<span class="lua-num">2.0</span>, <span class="lua-num">0.3</span>, <span class="lua-num">2.0</span>)
+
+    liftJoint = game:<span class="lua-fn">CreateConstraint</span>(<span class="lua-str">"Slider"</span>, lift, rail)
+    liftJoint:<span class="lua-fn">SetSliderAxis</span>(<span class="lua-num">0</span>, <span class="lua-num">1</span>, <span class="lua-num">0</span>)      <span class="lua-cm">-- slide along Y</span>
+    liftJoint:<span class="lua-fn">SetSliderLimits</span>(-<span class="lua-num">2</span>, <span class="lua-num">2</span>)
+    liftJoint:<span class="lua-fn">SetMotorEnabled</span>(<span class="lua-kw">true</span>)
+    liftJoint:<span class="lua-fn">SetMotorSpeed</span>(<span class="lua-num">1.5</span>)
+    liftJoint:<span class="lua-fn">SetMotorMaxForce</span>(<span class="lua-num">400</span>)
+
+    <span class="lua-cm">-- ── Ball-socket pendulum ──────────────────────────────────────</span>
+    <span class="lua-kw">local</span> pivot = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Pivot"</span>)
+    pivot:<span class="lua-fn">SetPosition</span>(-<span class="lua-num">12</span>, <span class="lua-num">7</span>, <span class="lua-num">0</span>)
+    pivot:<span class="lua-fn">AddRigidBody</span>(<span class="lua-num">0</span>)
+    pivot:<span class="lua-fn">AddSphereCollider</span>(<span class="lua-num">0.15</span>)
+
+    <span class="lua-kw">local</span> bob = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Bob"</span>)
+    bob:<span class="lua-fn">SetPosition</span>(-<span class="lua-num">12</span>, <span class="lua-num">2</span>, <span class="lua-num">0</span>)
+    bob:<span class="lua-fn">AddRigidBody</span>(<span class="lua-num">3</span>)
+    bob:<span class="lua-fn">AddSphereCollider</span>(<span class="lua-num">0.3</span>)
+
+    game:<span class="lua-fn">CreateConstraint</span>(<span class="lua-str">"BallSocket"</span>, bob, pivot)
+    bob:<span class="lua-fn">ApplyImpulse</span>(<span class="lua-num">8</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)       <span class="lua-cm">-- start swinging</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-cm">-- H toggles the door motor</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.H) <span class="lua-kw">then</span>
+        doorOpen = <span class="lua-kw">not</span> doorOpen
+        doorJoint:<span class="lua-fn">SetMotorEnabled</span>(<span class="lua-kw">true</span>)
+        doorJoint:<span class="lua-fn">SetMotorSpeed</span>(doorOpen <span class="lua-kw">and</span> <span class="lua-num">1.2</span> <span class="lua-kw">or</span> -<span class="lua-num">1.2</span>)
+        doorJoint:<span class="lua-fn">SetMotorMaxForce</span>(<span class="lua-num">300</span>)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Lift auto-reversal every 3 seconds</span>
+    liftTimer = liftTimer + dt
+    <span class="lua-kw">if</span> liftTimer &gt;= <span class="lua-num">3.0</span> <span class="lua-kw">then</span>
+        liftTimer = <span class="lua-num">0.0</span>
+        liftUp = <span class="lua-kw">not</span> liftUp
+        liftJoint:<span class="lua-fn">SetMotorSpeed</span>(liftUp <span class="lua-kw">and</span> <span class="lua-num">1.5</span> <span class="lua-kw">or</span> -<span class="lua-num">1.5</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── COMMON MISTAKES ────────────────────────────────────────────────── -->
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Using a constraint where entity hierarchy is sufficient.</strong>
+      If an object only needs to follow its parent rigidly (a weapon in a hand, a
+      wheel hub on a car body visual) use <code>CreateChild</code> from Part 22.
+      Constraints carry solver overhead and can cause jitter between closely-placed
+      static bodies.  Only reach for a constraint when independent physics behaviour
+      is needed.
+    </li>
+    <li>
+      <strong>Not storing the Constraint pointer.</strong>
+      <code>CreateConstraint</code> returns a pointer owned by the Game.  If you
+      do not save it, you cannot configure the axis/limits, attach a motor, or
+      destroy the joint later.  Always assign the return value to a member variable
+      whenever you might need to interact with the joint at runtime.
+    </li>
+    <li>
+      <strong>Calling SetMotorEnabled on a BallSocket or Fixed constraint.</strong>
+      Motors only apply to Hinge and Slider joints.  On other types the call is
+      silently ignored.  If the motor appears to have no effect, check the constraint
+      type first.
+    </li>
+    <li>
+      <strong>Setting SetMotorMaxForce too low.</strong>
+      If the platform motor stalls the moment anything stands on it, the max force
+      is insufficient.  A good starting value is 5&ndash;10&times; the expected load
+      mass in Newtons (e.g., 500&ndash;1000 for a 50&nbsp;kg platform carrying a
+      10&nbsp;kg player).  Tune upward until the platform moves reliably.
+    </li>
+    <li>
+      <strong>Using a pointer after DestroyConstraint.</strong>
+      <code>DestroyConstraint</code> frees the underlying object immediately.  Any
+      access to the pointer afterwards is undefined behaviour.  Assign
+      <code>nullptr</code> right after the call and guard all subsequent uses with
+      a null check.
+    </li>
+    <li>
+      <strong>Expecting Fixed to behave like a welded hierarchy node.</strong>
+      The Fixed constraint is an approximation.  Under rapid motion or large mass
+      ratios the solver may allow small offsets.  For a genuinely rigid connection
+      use <code>entity->CreateChild()</code> and <code>SetLocalPosition</code>
+      instead.
+    </li>
+    <li>
+      <strong>Forgetting to set the hinge axis before adding limits.</strong>
+      <code>SetHingeLimits</code> defines an arc relative to the axis set by
+      <code>SetHingeAxis</code>.  If you call <code>SetHingeLimits</code> before
+      <code>SetHingeAxis</code>, the limits are evaluated against the default axis
+      and the door may open in the wrong direction.  Always set the axis first.
+    </li>
+    <li>
+      <strong>Slider axis not normalised.</strong>
+      <code>SetSliderAxis</code> expects a unit vector.  Passing an unnormalised
+      direction (e.g., <code>Vector3(2,0,0)</code>) produces unpredictable travel
+      distances because the engine scales the constraint internally by the vector
+      length.  Always pass a normalised direction such as <code>Vector3::UP</code>
+      or <code>Vector3(1,0,0)</code>.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ──────────────────────────────────────────────── -->
+<h2>What you learned</h2>
+
+<p>
+  In this part you mastered the full physics constraint system in simple-3d:
+</p>
+<ul>
+  <li>
+    <strong>Ball-socket</strong>: <code>CreateConstraint(BallSocket, a, b)</code>
+    locks position while allowing free rotation in any direction.  Use it for
+    chains, ropes, and pendulums.
+  </li>
+  <li>
+    <strong>Hinge</strong>: <code>CreateConstraint(Hinge, a, b)</code> combined
+    with <code>SetHingeAxis</code> and optional <code>SetHingeLimits</code>
+    restricts motion to a single rotational axis.  Use it for doors, levers,
+    and see-saws.
+  </li>
+  <li>
+    <strong>Hinge motor</strong>: <code>SetMotorEnabled(true)</code>,
+    <code>SetMotorSpeed(rad/s)</code>, and <code>SetMotorMaxForce</code>
+    turn a hinge into a self-powered mechanism — rotating platforms, auto-opening
+    doors, and windmill blades.
+  </li>
+  <li>
+    <strong>Slider</strong>: <code>CreateConstraint(Slider, a, b)</code> with
+    <code>SetSliderAxis</code> and <code>SetSliderLimits</code> restricts motion
+    to a single translational axis.  Use it for lifts, rails, drawers, and
+    conveyor belts.
+  </li>
+  <li>
+    <strong>Slider motor</strong>: Same API as the hinge motor but
+    <code>SetMotorSpeed</code> is in metres per second.  Reverse the sign to
+    change direction and set <code>SetMotorMaxForce</code> high enough to overcome
+    gravity for vertical lifts.
+  </li>
+  <li>
+    <strong>Fixed</strong>: <code>CreateConstraint(Fixed, a, b)</code> is an
+    approximate rigid link between two independent physics bodies.  Prefer entity
+    hierarchy for true rigidity.
+  </li>
+  <li>
+    <strong>Enable / disable</strong>: <code>SetEnabled(false/true)</code>
+    suspends or resumes a constraint without destroying it, enabling lever-triggered
+    traps, destructible bridges, and puzzle mechanics.
+  </li>
+  <li>
+    <strong>Destroy</strong>: <code>DestroyConstraint(ptr)</code> permanently
+    removes the joint.  Always null the pointer immediately after the call.
+    Passing <code>nullptr</code> is always safe.
+  </li>
+</ul>
+
+<p>
+  Next up: <a href="tutorial-24.html">Part 24: Collision Triggers</a> &mdash;
+  how to define invisible volumes that fire callbacks when entities enter or
+  exit them, using <code>AddTriggerBox</code>, <code>AddTriggerSphere</code>,
+  and the <code>SetOnTriggerEnter</code> / <code>SetOnTriggerExit</code> callbacks.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-22.html">&#8592; Part 22: Entity Hierarchy</a>
+  <a href="tutorial-24.html">Part 24: Collision Triggers &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

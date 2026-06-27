@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 04: 3D Physics — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li class="active"><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 04</div>
+
+<h1><span class="tutorial-part">Part 04 of 30</span>3D Physics</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>AddRigidBody(mass)</code> &mdash;
+    <code>AddBoxCollider(Vector3)</code> &mdash;
+    <code>AddCapsuleCollider(radius, height)</code> &mdash;
+    <code>AddSphereCollider(radius)</code> &mdash;
+    <code>CollisionLayer</code> enum (<code>Actor</code>, <code>StaticGeometry</code>, <code>Trigger</code>) &mdash;
+    <code>SetCollisionLayer</code> &mdash;
+    <code>MakeCollisionMask</code> &mdash;
+    <code>ApplyImpulse</code> &mdash;
+    <code>SetLinearVelocity</code> &mdash;
+    <code>IsOnGround</code>
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ─────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How physics bodies work in simple-3d: the difference between <strong>static</strong> (mass&nbsp;0) and <strong>dynamic</strong> (mass&nbsp;&gt;&nbsp;0) bodies.</li>
+  <li>How to attach the three standard 3D collision shapes: box, sphere, and capsule.</li>
+  <li>Why the shape and the rigid body are two separate components and must both be present.</li>
+  <li>How the <code>CollisionLayer</code> enum controls <em>which layer an entity lives on</em> and which layers it interacts with via <code>MakeCollisionMask</code>.</li>
+  <li>How to apply instant velocity changes (<code>ApplyImpulse</code>) and drive movement through direct velocity assignment (<code>SetLinearVelocity</code>).</li>
+  <li>How to test whether a dynamic body is resting on the ground with <code>IsOnGround</code>.</li>
+  <li>The equivalent Lua API so you can prototype physics scenes without recompiling.</li>
+</ul>
+
+<!-- ─── BACKGROUND ───────────────────────────────────────────────── -->
+<h2>How physics works in simple-3d</h2>
+<p>
+  simple-3d wraps <strong>Bullet physics</strong> (via the Urho3D engine) for all 3D simulation.
+  Every physics-enabled entity needs exactly two things added to it:
+</p>
+<ol>
+  <li>A <strong>rigid body</strong> &mdash; describes mass, gravity, and velocity. Created with <code>AddRigidBody(mass)</code>.</li>
+  <li>At least one <strong>collision shape</strong> &mdash; the actual geometry Bullet uses for contact detection. Created with <code>AddBoxCollider</code>, <code>AddSphereCollider</code>, or <code>AddCapsuleCollider</code>.</li>
+</ol>
+<p>
+  You can add multiple collision shapes to the same entity; Bullet treats them as a compound shape.
+  The rigid body and each shape must be added to the same entity &mdash; shapes on child entities do
+  not automatically register with the parent's rigid body.
+</p>
+
+<div class="callout info">
+  <h4>Static vs Dynamic</h4>
+  <p>
+    Passing <code>0.0f</code> to <code>AddRigidBody</code> creates a <strong>static body</strong>:
+    it generates collision responses for other objects but never moves itself and is not affected by
+    gravity or forces. This is the correct choice for ground planes, walls, platforms, and level
+    geometry. Passing any positive value sets the <strong>mass in kilograms</strong> and creates a
+    dynamic body that falls, bounces, and reacts to impulses.
+  </p>
+</div>
+
+<!-- ─── COLLISION LAYERS ─────────────────────────────────────────── -->
+<h2>Collision layers and masks</h2>
+<p>
+  Bullet (and therefore simple-3d) filters collisions using a <em>layer</em>/<em>mask</em> pair.
+  An entity only registers a physical contact with another entity when:
+</p>
+<ul>
+  <li>The <strong>source's mask</strong> includes the <strong>target's layer</strong>, <em>and</em></li>
+  <li>The <strong>target's mask</strong> includes the <strong>source's layer</strong>.</li>
+</ul>
+<p>
+  simple-3d ships the <code>CollisionLayer</code> enum (in <code>&lt;Simple3D/Core/Collision.h&gt;</code>,
+  automatically pulled in by <code>&lt;Simple3D/Simple3D.h&gt;</code>) with three named layers that
+  cover the vast majority of games:
+</p>
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Raw value</th>
+    <th>Use for</th>
+  </tr>
+  <tr>
+    <td><code>CollisionLayer::Actor</code></td>
+    <td><code>1</code></td>
+    <td>The player, NPCs, dynamic enemies &mdash; anything that moves and collides with the world.</td>
+  </tr>
+  <tr>
+    <td><code>CollisionLayer::StaticGeometry</code></td>
+    <td><code>2</code></td>
+    <td>Ground, walls, platforms, crates &mdash; static mass-0 surfaces the world is built from.</td>
+  </tr>
+  <tr>
+    <td><code>CollisionLayer::Trigger</code></td>
+    <td><code>4</code></td>
+    <td>Trigger volumes. <code>AddTriggerBox/Sphere/Capsule</code> set this automatically.</td>
+  </tr>
+  <tr>
+    <td><code>CollisionLayer::None</code></td>
+    <td><code>0</code></td>
+    <td>Collides with nothing. Useful to temporarily disable an entity.</td>
+  </tr>
+  <tr>
+    <td><code>CollisionLayer::All</code></td>
+    <td><code>0xFFFF</code></td>
+    <td>Collides with every layer. The default mask when you call <code>AddRigidBody</code> without setting anything.</td>
+  </tr>
+</table>
+<p>
+  <code>MakeCollisionMask</code> takes an initializer list of <code>CollisionLayer</code> values
+  and ORs their bits together into an <code>unsigned</code>. This lets you express a multi-layer
+  mask without remembering raw bit values:
+</p>
+<pre><span class="cm">// Player should collide with geometry and trigger volumes, but NOT with other actors.</span>
+<span class="ty">player</span>-><span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="nm">Actor</span>);
+<span class="ty">player</span>-><span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+    <span class="ty">CollisionLayer</span>::<span class="nm">StaticGeometry</span>,
+    <span class="ty">CollisionLayer</span>::<span class="nm">Trigger</span>
+}));</pre>
+
+<!-- ─── COLLISION SHAPES ──────────────────────────────────────────── -->
+<h2>Choosing the right collision shape</h2>
+<div class="grid3">
+  <div class="card card-green">
+    <h3>Box</h3>
+    <p>Best for crates, platforms, and rectangular level pieces. The Vector3 argument is the <strong>full size</strong> (width, height, depth) &mdash; not half-extents.</p>
+    <p><code>AddBoxCollider(Vector3(2, 1, 2))</code></p>
+  </div>
+  <div class="card card-blue">
+    <h3>Sphere</h3>
+    <p>Best for balls, projectiles, and any roughly round object. Cheapest shape to compute contacts for.</p>
+    <p><code>AddSphereCollider(0.5f)</code></p>
+  </div>
+  <div class="card card-orange">
+    <h3>Capsule</h3>
+    <p>The preferred shape for player characters and humanoid NPCs. Handles steps and slopes smoothly without catching on edges.</p>
+    <p><code>AddCapsuleCollider(0.35f, 1.8f)</code></p>
+  </div>
+</div>
+
+<!-- ─── COMPLETE EXAMPLE ─────────────────────────────────────────── -->
+<h2>Complete example</h2>
+<p>
+  The scene below creates a static ground plane, drops three differently-shaped dynamic bodies onto
+  it, and lets the player press <kbd>Space</kbd> to shoot a sphere with a sideways impulse.
+  Press <kbd>Escape</kbd> to quit. The output demonstrates static bodies, three collider shapes,
+  collision-layer assignment, <code>ApplyImpulse</code>, <code>SetLinearVelocity</code>, and the
+  <code>IsOnGround</code> ground check.
+</p>
+
+<pre><span class="cm">// PhysicsDemo.cpp — Part 04 of the simple-3d tutorial series</span>
+<span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;string&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">PhysicsDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+    <span class="cm">// ── Pointers we want to keep across frames ─────────────────────</span>
+    <span class="ty">Entity</span>* ground_  = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>* sphere_  = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>* box_     = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>* capsule_ = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*  label_   = <span class="kw">nullptr</span>;
+    <span class="kw">int</span>     shotsFired_ = <span class="val">0</span>;
+
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Part 04 — 3D Physics"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.08f</span>, <span class="val">0.10f</span>, <span class="val">0.14f</span>));
+
+        <span class="cm">// ── Camera ────────────────────────────────────────────────────</span>
+        <span class="ty">Camera</span>* cam = <span class="fn">CreateCamera</span>();
+        cam-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">0</span>, <span class="val">8</span>, <span class="val">-14</span>));
+        cam-><span class="fn">LookAt</span>(<span class="ty">Vector3</span>(<span class="val">0</span>, <span class="val">2</span>, <span class="val">0</span>));
+
+        <span class="cm">// ── Directional light ─────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-><span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45</span>, <span class="val">30</span>, <span class="val">0</span>));
+        sun-><span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>::<span class="nm">WHITE</span>, <span class="val">1.0f</span>);
+
+        <span class="cm">// ── GROUND ────────────────────────────────────────────────────</span>
+        <span class="cm">// mass = 0.0f → static body: never moves, never falls, blocks dynamics.</span>
+        ground_ = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground_-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">0</span>, <span class="val">0</span>, <span class="val">0</span>));
+        ground_-><span class="fn">SetScale</span>(<span class="val">1.0f</span>);
+        ground_-><span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        ground_-><span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.25f</span>, <span class="val">0.55f</span>, <span class="val">0.25f</span>));
+
+        <span class="cm">// Step 1: Add a rigid body — mass 0 = static.</span>
+        ground_-><span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+
+        <span class="cm">// Step 2: Add a box collider — argument is FULL size (width, height, depth).</span>
+        <span class="cm">// The ground visual is a 1×1×1 unit model scaled to 20×0.5×20 m.</span>
+        ground_-><span class="fn">SetScale</span>(<span class="val">1.0f</span>);  <span class="cm">// reset visual scale before transform</span>
+        ground_-><span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">20.0f</span>, <span class="val">0.5f</span>, <span class="val">20.0f</span>));
+
+        <span class="cm">// Step 3: Assign to the StaticGeometry layer so dynamic actors know what to stand on.</span>
+        ground_-><span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="nm">StaticGeometry</span>);
+
+        <span class="cm">// Stretch the model to match the collider visually.</span>
+        ground_-><span class="fn">SetScale</span>(<span class="ty">Vector3</span>(<span class="val">20.0f</span>, <span class="val">0.5f</span>, <span class="val">20.0f</span>));
+
+        <span class="cm">// ── DYNAMIC SPHERE ────────────────────────────────────────────</span>
+        <span class="cm">// mass = 1.0f → dynamic body, pulled down by gravity each frame.</span>
+        sphere_ = <span class="fn">CreateEntity</span>(<span class="st">"Sphere"</span>);
+        sphere_-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">-3.0f</span>, <span class="val">6.0f</span>, <span class="val">0.0f</span>));
+        sphere_-><span class="fn">AddModel</span>(<span class="st">"Models/Sphere.mdl"</span>);
+        sphere_-><span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.85f</span>, <span class="val">0.25f</span>, <span class="val">0.25f</span>));
+        sphere_-><span class="fn">AddRigidBody</span>(<span class="val">1.0f</span>);          <span class="cm">// 1 kg dynamic body</span>
+        sphere_-><span class="fn">AddSphereCollider</span>(<span class="val">0.5f</span>);      <span class="cm">// radius 0.5 m</span>
+        sphere_-><span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="nm">Actor</span>);
+        sphere_-><span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::<span class="nm">StaticGeometry</span>
+        }));
+
+        <span class="cm">// ── DYNAMIC BOX ───────────────────────────────────────────────</span>
+        box_ = <span class="fn">CreateEntity</span>(<span class="st">"Box"</span>);
+        box_-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">8.0f</span>, <span class="val">0.0f</span>));
+        box_-><span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        box_-><span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.25f</span>, <span class="val">0.50f</span>, <span class="val">0.85f</span>));
+        box_-><span class="fn">AddRigidBody</span>(<span class="val">2.0f</span>);               <span class="cm">// 2 kg dynamic body</span>
+        <span class="cm">// Full size of the box: 1 m × 1 m × 1 m (matches the default Model/Box.mdl scale).</span>
+        box_-><span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">1.0f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>));
+        box_-><span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="nm">Actor</span>);
+        box_-><span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::<span class="nm">StaticGeometry</span>
+        }));
+
+        <span class="cm">// ── DYNAMIC CAPSULE (character stand-in) ──────────────────────</span>
+        capsule_ = <span class="fn">CreateEntity</span>(<span class="st">"Capsule"</span>);
+        capsule_-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">3.0f</span>, <span class="val">7.0f</span>, <span class="val">0.0f</span>));
+        capsule_-><span class="fn">AddModel</span>(<span class="st">"Models/Cylinder.mdl"</span>);
+        capsule_-><span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.85f</span>, <span class="val">0.70f</span>, <span class="val">0.20f</span>));
+        capsule_-><span class="fn">SetScale</span>(<span class="ty">Vector3</span>(<span class="val">0.7f</span>, <span class="val">1.8f</span>, <span class="val">0.7f</span>));
+        capsule_-><span class="fn">AddRigidBody</span>(<span class="val">75.0f</span>);             <span class="cm">// 75 kg — typical character mass</span>
+        <span class="cm">// Capsule collider: radius 0.35 m, total height 1.8 m.</span>
+        <span class="cm">// Great for characters: smooth on slopes, no edge-catching on steps.</span>
+        capsule_-><span class="fn">AddCapsuleCollider</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+        capsule_-><span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="nm">Actor</span>);
+        capsule_-><span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::<span class="nm">StaticGeometry</span>
+        }));
+
+        <span class="cm">// ── HUD label ─────────────────────────────────────────────────</span>
+        label_ = <span class="fn">CreateLabel</span>(<span class="st">"Press SPACE to fire a sphere  |  ESC = quit"</span>);
+        label_-><span class="fn">SetPosition</span>(<span class="val">12</span>, <span class="val">12</span>);
+        label_-><span class="fn">SetFontSize</span>(<span class="val">16</span>);
+        label_-><span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.85f</span>, <span class="val">0.85f</span>, <span class="val">0.85f</span>));
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="kw">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="nm">Escape</span>))
+            <span class="fn">Quit</span>();
+
+        <span class="cm">// ── Fired-sphere keyboard action ──────────────────────────────</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="nm">Space</span>)) {
+            <span class="cm">// Create a new sphere slightly in front of the camera.</span>
+            shotsFired_++;
+            <span class="kw">auto</span> name = <span class="st">"Shot"</span> + std::<span class="fn">to_string</span>(shotsFired_);
+            <span class="ty">Entity</span>* shot = <span class="fn">CreateEntity</span>(name);
+            shot-><span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(-<span class="val">8.0f</span>, <span class="val">3.0f</span>, <span class="val">0.0f</span>));
+            shot-><span class="fn">AddModel</span>(<span class="st">"Models/Sphere.mdl"</span>);
+            shot-><span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.5f</span>, <span class="val">0.0f</span>));
+            shot-><span class="fn">SetScale</span>(<span class="val">0.4f</span>);
+            shot-><span class="fn">AddRigidBody</span>(<span class="val">0.5f</span>);
+            shot-><span class="fn">AddSphereCollider</span>(<span class="val">0.2f</span>);          <span class="cm">// radius matches the 0.4× scale</span>
+            shot-><span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="nm">Actor</span>);
+            shot-><span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+                <span class="ty">CollisionLayer</span>::<span class="nm">StaticGeometry</span>,
+                <span class="ty">CollisionLayer</span>::<span class="nm">Actor</span>
+            }));
+
+            <span class="cm">// ApplyImpulse: an instant velocity change (kg·m/s impulse).</span>
+            <span class="cm">// Positive X moves right; we fire toward the pile of objects.</span>
+            shot-><span class="fn">ApplyImpulse</span>(<span class="ty">Vector3</span>(<span class="val">8.0f</span>, <span class="val">2.0f</span>, <span class="val">0.0f</span>));
+        }
+
+        <span class="cm">// ── Drive the capsule left/right with arrow keys ───────────────</span>
+        <span class="cm">// SetLinearVelocity overrides the body's current velocity directly.</span>
+        <span class="kw">float</span> mx = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Left</span>))  mx = -<span class="val">4.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Right</span>)) mx =  <span class="val">4.0f</span>;
+
+        <span class="cm">// Preserve the current Y velocity (gravity) while overriding only X.</span>
+        <span class="ty">Vector3</span> vel = capsule_-><span class="fn">GetLinearVelocity</span>();
+        capsule_-><span class="fn">SetLinearVelocity</span>(<span class="ty">Vector3</span>(mx, vel.<span class="nm">y_</span>, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── IsOnGround demo: tint the capsule when it lands ───────────</span>
+        <span class="kw">if</span> (capsule_-><span class="fn">IsOnGround</span>()) {
+            capsule_-><span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.9f</span>, <span class="val">0.4f</span>));  <span class="cm">// green when grounded</span>
+        } <span class="kw">else</span> {
+            capsule_-><span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.85f</span>, <span class="val">0.70f</span>, <span class="val">0.20f</span>));  <span class="cm">// gold in the air</span>
+        }
+
+        <span class="cm">// Update HUD with live velocity info.</span>
+        <span class="ty">Vector3</span> sv = sphere_-><span class="fn">GetLinearVelocity</span>();
+        std::string info = <span class="st">"Sphere velocity: ("</span> +
+            std::<span class="fn">to_string</span>((<span class="kw">int</span>)sv.<span class="nm">x_</span>) + <span class="st">", "</span> +
+            std::<span class="fn">to_string</span>((<span class="kw">int</span>)sv.<span class="nm">y_</span>) + <span class="st">", "</span> +
+            std::<span class="fn">to_string</span>((<span class="kw">int</span>)sv.<span class="nm">z_</span>) + <span class="st">")"</span>;
+        label_-><span class="fn">SetText</span>(info + <span class="st">"  |  Shots: "</span> + std::<span class="fn">to_string</span>(shotsFired_)
+                       + <span class="st">"  |  Arrows=move capsule  Space=fire  ESC=quit"</span>);
+    }
+};
+
+<span class="kw">int</span> <span class="fn">main</span>() {
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">PhysicsDemo</span>&gt;()-><span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP BY STEP EXPLANATIONS ────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<h3>AddRigidBody(mass)</h3>
+<p>
+  This is the first call you make on any entity that needs to participate in physics.
+  Internally it creates an Urho3D <code>RigidBody</code> component and registers it with
+  Bullet. The single parameter is mass in kilograms.
+</p>
+<ul>
+  <li><strong><code>0.0f</code></strong> &mdash; static. The body has infinite effective mass. Other bodies
+  collide with it and bounce off, but the body itself is never moved by forces or gravity.
+  Use this for all level geometry: ground, walls, platforms.</li>
+  <li><strong>Any positive float</strong> &mdash; dynamic. Gravity is applied each frame. The body
+  accumulates velocity and responds to impulses and forces. The higher the value, the more
+  force is needed to accelerate the body.</li>
+</ul>
+<p>
+  One important built-in: <code>AddRigidBody</code> automatically sets the body's
+  <strong>angular factor to zero</strong>, which prevents characters from tumbling over when
+  they receive off-center impacts. This saves you from having to lock rotation axes manually.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">AddRigidBody</span>(<span class="kw">float</span> mass);</div>
+
+<h3>AddBoxCollider(Vector3 size)</h3>
+<p>
+  Attaches a rectangular box collision shape to the entity. The <code>Vector3</code> argument
+  is the <strong>full size</strong> in metres (width, height, depth), <em>not</em> half-extents.
+  A <code>Vector3(2, 1, 2)</code> produces a 2&nbsp;m wide, 1&nbsp;m tall, 2&nbsp;m deep box.
+</p>
+<p>
+  The shape is centered on the entity's local origin. If you want it offset (for example,
+  a collision box that sits on the ground rather than straddling it), you can place the entity
+  accordingly or use a child entity with a rigid body of its own. Multiple calls to
+  <code>AddBoxCollider</code> on the same entity are allowed; Bullet treats them as a compound shape.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span> fullSize);</div>
+
+<h3>AddSphereCollider(radius)</h3>
+<p>
+  Attaches a sphere collision shape with the given radius in metres. Spheres are the
+  cheapest shape for Bullet to test &mdash; contact between two spheres reduces to a single
+  distance check. Use them for balls, cannonballs, projectiles, and any object that is
+  roughly round. Like the other shapes, the sphere is centered on the entity's local origin.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">AddSphereCollider</span>(<span class="kw">float</span> radius);</div>
+
+<h3>AddCapsuleCollider(radius, height)</h3>
+<p>
+  Attaches a capsule shape: a cylinder with hemispherical end caps. <code>radius</code> is
+  the radius of the cylinder and caps; <code>height</code> is the <strong>total height</strong>
+  including both caps. A <code>(0.35f, 1.8f)</code> capsule is 0.35&nbsp;m wide and 1.8&nbsp;m tall.
+</p>
+<p>
+  Capsules are the recommended shape for humanoid characters. Because they have no sharp
+  edges or corners, they slide up steps naturally and do not snag on small geometry
+  imperfections the way a box would. The <code>CharacterController</code> (Part 07) also
+  uses a capsule internally.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">AddCapsuleCollider</span>(<span class="kw">float</span> radius, <span class="kw">float</span> height);</div>
+
+<h3>SetCollisionLayer and the CollisionLayer enum</h3>
+<p>
+  <code>SetCollisionLayer</code> declares <em>which layer this entity lives on</em>. Other
+  entities use this value when deciding whether to generate a collision contact with it.
+  The <code>CollisionLayer</code> enum provides three named constants that are sufficient for
+  most games: <code>Actor</code> (1), <code>StaticGeometry</code> (2), and <code>Trigger</code> (4).
+  The values are powers of two so they can be combined into bitmasks.
+</p>
+<p>
+  If you need a custom layer (for example, a "projectile" layer that does not interact with
+  other actors), you can pass a raw <code>unsigned</code> value to the overload that accepts one.
+  Keep in mind that the three named layers are <strong>conventions</strong>: the engine does not
+  enforce any special meaning on them beyond what you configure via masks.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span> layer);&nbsp;&nbsp;<span class="cm">// preferred</span>
+<span class="ty">entity</span>-&gt;<span class="fn">SetCollisionLayer</span>(<span class="kw">unsigned</span> rawBit);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm">// raw overload for custom layers</span></div>
+
+<h3>MakeCollisionMask</h3>
+<p>
+  <code>SetCollisionMask</code> accepts a single <code>unsigned</code> bitmask that describes
+  <em>which layers this entity will respond to</em>. <code>MakeCollisionMask</code> is a
+  convenience helper that ORs together an initializer list of <code>CollisionLayer</code> values
+  so you never have to write raw bit arithmetic:
+</p>
+<pre><span class="cm">// These two lines are equivalent:</span>
+<span class="ty">player</span>-><span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+    <span class="ty">CollisionLayer</span>::<span class="nm">StaticGeometry</span>,
+    <span class="ty">CollisionLayer</span>::<span class="nm">Trigger</span>
+}));
+<span class="ty">player</span>-><span class="fn">SetCollisionMask</span>(<span class="val">2</span> | <span class="val">4</span>);   <span class="cm">// less readable raw version</span></pre>
+<p>
+  If you omit <code>SetCollisionMask</code> entirely, the default is <code>CollisionLayer::All</code>
+  (0xFFFF), meaning the entity interacts with every layer. This is fine for quick prototyping
+  but can cause unexpected contacts in larger projects where you want actors to ignore one another.
+</p>
+
+<div class="sig"><span class="kw">unsigned</span> <span class="fn">MakeCollisionMask</span>(std::initializer_list&lt;<span class="ty">CollisionLayer</span>&gt; layers);</div>
+
+<h3>ApplyImpulse(Vector3)</h3>
+<p>
+  Applies an instantaneous velocity change to the rigid body. The unit is <em>Newton-seconds</em>
+  (kg&middot;m/s); for a 1&nbsp;kg body, <code>ApplyImpulse(Vector3(0, 10, 0))</code> imparts
+  10&nbsp;m/s upward. For a 2&nbsp;kg body the same call only produces 5&nbsp;m/s, because impulse
+  is divided by mass. Use this for jump launches, explosions, projectile kicks, and any
+  discrete collision response you want to drive manually.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">ApplyImpulse</span>(<span class="ty">Vector3</span> impulse);</div>
+
+<h3>SetLinearVelocity(Vector3) and GetLinearVelocity()</h3>
+<p>
+  Unlike <code>ApplyImpulse</code>, which <em>adds</em> to the existing velocity,
+  <code>SetLinearVelocity</code> <em>replaces</em> it completely. This makes it ideal for
+  direct character movement where you want absolute control over speed. A common pattern is
+  to read the current velocity first with <code>GetLinearVelocity()</code>, modify only the
+  axes you care about (typically X and Z for horizontal movement), and write the result back
+  while leaving the Y component (gravity-driven vertical) untouched &mdash; exactly as the example
+  above does for the capsule.
+</p>
+
+<div class="sig"><span class="ty">entity</span>-&gt;<span class="fn">SetLinearVelocity</span>(<span class="ty">Vector3</span> velocity);
+<span class="ty">Vector3</span> v = <span class="ty">entity</span>-&gt;<span class="fn">GetLinearVelocity</span>();</div>
+
+<h3>IsOnGround()</h3>
+<p>
+  Casts a short ray downward from the entity's position and returns <code>true</code> if it
+  hits any body on <code>CollisionLayer::StaticGeometry</code> (layer 2) within 0.7&nbsp;m.
+  Use it to gate jumps so the player cannot double-jump, or to trigger landing animations.
+  When a <code>CharacterController</code> is attached (see Part 07), the call is delegated to
+  the controller's own slope-filtered grounding test instead of a raw ray.
+</p>
+
+<div class="sig"><span class="kw">bool</span> grounded = <span class="ty">entity</span>-&gt;<span class="fn">IsOnGround</span>();</div>
+
+<!-- ─── QUICK REFERENCE TABLE ─────────────────────────────────────── -->
+<h2>Physics API quick reference</h2>
+<table>
+  <tr>
+    <th>Method</th>
+    <th>Notes</th>
+  </tr>
+  <tr>
+    <td><code>AddRigidBody(0.0f)</code></td>
+    <td>Static body. Immovable. Generates contacts for dynamic bodies.</td>
+  </tr>
+  <tr>
+    <td><code>AddRigidBody(mass)</code></td>
+    <td>Dynamic body. Gravity and forces applied. Mass in kg.</td>
+  </tr>
+  <tr>
+    <td><code>AddBoxCollider(Vector3)</code></td>
+    <td>Full width×height×depth in metres. Not half-extents.</td>
+  </tr>
+  <tr>
+    <td><code>AddSphereCollider(radius)</code></td>
+    <td>Cheapest shape. Great for balls and projectiles.</td>
+  </tr>
+  <tr>
+    <td><code>AddCapsuleCollider(radius, height)</code></td>
+    <td>Total height includes end caps. Best for characters.</td>
+  </tr>
+  <tr>
+    <td><code>SetCollisionLayer(CollisionLayer)</code></td>
+    <td>Which layer this entity is on.</td>
+  </tr>
+  <tr>
+    <td><code>SetCollisionMask(unsigned)</code></td>
+    <td>Which layers this entity detects. Default: <code>All</code>.</td>
+  </tr>
+  <tr>
+    <td><code>MakeCollisionMask({...})</code></td>
+    <td>ORs a list of <code>CollisionLayer</code> values into a mask.</td>
+  </tr>
+  <tr>
+    <td><code>ApplyImpulse(Vector3)</code></td>
+    <td>Adds an instant velocity change (kg·m/s). Good for jumps and explosions.</td>
+  </tr>
+  <tr>
+    <td><code>ApplyForce(Vector3)</code></td>
+    <td>Continuous force (Newtons per second). Accumulates over time.</td>
+  </tr>
+  <tr>
+    <td><code>SetLinearVelocity(Vector3)</code></td>
+    <td>Replaces the body's velocity. Good for direct character movement.</td>
+  </tr>
+  <tr>
+    <td><code>GetLinearVelocity()</code></td>
+    <td>Returns current velocity as <code>Vector3</code>.</td>
+  </tr>
+  <tr>
+    <td><code>IsOnGround()</code></td>
+    <td>Downward ray 0.7 m against StaticGeometry layer. Returns <code>bool</code>.</td>
+  </tr>
+</table>
+
+<!-- ─── LUA EQUIVALENT ───────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+<p>
+  The entire physics API is available from Lua scripts (attached via <code>entity:AddScript("...")</code>
+  or run standalone). Method names are identical; <code>CollisionLayer</code> constants are
+  exposed as a global table.
+</p>
+
+<pre><span class="lua-cm">-- PhysicsDemo.lua
+-- Attach to an entity with:  entity:AddScript("Scripts/PhysicsDemo.lua")</span>
+
+<span class="lua-kw">local</span> ground, sphere_, box_, capsule_, label_
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-cm">-- ── Ground ────────────────────────────────────────────────────</span>
+    ground = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Ground"</span>)
+    ground:<span class="lua-fn">SetPosition</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>))
+    ground:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+    ground:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.25</span>, <span class="lua-num">0.55</span>, <span class="lua-num">0.25</span>))
+    ground:<span class="lua-fn">SetScale</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">20</span>, <span class="lua-num">0.5</span>, <span class="lua-num">20</span>))
+    ground:<span class="lua-fn">AddRigidBody</span>(<span class="lua-num">0.0</span>)   <span class="lua-cm">-- static</span>
+    ground:<span class="lua-fn">AddBoxCollider</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">20</span>, <span class="lua-num">0.5</span>, <span class="lua-num">20</span>))
+    ground:<span class="lua-fn">SetCollisionLayer</span>(CollisionLayer.StaticGeometry)
+
+    <span class="lua-cm">-- ── Sphere ────────────────────────────────────────────────────</span>
+    sphere_ = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Sphere"</span>)
+    sphere_:<span class="lua-fn">SetPosition</span>(<span class="lua-fn">Vector3</span>(-<span class="lua-num">3</span>, <span class="lua-num">6</span>, <span class="lua-num">0</span>))
+    sphere_:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Sphere.mdl"</span>)
+    sphere_:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.85</span>, <span class="lua-num">0.25</span>, <span class="lua-num">0.25</span>))
+    sphere_:<span class="lua-fn">AddRigidBody</span>(<span class="lua-num">1.0</span>)
+    sphere_:<span class="lua-fn">AddSphereCollider</span>(<span class="lua-num">0.5</span>)
+    sphere_:<span class="lua-fn">SetCollisionLayer</span>(CollisionLayer.Actor)
+    sphere_:<span class="lua-fn">SetCollisionMask</span>(<span class="lua-fn">MakeCollisionMask</span>({CollisionLayer.StaticGeometry}))
+
+    <span class="lua-cm">-- ── Box ───────────────────────────────────────────────────────</span>
+    box_ = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Box"</span>)
+    box_:<span class="lua-fn">SetPosition</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">8</span>, <span class="lua-num">0</span>))
+    box_:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+    box_:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.25</span>, <span class="lua-num">0.50</span>, <span class="lua-num">0.85</span>))
+    box_:<span class="lua-fn">AddRigidBody</span>(<span class="lua-num">2.0</span>)
+    box_:<span class="lua-fn">AddBoxCollider</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">1</span>, <span class="lua-num">1</span>, <span class="lua-num">1</span>))
+    box_:<span class="lua-fn">SetCollisionLayer</span>(CollisionLayer.Actor)
+    box_:<span class="lua-fn">SetCollisionMask</span>(<span class="lua-fn">MakeCollisionMask</span>({CollisionLayer.StaticGeometry}))
+
+    <span class="lua-cm">-- ── Capsule ───────────────────────────────────────────────────</span>
+    capsule_ = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Capsule"</span>)
+    capsule_:<span class="lua-fn">SetPosition</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">3</span>, <span class="lua-num">7</span>, <span class="lua-num">0</span>))
+    capsule_:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Cylinder.mdl"</span>)
+    capsule_:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.85</span>, <span class="lua-num">0.70</span>, <span class="lua-num">0.20</span>))
+    capsule_:<span class="lua-fn">SetScale</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0.7</span>, <span class="lua-num">1.8</span>, <span class="lua-num">0.7</span>))
+    capsule_:<span class="lua-fn">AddRigidBody</span>(<span class="lua-num">75.0</span>)
+    capsule_:<span class="lua-fn">AddCapsuleCollider</span>(<span class="lua-num">0.35</span>, <span class="lua-num">1.8</span>)   <span class="lua-cm">-- radius, total height</span>
+    capsule_:<span class="lua-fn">SetCollisionLayer</span>(CollisionLayer.Actor)
+    capsule_:<span class="lua-fn">SetCollisionMask</span>(<span class="lua-fn">MakeCollisionMask</span>({CollisionLayer.StaticGeometry}))
+
+    <span class="lua-cm">-- ── HUD ───────────────────────────────────────────────────────</span>
+    label_ = <span class="lua-fn">CreateLabel</span>(<span class="lua-str">"Space = fire  |  ESC = quit"</span>)
+    label_:<span class="lua-fn">SetPosition</span>(<span class="lua-num">12</span>, <span class="lua-num">12</span>)
+    label_:<span class="lua-fn">SetFontSize</span>(<span class="lua-num">16</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">local</span> shots = <span class="lua-num">0</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyPressed</span>(Key.Escape) <span class="lua-kw">then</span> <span class="lua-fn">Quit</span>() <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Fire a shot</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyPressed</span>(Key.Space) <span class="lua-kw">then</span>
+        shots = shots + <span class="lua-num">1</span>
+        <span class="lua-kw">local</span> shot = <span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Shot"</span> .. shots)
+        shot:<span class="lua-fn">SetPosition</span>(<span class="lua-fn">Vector3</span>(-<span class="lua-num">8</span>, <span class="lua-num">3</span>, <span class="lua-num">0</span>))
+        shot:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Sphere.mdl"</span>)
+        shot:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">1</span>, <span class="lua-num">0.5</span>, <span class="lua-num">0</span>))
+        shot:<span class="lua-fn">SetScale</span>(<span class="lua-num">0.4</span>)
+        shot:<span class="lua-fn">AddRigidBody</span>(<span class="lua-num">0.5</span>)
+        shot:<span class="lua-fn">AddSphereCollider</span>(<span class="lua-num">0.2</span>)
+        shot:<span class="lua-fn">SetCollisionLayer</span>(CollisionLayer.Actor)
+        shot:<span class="lua-fn">SetCollisionMask</span>(<span class="lua-fn">MakeCollisionMask</span>({
+            CollisionLayer.StaticGeometry,
+            CollisionLayer.Actor
+        }))
+        shot:<span class="lua-fn">ApplyImpulse</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">8</span>, <span class="lua-num">2</span>, <span class="lua-num">0</span>))
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Move capsule</span>
+    <span class="lua-kw">local</span> mx = <span class="lua-num">0</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyDown</span>(Key.Left)  <span class="lua-kw">then</span> mx = -<span class="lua-num">4</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyDown</span>(Key.Right) <span class="lua-kw">then</span> mx =  <span class="lua-num">4</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">local</span> vel = capsule_:<span class="lua-fn">GetLinearVelocity</span>()
+    capsule_:<span class="lua-fn">SetLinearVelocity</span>(<span class="lua-fn">Vector3</span>(mx, vel.y, <span class="lua-num">0</span>))
+
+    <span class="lua-cm">-- Ground check tint</span>
+    <span class="lua-kw">if</span> capsule_:<span class="lua-fn">IsOnGround</span>() <span class="lua-kw">then</span>
+        capsule_:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.2</span>, <span class="lua-num">0.9</span>, <span class="lua-num">0.4</span>))
+    <span class="lua-kw">else</span>
+        capsule_:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.85</span>, <span class="lua-num">0.70</span>, <span class="lua-num">0.20</span>))
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<div class="callout lua">
+  <h4>Lua note</h4>
+  <p>
+    <code>CollisionLayer.Actor</code>, <code>CollisionLayer.StaticGeometry</code>, and
+    <code>CollisionLayer.Trigger</code> are exposed as fields of the global
+    <code>CollisionLayer</code> table. <code>MakeCollisionMask</code> accepts a Lua table (array)
+    of <code>CollisionLayer</code> values and returns the combined <code>unsigned</code> bitmask.
+    The raw integer overloads of <code>SetCollisionLayer</code> and <code>SetCollisionMask</code>
+    also work if you prefer to pass the values <code>1</code>, <code>2</code>, and <code>4</code>
+    directly.
+  </p>
+</div>
+
+<!-- ─── PUTTING IT TOGETHER: LAYER DIAGRAM ───────────────────────── -->
+<h2>Visualizing layer interactions</h2>
+<p>
+  The table below shows which pairs of layers can generate physics contacts in a typical
+  setup (assuming you configure masks as shown in the examples above).
+</p>
+<table>
+  <tr>
+    <th></th>
+    <th>StaticGeometry (2)</th>
+    <th>Actor (1)</th>
+    <th>Trigger (4)</th>
+  </tr>
+  <tr>
+    <td><strong>StaticGeometry (2)</strong></td>
+    <td class="compare-no">No</td>
+    <td class="compare-yes">Yes</td>
+    <td class="compare-no">No</td>
+  </tr>
+  <tr>
+    <td><strong>Actor (1)</strong></td>
+    <td class="compare-yes">Yes</td>
+    <td class="compare-no">No*</td>
+    <td class="compare-yes">Yes (callback only)</td>
+  </tr>
+  <tr>
+    <td><strong>Trigger (4)</strong></td>
+    <td class="compare-no">No</td>
+    <td class="compare-yes">Yes (callback only)</td>
+    <td class="compare-no">No</td>
+  </tr>
+</table>
+<p>
+  *Actor-to-Actor contacts are disabled in the example above because each actor's mask only
+  includes <code>StaticGeometry</code>. If you want actors to push each other, add
+  <code>CollisionLayer::Actor</code> to their masks. The fired spheres in the example
+  do include the <code>Actor</code> layer in their mask so they knock the standing shapes over.
+</p>
+
+<!-- ─── MESH COLLIDER NOTE ───────────────────────────────────────── -->
+<h2>Triangle mesh colliders (static only)</h2>
+<p>
+  For complex level geometry you can use a triangle mesh collider instead of a box:
+</p>
+<pre><span class="ty">level</span>-><span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);   <span class="cm">// MUST be static — mesh colliders are not dynamic-safe</span>
+<span class="ty">level</span>-><span class="fn">AddMeshCollider</span>(<span class="st">"Models/Level.mdl"</span>);</pre>
+<p>
+  Triangle mesh colliders are <strong>only valid on static bodies</strong>. Bullet does not
+  support dynamic rigid bodies with concave triangle meshes because the contact-point algorithm
+  would be undefined. If you need a concave dynamic object, decompose it into convex hulls.
+  For level terrain, walls, and floors, <code>AddMeshCollider</code> is the most accurate option.
+</p>
+
+<!-- ─── COMMON MISTAKES ──────────────────────────────────────────── -->
+<h2>Common mistakes</h2>
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Adding a collider without a rigid body (or vice versa).</strong>
+      A collision shape alone does nothing &mdash; Bullet needs a rigid body to own it.
+      Conversely a rigid body with no shape passes through everything.
+      Always call <code>AddRigidBody</code> before or alongside a shape call.
+    </li>
+    <li>
+      <strong>Treating the <code>AddBoxCollider</code> argument as half-extents.</strong>
+      simple-3d's <code>AddBoxCollider</code> takes the <strong>full</strong> size
+      (width, height, depth). If your box is twice as large as expected or objects are
+      floating in mid-air, this is almost certainly the cause. The raw Bullet API uses
+      half-extents; simple-3d doubles them for you.
+    </li>
+    <li>
+      <strong>Setting position after AddRigidBody.</strong>
+      Once a rigid body exists, Bullet tracks the entity's transform internally. Call
+      <code>SetPosition</code> <em>before</em> <code>AddRigidBody</code>, or use
+      <code>SetLinearVelocity</code> to move a dynamic body after simulation starts.
+      Calling <code>SetPosition</code> on a live dynamic body can cause
+      tunnelling and velocity discontinuities.
+    </li>
+    <li>
+      <strong>Using <code>AddMeshCollider</code> on a dynamic body.</strong>
+      Triangle mesh colliders require mass 0 (static). Attaching one to a dynamic body
+      will either crash Bullet or produce completely incorrect contacts at runtime.
+    </li>
+    <li>
+      <strong>Forgetting to call <code>SetCollisionLayer</code>.</strong>
+      If you call <code>IsOnGround()</code> and always get <code>false</code>, check that the
+      ground entity's layer is <code>CollisionLayer::StaticGeometry</code>.
+      The ray cast inside <code>IsOnGround</code> only tests against layer 2.
+    </li>
+    <li>
+      <strong>Mixing 3D and 2D physics on the same entity.</strong>
+      Calling both <code>AddRigidBody</code> and <code>AddRigidBody2D</code> on the same entity
+      leads to undefined behaviour. Pick one physics world per entity and stick to it.
+    </li>
+    <li>
+      <strong>Expecting <code>ApplyImpulse</code> and <code>SetLinearVelocity</code> to behave
+      identically.</strong>
+      <code>ApplyImpulse</code> <em>adds</em> to the existing velocity; if the body is
+      already moving you will compound the speed. <code>SetLinearVelocity</code> <em>replaces</em>
+      the velocity; it ignores whatever speed the body had before. Use impulses for
+      discrete events (jumps, hits) and direct velocity for continuous driven movement.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ─────────────────────────────────────────── -->
+<h2>What you learned</h2>
+<p>
+  By the end of this part you know how to build a fully working 3D physics scene from scratch:
+</p>
+<ul>
+  <li>Every physics-enabled entity needs both a <strong>rigid body</strong> (<code>AddRigidBody</code>)
+  and at least one <strong>collision shape</strong>.</li>
+  <li><code>AddRigidBody(0.0f)</code> creates a static body; any positive mass creates a dynamic one.</li>
+  <li><code>AddBoxCollider(Vector3)</code> takes the <strong>full size</strong> (not half-extents).</li>
+  <li><code>AddSphereCollider(radius)</code> is the cheapest and easiest shape for round objects.</li>
+  <li><code>AddCapsuleCollider(radius, height)</code> is the best shape for humanoid characters.</li>
+  <li>The <code>CollisionLayer</code> enum provides <code>Actor</code>, <code>StaticGeometry</code>,
+  and <code>Trigger</code> as named layer constants with raw values 1, 2, and 4.</li>
+  <li><code>SetCollisionLayer</code> declares which layer an entity is on;
+  <code>SetCollisionMask</code> / <code>MakeCollisionMask</code> controls which layers it
+  detects collisions against.</li>
+  <li><code>ApplyImpulse</code> adds a one-frame velocity change; <code>SetLinearVelocity</code>
+  replaces the body's velocity entirely.</li>
+  <li><code>IsOnGround()</code> does a downward ray cast against <code>StaticGeometry</code>
+  to test whether the entity is standing on solid ground.</li>
+</ul>
+<p>
+  The next part builds on this foundation by attaching a smooth follow camera to a physics-driven
+  entity to create a third-person view.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-03.html">&#8592; Part 03: Keyboard Input</a>
+  <a href="tutorial-05.html">Part 05: Third-Person Camera &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

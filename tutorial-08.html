@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 08: Skeletal Animation — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+    <li><a href="tutorial-01.html">01. Hello World</a></li>
+    <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+    <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+    <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+    <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+    <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+    <li><a href="tutorial-07.html">07. Character Controller</a></li>
+    <li class="active"><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+    <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+    <li><a href="tutorial-10.html">10. Audio</a></li>
+    <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+    <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+    <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+    <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+    <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+    <li><a href="tutorial-16.html">16. Input Actions</a></li>
+    <li><a href="tutorial-17.html">17. UI System</a></li>
+    <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+    <li><a href="tutorial-19.html">19. Save and Load</a></li>
+    <li><a href="tutorial-20.html">20. Scene Management</a></li>
+    <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+    <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+    <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+    <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+    <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+    <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+    <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+    <li><a href="tutorial-28.html">28. Tweens</a></li>
+    <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+    <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 08</div>
+
+<h1><span class="tutorial-part">Part 08 of 30</span>Skeletal Animation</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>entity-&gt;AddAnimationController()</code> &mdash;
+    <code>entity-&gt;GetAnimationController()</code> &mdash;
+    <code>anim-&gt;Play(clipName, layer, loop, fadeTime)</code> &mdash;
+    <code>anim-&gt;Stop(clipName, fadeTime)</code> &mdash;
+    <code>anim-&gt;StopAll()</code> &mdash;
+    <code>anim-&gt;IsPlaying(clipName)</code> &mdash;
+    <code>anim-&gt;SetWeight(clipName, 0&ndash;1)</code> &mdash;
+    <code>anim-&gt;SetSpeed(clipName, multiplier)</code> &mdash;
+    <code>anim-&gt;GetTime(clipName)</code> &mdash;
+    blend layers (0 = base, 1 = upper-body) &mdash;
+    idle / run / jump clip pattern
+  </p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>What you will learn</h2>
+
+<ul>
+  <li>What skeletal animation is and how simple-3d models expose animation clips</li>
+  <li>How to attach an <code>AnimationController</code> to any entity and retrieve it later</li>
+  <li>Playing animation clips with automatic cross-fade blending using <code>Play()</code></li>
+  <li>Stopping individual clips with a smooth fade-out using <code>Stop()</code></li>
+  <li>Using multiple <strong>blend layers</strong> to play a locomotion cycle and an upper-body action simultaneously</li>
+  <li>Controlling how much influence a clip has with <code>SetWeight()</code></li>
+  <li>Slowing or speeding a clip at runtime with <code>SetSpeed()</code></li>
+  <li>Querying animation state with <code>IsPlaying()</code> and <code>GetTime()</code></li>
+  <li>Implementing the classic <strong>idle / run / jump</strong> pattern that drives most action games</li>
+</ul>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>Background: Skeletal animation in simple-3d</h2>
+
+<p>
+  A <em>skeletal mesh</em> is a 3D model that contains a hierarchy of bones.
+  Each animation <em>clip</em> records how those bones move over time.
+  simple-3d stores clips as <code>.ani</code> files that live alongside the model
+  in your <code>Data/</code> folder.  When you load a skinned model with
+  <code>AddModel("Models/Hero.fbx")</code> the engine imports both the mesh and
+  any embedded clips; you then drive them at runtime through an
+  <code>AnimationController</code> component.
+</p>
+
+<p>
+  The controller supports <em>blend layers</em>: numbered slots that each play
+  one clip at a time and whose outputs are combined before the final pose is
+  computed.  Layer&nbsp;0 is the <strong>base layer</strong> and typically
+  carries locomotion animations (idle, run, jump).  Layer&nbsp;1 sits on top
+  and is ideal for upper-body actions (wave, aim, attack) that must play at
+  the same time as the character runs.  Clips on the same layer cross-fade
+  automatically when you call <code>Play()</code>; clips on different layers
+  blend additively.
+</p>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>Complete working example</h2>
+
+<p>
+  The following program creates a third-person character that uses the
+  <code>CharacterController</code> from Part&nbsp;07 for movement and an
+  <code>AnimationController</code> to drive a four-clip animation setup:
+  idle, run, jump (all on layer&nbsp;0) and a wave gesture (layer&nbsp;1).
+  Sprint speed is reflected in the run cycle with <code>SetSpeed()</code>,
+  and the wave can be blended at a custom strength with <code>SetWeight()</code>.
+</p>
+
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">AnimDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+
+    <span class="ty">Entity</span>*              player_      = <span class="kw">nullptr</span>;
+    <span class="ty">AnimationController</span>* anim_        = <span class="kw">nullptr</span>;
+    <span class="ty">CharacterController</span>* cc_          = <span class="kw">nullptr</span>;
+    <span class="ty">Camera</span>*              cam_         = <span class="kw">nullptr</span>;
+
+    <span class="cm">// Name of the clip currently active on layer 0</span>
+    <span class="ty">std::string</span>          currentClip_ = <span class="st">""</span>;
+
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Skeletal Animation Demo"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.13f</span>, <span class="val">0.18f</span>, <span class="val">0.28f</span>));
+        <span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.22f</span>, <span class="val">0.25f</span>, <span class="val">0.32f</span>));
+
+        <span class="cm">// ── Ground ──────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground-&gt;<span class="fn">SetScale</span>(<span class="val">30.0f</span>);
+        ground-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.26f</span>, <span class="val">0.34f</span>, <span class="val">0.24f</span>));
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">30.0f</span>, <span class="val">0.2f</span>, <span class="val">30.0f</span>));
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);   <span class="cm">// static</span>
+        ground-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="nm">StaticGeometry</span>);
+
+        <span class="cm">// ── Directional light ────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.95f</span>, <span class="val">0.85f</span>), <span class="val">1.2f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50.0f</span>, <span class="val">30.0f</span>, <span class="val">0.0f</span>));
+        sun-&gt;<span class="fn">SetCastShadows</span>(<span class="kw">true</span>);
+
+        <span class="cm">// ── Player ───────────────────────────────────────────────</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);
+
+        <span class="cm">// Skinned mesh — must be loaded BEFORE AddAnimationController</span>
+        player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Hero.fbx"</span>);
+
+        <span class="cm">// ── Animation setup ──────────────────────────────────────</span>
+        <span class="cm">// 1. Attach the AnimationController component to the entity.</span>
+        <span class="cm">//    This must be called before GetAnimationController().</span>
+        player_-&gt;<span class="fn">AddAnimationController</span>();
+
+        <span class="cm">// 2. Retrieve the pointer for later use.</span>
+        anim_ = player_-&gt;<span class="fn">GetAnimationController</span>();
+
+        <span class="cm">// 3. Start the idle animation on layer 0 immediately (no fade-in).</span>
+        anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Idle.ani"</span>, <span class="val">0</span>, <span class="kw">true</span>, <span class="val">0.0f</span>);
+        currentClip_ = <span class="st">"idle"</span>;
+
+        <span class="cm">// ── Physics / controller ─────────────────────────────────</span>
+        cc_ = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+        cc_-&gt;<span class="fn">SetGravity</span>(<span class="val">20.0f</span>);
+        player_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="nm">Actor</span>);
+        player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::<span class="nm">StaticGeometry</span>
+        }));
+
+        <span class="cm">// ── Camera ───────────────────────────────────────────────</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">Follow</span>(player_, <span class="val">6.0f</span>, <span class="val">2.0f</span>);
+        cam_-&gt;<span class="fn">LookAt</span>(player_);
+        cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">5.0f</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        <span class="cm">// ── Movement input ───────────────────────────────────────</span>
+        <span class="ty">float</span> mx = <span class="val">0.0f</span>, mz = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">A</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Left</span>))  mx -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">D</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Right</span>)) mx += <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">W</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Up</span>))    mz -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">S</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">Down</span>))  mz += <span class="val">1.0f</span>;
+
+        <span class="ty">bool</span>  sprinting = <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="nm">LShift</span>);
+        <span class="ty">float</span> speed     = sprinting ? <span class="val">7.0f</span> : <span class="val">4.0f</span>;
+        cc_-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(mx, <span class="val">0.0f</span>, mz) * speed, dt);
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="nm">Space</span>))
+            cc_-&gt;<span class="fn">TryJump</span>(<span class="val">10.0f</span>);
+
+        <span class="cm">// ── Layer 0 : locomotion (idle / run / jump) ─────────────</span>
+        <span class="ty">bool</span> grounded = cc_-&gt;<span class="fn">IsOnGround</span>();
+        <span class="ty">bool</span> moving   = (mx != <span class="val">0.0f</span> || mz != <span class="val">0.0f</span>);
+
+        <span class="kw">if</span> (!grounded &amp;&amp; currentClip_ != <span class="st">"jump"</span>) {
+            <span class="cm">// Became airborne — cross-fade into looping jump cycle</span>
+            anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Jump.ani"</span>, <span class="val">0</span>, <span class="kw">true</span>, <span class="val">0.15f</span>);
+            currentClip_ = <span class="st">"jump"</span>;
+
+        } <span class="kw">else if</span> (grounded &amp;&amp; moving &amp;&amp; currentClip_ != <span class="st">"run"</span>) {
+            <span class="cm">// Landed or started moving — cross-fade to run</span>
+            anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Run.ani"</span>, <span class="val">0</span>, <span class="kw">true</span>, <span class="val">0.25f</span>);
+            currentClip_ = <span class="st">"run"</span>;
+
+        } <span class="kw">else if</span> (grounded &amp;&amp; !moving &amp;&amp; currentClip_ != <span class="st">"idle"</span>) {
+            <span class="cm">// Came to a stop — cross-fade back to idle</span>
+            anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Idle.ani"</span>, <span class="val">0</span>, <span class="kw">true</span>, <span class="val">0.25f</span>);
+            currentClip_ = <span class="st">"idle"</span>;
+        }
+
+        <span class="cm">// Adjust run-cycle speed to match sprint vs walk movement speed</span>
+        <span class="kw">if</span> (currentClip_ == <span class="st">"run"</span>) {
+            anim_-&gt;<span class="fn">SetSpeed</span>(<span class="st">"Anims/Run.ani"</span>, sprinting ? <span class="val">1.5f</span> : <span class="val">1.0f</span>);
+        }
+
+        <span class="cm">// ── Layer 1 : upper-body wave overlay ────────────────────</span>
+        <span class="cm">// Press E to begin or stop the wave; it plays independently</span>
+        <span class="cm">// of whatever is running on the base layer (layer 0).</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="nm">E</span>)) {
+            <span class="kw">if</span> (anim_-&gt;<span class="fn">IsPlaying</span>(<span class="st">"Anims/Wave.ani"</span>)) {
+                <span class="cm">// Already waving — fade it out over 0.2 s</span>
+                anim_-&gt;<span class="fn">Stop</span>(<span class="st">"Anims/Wave.ani"</span>, <span class="val">0.2f</span>);
+            } <span class="kw">else</span> {
+                <span class="cm">// Start wave on layer 1, non-looped, 0.15 s fade-in</span>
+                anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Wave.ani"</span>, <span class="val">1</span>, <span class="kw">false</span>, <span class="val">0.15f</span>);
+                <span class="cm">// Apply 80 % weight — lets a hint of body motion show through</span>
+                anim_-&gt;<span class="fn">SetWeight</span>(<span class="st">"Anims/Wave.ani"</span>, <span class="val">0.8f</span>);
+            }
+        }
+
+        <span class="cm">// Optional: inspect current playback position for sound cues</span>
+        <span class="cm">// float t = anim_-&gt;GetTime("Anims/Run.ani"); // seconds into clip</span>
+    }
+
+    <span class="kw">void</span> <span class="fn">Stop</span>() <span class="kw">override</span> {
+        <span class="cm">// Gracefully stop every active animation before the scene tears down</span>
+        <span class="kw">if</span> (anim_) anim_-&gt;<span class="fn">StopAll</span>();
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>() {
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">AnimDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<p>
+  <strong>Controls:</strong>
+  <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrow keys to move,
+  <kbd>LShift</kbd> to sprint, <kbd>Space</kbd> to jump, <kbd>E</kbd> to
+  toggle the wave gesture on the upper body.
+</p>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>Step-by-step: every new API call explained</h2>
+
+<!-- ── AddAnimationController ── -->
+<h3>entity-&gt;AddAnimationController()</h3>
+
+<p>
+  <code>AddAnimationController()</code> attaches the engine's animation component
+  to an entity.  You must call it <em>after</em> loading the skinned mesh with
+  <code>AddModel()</code> so the component can discover the skeleton.  The call
+  is idempotent: calling it twice on the same entity has no effect and does not
+  reset existing animation state.
+</p>
+<pre>player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Hero.fbx"</span>);   <span class="cm">// load skinned mesh first</span>
+player_-&gt;<span class="fn">AddAnimationController</span>();       <span class="cm">// then attach the controller</span></pre>
+
+<!-- ── GetAnimationController ── -->
+<h3>entity-&gt;GetAnimationController()</h3>
+
+<p>
+  <code>GetAnimationController()</code> returns a pointer to the
+  <code>AnimationController</code> that was attached by
+  <code>AddAnimationController()</code>.  If you call it before attaching the
+  component, or on an entity that never had one, the return value is
+  <code>nullptr</code>.  Store the pointer in a member variable during
+  <code>Start()</code> so you can call animation methods every frame without
+  the overhead of a lookup.
+</p>
+<pre><span class="ty">AnimationController</span>* anim_ = player_-&gt;<span class="fn">GetAnimationController</span>();
+<span class="kw">if</span> (!anim_) {
+    <span class="cm">// AddAnimationController() was not called — nothing will work</span>
+    <span class="kw">return</span>;
+}</pre>
+
+<!-- ── Play ── -->
+<h3>anim-&gt;Play(clipName, layer, loop, fadeTime)</h3>
+
+<p>
+  <code>Play()</code> is the primary way to start an animation clip.  It works
+  as an exclusive play on the specified layer: any clip <em>already on that layer</em>
+  is faded out over <code>fadeTime</code> seconds while the new clip fades in over
+  the same duration.  This gives you smooth, automatic cross-fading between states
+  without any manual blending math.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>clipName</code></td><td><code>string</code></td><td><em>required</em></td><td>Path to the <code>.ani</code> clip file (relative to <code>Data/</code>)</td></tr>
+    <tr><td><code>layer</code></td><td><code>int</code></td><td><code>0</code></td><td>Blend layer index. 0 = base, 1 = upper-body overlay, etc.</td></tr>
+    <tr><td><code>loop</code></td><td><code>bool</code></td><td><code>true</code></td><td>Whether the clip loops continuously or plays once and freezes on the last frame</td></tr>
+    <tr><td><code>fadeTime</code></td><td><code>float</code></td><td><code>0.2f</code></td><td>Cross-fade duration in seconds. Use <code>0.0f</code> for an instant cut.</td></tr>
+  </tbody>
+</table>
+
+<pre><span class="cm">// Shortest form — defaults: layer 0, looped, 0.2 s fade</span>
+anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Idle.ani"</span>);
+
+<span class="cm">// Explicit: layer 0, looped, 0.25 s cross-fade</span>
+anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Run.ani"</span>, <span class="val">0</span>, <span class="kw">true</span>, <span class="val">0.25f</span>);
+
+<span class="cm">// Jump is looped so it hovers during a long arc; instant cut on take-off</span>
+anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Jump.ani"</span>, <span class="val">0</span>, <span class="kw">true</span>, <span class="val">0.15f</span>);
+
+<span class="cm">// Wave on layer 1 — plays non-looped alongside whatever is on layer 0</span>
+anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Wave.ani"</span>, <span class="val">1</span>, <span class="kw">false</span>, <span class="val">0.15f</span>);</pre>
+
+<div class="callout info">
+  <h4>Tip</h4>
+  <p>
+    When <code>loop</code> is <code>false</code> the clip plays exactly once
+    and then freezes on its last frame.  If you want to return the character to
+    idle after a one-shot wave, check <code>IsPlaying()</code> and call
+    <code>Stop()</code> or issue a new <code>Play()</code> on that layer.
+    Part&nbsp;09 covers the <em>Animation State Machine</em> which automates
+    this with <code>AddAutoTransition()</code>.
+  </p>
+</div>
+
+<!-- ── Stop ── -->
+<h3>anim-&gt;Stop(clipName, fadeTime)</h3>
+
+<p>
+  <code>Stop()</code> ends a specific clip with a fade-out.  During the fade
+  window the clip's influence is smoothly reduced to zero before the component
+  stops ticking it.  Pass <code>0.0f</code> for an immediate hard stop.
+</p>
+<pre>anim_-&gt;<span class="fn">Stop</span>(<span class="st">"Anims/Wave.ani"</span>, <span class="val">0.2f</span>);   <span class="cm">// fade out over 200 ms</span>
+anim_-&gt;<span class="fn">Stop</span>(<span class="st">"Anims/Run.ani"</span>,  <span class="val">0.0f</span>);   <span class="cm">// cut immediately</span></pre>
+
+<!-- ── StopAll ── -->
+<h3>anim-&gt;StopAll()</h3>
+
+<p>
+  <code>StopAll()</code> immediately halts every active clip on every layer.
+  It is best called from <code>Game::Stop()</code> or just before destroying
+  the entity, so the engine does not continue ticking dead animation state.
+</p>
+<pre><span class="kw">void</span> <span class="fn">Stop</span>() <span class="kw">override</span> {
+    <span class="kw">if</span> (anim_) anim_-&gt;<span class="fn">StopAll</span>();
+}</pre>
+
+<!-- ── IsPlaying ── -->
+<h3>anim-&gt;IsPlaying(clipName)</h3>
+
+<p>
+  Returns <code>true</code> while the named clip is active on any layer,
+  including during its fade-out window.  Use it to guard transitions, trigger
+  sound effects at the right moment, or decide whether a one-shot action has
+  finished.
+</p>
+<pre><span class="kw">if</span> (anim_-&gt;<span class="fn">IsPlaying</span>(<span class="st">"Anims/Wave.ani"</span>)) {
+    anim_-&gt;<span class="fn">Stop</span>(<span class="st">"Anims/Wave.ani"</span>, <span class="val">0.2f</span>);
+} <span class="kw">else</span> {
+    anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Wave.ani"</span>, <span class="val">1</span>, <span class="kw">false</span>, <span class="val">0.15f</span>);
+}</pre>
+
+<!-- ── SetWeight ── -->
+<h3>anim-&gt;SetWeight(clipName, 0&ndash;1)</h3>
+
+<p>
+  <code>SetWeight()</code> controls how strongly a clip contributes to the
+  final pose, expressed as a normalised float in the range [0, 1].  A weight of
+  <strong>1.0</strong> (the default) means the clip has full influence over the
+  bones it animates.  A weight of <strong>0.5</strong> blends halfway between
+  the clip's target pose and whatever the lower layer is providing.  Setting
+  weight to <strong>0.0</strong> effectively mutes the clip without stopping it.
+</p>
+
+<p>
+  The most common use case is partial upper-body overlays.  For example, an
+  aim pose on layer&nbsp;1 at weight 0.6 lets 40&nbsp;% of the run-cycle's arm
+  motion remain visible, making the blend look natural rather than robotic.
+</p>
+<pre><span class="cm">// Full-strength wave — arms follow the animation entirely</span>
+anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Wave.ani"</span>, <span class="val">1</span>, <span class="kw">false</span>, <span class="val">0.15f</span>);
+anim_-&gt;<span class="fn">SetWeight</span>(<span class="st">"Anims/Wave.ani"</span>, <span class="val">1.0f</span>);
+
+<span class="cm">// Partial aim overlay — 60 % influence lets run-cycle arms bleed through</span>
+anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Aim.ani"</span>, <span class="val">1</span>, <span class="kw">true</span>, <span class="val">0.2f</span>);
+anim_-&gt;<span class="fn">SetWeight</span>(<span class="st">"Anims/Aim.ani"</span>, <span class="val">0.6f</span>);
+
+<span class="cm">// Fade influence down dynamically each frame</span>
+<span class="ty">float</span> aimStrength = <span class="val">1.0f</span> - (distanceToTarget / maxAimDistance);
+anim_-&gt;<span class="fn">SetWeight</span>(<span class="st">"Anims/Aim.ani"</span>, aimStrength);</pre>
+
+<!-- ── SetSpeed ── -->
+<h3>anim-&gt;SetSpeed(clipName, multiplier)</h3>
+
+<p>
+  <code>SetSpeed()</code> changes the playback rate of a clip without
+  re-issuing a <code>Play()</code> call.  A multiplier of <strong>1.0</strong>
+  is normal speed, <strong>2.0</strong> plays the clip twice as fast, and
+  <strong>0.5</strong> plays it in slow motion.  Negative values are not
+  supported.
+</p>
+
+<p>
+  The most practical application is matching the visual run cycle to the
+  character's actual movement speed.  When the player sprints you increase both
+  the physics movement speed <em>and</em> the animation playback rate so the feet
+  do not slide against the ground.
+</p>
+<pre><span class="cm">// Normal-speed run cycle</span>
+anim_-&gt;<span class="fn">SetSpeed</span>(<span class="st">"Anims/Run.ani"</span>, <span class="val">1.0f</span>);
+
+<span class="cm">// Sprint: movement speed is 1.75× faster, so animation is too</span>
+anim_-&gt;<span class="fn">SetSpeed</span>(<span class="st">"Anims/Run.ani"</span>, <span class="val">1.75f</span>);
+
+<span class="cm">// Slow-motion power-up effect</span>
+anim_-&gt;<span class="fn">SetSpeed</span>(<span class="st">"Anims/Idle.ani"</span>, <span class="val">0.4f</span>);
+
+<span class="cm">// Reset to default after the power-up expires</span>
+anim_-&gt;<span class="fn">SetSpeed</span>(<span class="st">"Anims/Idle.ani"</span>, <span class="val">1.0f</span>);</pre>
+
+<!-- ── GetTime ── -->
+<h3>anim-&gt;GetTime(clipName)</h3>
+
+<p>
+  Returns the current playback position of a clip in <em>seconds</em> from the
+  start of that clip.  This is useful for synchronising sound effects with
+  specific moments in an animation — for example, playing a footstep sound when
+  the run cycle passes the foot-strike frame, or triggering a sword-clash effect
+  at the peak of an attack animation.
+</p>
+<pre><span class="ty">float</span> t = anim_-&gt;<span class="fn">GetTime</span>(<span class="st">"Anims/Run.ani"</span>);
+
+<span class="cm">// Run cycle is 0.8 s long; foot strike at 0.2 s and 0.6 s</span>
+<span class="kw">if</span> ((t &gt; <span class="val">0.18f</span> &amp;&amp; t &lt; <span class="val">0.22f</span>) || (t &gt; <span class="val">0.58f</span> &amp;&amp; t &lt; <span class="val">0.62f</span>)) {
+    <span class="fn">PlaySound</span>(<span class="st">"Sounds/footstep.wav"</span>, <span class="val">0.6f</span>);
+}</pre>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>Blend layers: combining animations simultaneously</h2>
+
+<p>
+  The animation system uses numbered <em>blend layers</em> to let you play
+  multiple clips at the same time without one wiping out the other.  The two
+  most important layers are:
+</p>
+
+<table>
+  <thead>
+    <tr><th>Layer</th><th>Conventional use</th><th>Example clips</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>0</code> — base layer</td>
+      <td>Full-body locomotion: controls the whole skeleton</td>
+      <td>Idle, Walk, Run, Jump, Fall, Land</td>
+    </tr>
+    <tr>
+      <td><code>1</code> — upper-body overlay</td>
+      <td>Upper-body actions that run <em>on top of</em> locomotion</td>
+      <td>Wave, Aim, Attack, Throw, Gesture</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  Each layer is independent.  Calling <code>Play("Anims/Wave.ani", 1, ...)</code>
+  starts the wave on layer&nbsp;1 while layer&nbsp;0 keeps running whatever
+  locomotion clip was already active.  The engine blends the two outputs bone
+  by bone, with layer&nbsp;1 winning on any bone it influences at the current
+  weight.
+</p>
+
+<p>
+  There is no fixed limit to the number of layers.  Layers 0 and 1 are a
+  convention, not a rule.  You could use layer&nbsp;2 for a facial animation
+  and layer&nbsp;3 for procedural IK corrections if needed.
+</p>
+
+<pre><span class="cm">// Layer 0 — base locomotion</span>
+anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Run.ani"</span>,  <span class="val">0</span>, <span class="kw">true</span>,  <span class="val">0.25f</span>);
+
+<span class="cm">// Layer 1 — upper-body wave plays simultaneously</span>
+anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Wave.ani"</span>, <span class="val">1</span>, <span class="kw">false</span>, <span class="val">0.15f</span>);
+anim_-&gt;<span class="fn">SetWeight</span>(<span class="st">"Anims/Wave.ani"</span>, <span class="val">0.85f</span>);
+
+<span class="cm">// The character now runs AND waves at the same time.</span>
+<span class="cm">// When the wave finishes (non-looped), only the run clip remains visible.</span>
+<span class="cm">// Pressing E again calls Stop() to fade the wave out early.</span></pre>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>The idle / run / jump pattern</h2>
+
+<p>
+  Almost every action game uses the same three-clip pattern on layer&nbsp;0 to
+  cover a character's basic locomotion needs.  The idea is simple: track which
+  clip is currently active in a string variable, then compare it with the
+  desired state each frame and issue a <code>Play()</code> call only when the
+  state changes.  Calling <code>Play()</code> on a clip that is already playing
+  on that layer is harmless but unnecessary; guarding with <code>currentClip_</code>
+  avoids restarting the fade-in counter.
+</p>
+
+<div class="arch-diagram">
+  Input state                 currentClip_     Action
+  ───────────────────────────────────────────────────────────────────
+  grounded, not moving   →    "idle"           Play Idle.ani  (loop)
+  grounded, moving       →    "run"            Play Run.ani   (loop)
+  airborne               →    "jump"           Play Jump.ani  (loop)
+
+  Transition example:
+    was "idle", player pressed W
+      → Play("Anims/Run.ani", 0, true, 0.25f)   ← cross-fade 250 ms
+        currentClip_ = "run"
+
+    player releases W (still grounded)
+      → Play("Anims/Idle.ani", 0, true, 0.25f)  ← cross-fade 250 ms
+        currentClip_ = "idle"
+</div>
+
+<p>
+  The guard pattern — <code>if (currentClip_ != "run")</code> — prevents
+  <code>Play()</code> from being called every single frame while the character
+  is already running, which would restart the cross-fade every frame and cause
+  a visual stutter.
+</p>
+<pre><span class="kw">void</span> <span class="fn">updateLocomotion</span>(<span class="ty">bool</span> grounded, <span class="ty">bool</span> moving) {
+    <span class="kw">if</span> (!grounded &amp;&amp; currentClip_ != <span class="st">"jump"</span>) {
+        anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Jump.ani"</span>, <span class="val">0</span>, <span class="kw">true</span>, <span class="val">0.15f</span>);
+        currentClip_ = <span class="st">"jump"</span>;
+
+    } <span class="kw">else if</span> (grounded &amp;&amp; moving &amp;&amp; currentClip_ != <span class="st">"run"</span>) {
+        anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Run.ani"</span>, <span class="val">0</span>, <span class="kw">true</span>, <span class="val">0.25f</span>);
+        currentClip_ = <span class="st">"run"</span>;
+
+    } <span class="kw">else if</span> (grounded &amp;&amp; !moving &amp;&amp; currentClip_ != <span class="st">"idle"</span>) {
+        anim_-&gt;<span class="fn">Play</span>(<span class="st">"Anims/Idle.ani"</span>, <span class="val">0</span>, <span class="kw">true</span>, <span class="val">0.25f</span>);
+        currentClip_ = <span class="st">"idle"</span>;
+    }
+}</pre>
+
+<div class="callout info">
+  <h4>Going further</h4>
+  <p>
+    The idle/run/jump pattern implemented here by hand is exactly the problem that
+    <strong>Part&nbsp;09 &mdash; Animation State Machine</strong> solves declaratively
+    with <code>AddAnimStateMachine()</code>, <code>AddTransition()</code>, and
+    <code>AddAutoTransition()</code>.  The state machine approach is less error-prone
+    for complex graphs (walk/run/sprint/crouch/swim) and is recommended for production
+    projects.  This manual pattern is still useful when you want fine control over
+    exactly when and how each transition fires.
+  </p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>Quick reference table</h2>
+
+<table>
+  <thead>
+    <tr><th>Method</th><th>Returns</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>entity-&gt;AddAnimationController()</code></td>
+      <td>—</td>
+      <td>Attaches component; idempotent; call after <code>AddModel()</code></td>
+    </tr>
+    <tr>
+      <td><code>entity-&gt;GetAnimationController()</code></td>
+      <td><code>AnimationController*</code></td>
+      <td>Returns <code>nullptr</code> if not yet attached</td>
+    </tr>
+    <tr>
+      <td><code>anim-&gt;Play(name, layer, loop, fadeTime)</code></td>
+      <td>—</td>
+      <td>Exclusive play on <em>layer</em>; fades out previous clip on that layer</td>
+    </tr>
+    <tr>
+      <td><code>anim-&gt;Stop(name, fadeTime)</code></td>
+      <td>—</td>
+      <td>Fades out one named clip; <code>0.0f</code> = immediate</td>
+    </tr>
+    <tr>
+      <td><code>anim-&gt;StopAll()</code></td>
+      <td>—</td>
+      <td>Immediately halts every clip on every layer</td>
+    </tr>
+    <tr>
+      <td><code>anim-&gt;IsPlaying(name)</code></td>
+      <td><code>bool</code></td>
+      <td>True while clip is active including during fade-out</td>
+    </tr>
+    <tr>
+      <td><code>anim-&gt;SetWeight(name, 0&ndash;1)</code></td>
+      <td>—</td>
+      <td>Blend influence; 1.0 = full, 0.0 = muted</td>
+    </tr>
+    <tr>
+      <td><code>anim-&gt;SetSpeed(name, multiplier)</code></td>
+      <td>—</td>
+      <td>Playback rate; 1.0 = normal, 2.0 = double, 0.5 = half</td>
+    </tr>
+    <tr>
+      <td><code>anim-&gt;GetTime(name)</code></td>
+      <td><code>float</code></td>
+      <td>Seconds into the clip from its start</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>Lua equivalent</h2>
+
+<p>
+  The same animation system is accessible from a Lua script attached to the
+  player entity with <code>entity:AddScript("Scripts/player_anim.lua")</code>.
+  The Lua API mirrors the C++ API one-to-one: <code>entity</code> and
+  <code>game</code> are the two implicit globals available in every script.
+</p>
+
+<pre><span class="lua-cm">-- Scripts/player_anim.lua</span>
+<span class="lua-cm">-- Attach to the Player entity with entity:AddScript()</span>
+<span class="lua-cm">-- Requires that CharacterController was already added in C++ (or a prior script).</span>
+
+<span class="lua-kw">local</span> anim        = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> cc          = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> currentClip = <span class="lua-str">""</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-cm">-- Attach the animation controller to this entity</span>
+    entity:<span class="lua-fn">AddAnimationController</span>()
+    anim = entity:<span class="lua-fn">GetAnimationController</span>()
+
+    <span class="lua-cm">-- Start idle immediately (no fade)</span>
+    anim:<span class="lua-fn">Play</span>(<span class="lua-str">"Anims/Idle.ani"</span>, <span class="lua-num">0</span>, <span class="lua-kw">true</span>, <span class="lua-num">0.0</span>)
+    currentClip = <span class="lua-str">"idle"</span>
+
+    <span class="lua-cm">-- Retrieve the character controller set up in C++ or another script</span>
+    cc = entity:<span class="lua-fn">GetCharacterController</span>()
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-cm">-- Movement</span>
+    <span class="lua-kw">local</span> mx, mz = <span class="lua-num">0</span>, <span class="lua-num">0</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"A"</span>) <span class="lua-kw">then</span> mx = mx - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"D"</span>) <span class="lua-kw">then</span> mx = mx + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"W"</span>) <span class="lua-kw">then</span> mz = mz - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"S"</span>) <span class="lua-kw">then</span> mz = mz + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+
+    <span class="lua-kw">local</span> sprinting = game:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"LShift"</span>)
+    <span class="lua-kw">local</span> speed = sprinting <span class="lua-kw">and</span> <span class="lua-num">7.0</span> <span class="lua-kw">or</span> <span class="lua-num">4.0</span>
+    cc:<span class="lua-fn">Move</span>(Vector3(mx, <span class="lua-num">0</span>, mz) * speed, dt)
+
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(<span class="lua-str">"Space"</span>) <span class="lua-kw">then</span>
+        cc:<span class="lua-fn">TryJump</span>(<span class="lua-num">10.0</span>)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Layer 0 locomotion</span>
+    <span class="lua-kw">local</span> grounded = cc:<span class="lua-fn">IsOnGround</span>()
+    <span class="lua-kw">local</span> moving   = (mx ~= <span class="lua-num">0</span> <span class="lua-kw">or</span> mz ~= <span class="lua-num">0</span>)
+
+    <span class="lua-kw">if</span> <span class="lua-kw">not</span> grounded <span class="lua-kw">and</span> currentClip ~= <span class="lua-str">"jump"</span> <span class="lua-kw">then</span>
+        anim:<span class="lua-fn">Play</span>(<span class="lua-str">"Anims/Jump.ani"</span>, <span class="lua-num">0</span>, <span class="lua-kw">true</span>, <span class="lua-num">0.15</span>)
+        currentClip = <span class="lua-str">"jump"</span>
+
+    <span class="lua-kw">elseif</span> grounded <span class="lua-kw">and</span> moving <span class="lua-kw">and</span> currentClip ~= <span class="lua-str">"run"</span> <span class="lua-kw">then</span>
+        anim:<span class="lua-fn">Play</span>(<span class="lua-str">"Anims/Run.ani"</span>, <span class="lua-num">0</span>, <span class="lua-kw">true</span>, <span class="lua-num">0.25</span>)
+        currentClip = <span class="lua-str">"run"</span>
+
+    <span class="lua-kw">elseif</span> grounded <span class="lua-kw">and</span> <span class="lua-kw">not</span> moving <span class="lua-kw">and</span> currentClip ~= <span class="lua-str">"idle"</span> <span class="lua-kw">then</span>
+        anim:<span class="lua-fn">Play</span>(<span class="lua-str">"Anims/Idle.ani"</span>, <span class="lua-num">0</span>, <span class="lua-kw">true</span>, <span class="lua-num">0.25</span>)
+        currentClip = <span class="lua-str">"idle"</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Keep run-cycle speed in sync with sprint</span>
+    <span class="lua-kw">if</span> currentClip == <span class="lua-str">"run"</span> <span class="lua-kw">then</span>
+        anim:<span class="lua-fn">SetSpeed</span>(<span class="lua-str">"Anims/Run.ani"</span>, sprinting <span class="lua-kw">and</span> <span class="lua-num">1.5</span> <span class="lua-kw">or</span> <span class="lua-num">1.0</span>)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Layer 1 wave toggle (E key)</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(<span class="lua-str">"E"</span>) <span class="lua-kw">then</span>
+        <span class="lua-kw">if</span> anim:<span class="lua-fn">IsPlaying</span>(<span class="lua-str">"Anims/Wave.ani"</span>) <span class="lua-kw">then</span>
+            anim:<span class="lua-fn">Stop</span>(<span class="lua-str">"Anims/Wave.ani"</span>, <span class="lua-num">0.2</span>)
+        <span class="lua-kw">else</span>
+            anim:<span class="lua-fn">Play</span>(<span class="lua-str">"Anims/Wave.ani"</span>, <span class="lua-num">1</span>, <span class="lua-kw">false</span>, <span class="lua-num">0.15</span>)
+            anim:<span class="lua-fn">SetWeight</span>(<span class="lua-str">"Anims/Wave.ani"</span>, <span class="lua-num">0.8</span>)
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<div class="callout lua">
+  <h4>Lua note</h4>
+  <p>
+    The Lua equivalent above gives you hot-reloadable animation logic without
+    recompiling.  For prototyping new gestures or adjusting fade times, editing
+    the <code>.lua</code> file and reloading the scene is much faster than a
+    full C++ rebuild.  Once you are happy with the feel, you can port the final
+    values back to C++ or keep the script as the production implementation.
+  </p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>Common mistakes</h2>
+
+<div class="callout warn">
+  <h4>Watch out for these pitfalls</h4>
+
+  <p>
+    <strong>Calling GetAnimationController() before AddAnimationController().</strong><br>
+    <code>GetAnimationController()</code> returns <code>nullptr</code> if the
+    component has not been attached.  Storing that null and calling methods
+    on it later causes an immediate crash.  Always call
+    <code>AddAnimationController()</code> first, then retrieve the pointer.
+  </p>
+
+  <p>
+    <strong>Adding the animation controller before the model.</strong><br>
+    The component needs to bind to the skeleton that lives inside the skinned
+    mesh.  If you call <code>AddAnimationController()</code> before
+    <code>AddModel()</code>, there is no skeleton to bind to and every
+    subsequent <code>Play()</code> call will silently do nothing.  Order matters:
+    model first, controller second.
+  </p>
+
+  <p>
+    <strong>Calling Play() every frame without guarding.</strong><br>
+    Issuing <code>Play("Anims/Run.ani", ...)</code> inside <code>Update()</code>
+    without checking <code>currentClip_</code> restarts the cross-fade on every
+    single frame, causing an endless micro-fade that never lets the clip settle.
+    The character will appear to flicker or stutter.  Always guard with a
+    current-state variable or use <code>IsPlaying()</code>.
+  </p>
+
+  <p>
+    <strong>Forgetting that SetWeight() applies immediately but is not
+    persistent.</strong><br>
+    When you call <code>Play()</code> again on the same clip the weight resets to
+    1.0 internally as part of the fade-in.  If you need a non-default weight after
+    each transition, always call <code>SetWeight()</code> immediately after
+    <code>Play()</code>.
+  </p>
+
+  <p>
+    <strong>Using layer 0 for everything.</strong><br>
+    Placing a wave animation on layer&nbsp;0 will cross-fade <em>away</em> from
+    the run clip, leaving the character standing still while waving.  Upper-body
+    overlays must go on layer&nbsp;1 (or higher) so they do not displace the
+    locomotion clip.
+  </p>
+
+  <p>
+    <strong>Non-looped clips that freeze on the last frame.</strong><br>
+    A one-shot wave animation (<code>loop = false</code>) plays once and then
+    holds its final pose indefinitely.  If you do not call <code>Stop()</code>
+    afterwards the character will remain in the wave-end pose forever.  Either
+    check <code>IsPlaying()</code> and call <code>Stop()</code> when it finishes,
+    or use the Animation State Machine (Part&nbsp;09) which handles this
+    automatically via <code>AddAutoTransition()</code>.
+  </p>
+
+  <p>
+    <strong>SetSpeed() with a value of 0 or negative.</strong><br>
+    A speed of <code>0.0f</code> freezes the clip on its current frame, which
+    looks like a bug at runtime.  Negative values are not supported and produce
+    undefined behaviour.  Clamp speed to a small positive minimum such as
+    <code>0.05f</code> if you need an extreme slow-motion effect.
+  </p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>Putting it all together: animation lifecycle diagram</h2>
+
+<div class="arch-diagram">
+Entity "Player"
+  │
+  ├── AddModel("Models/Hero.fbx")         ← imports skeleton + clip data
+  │
+  └── AddAnimationController()            ← binds to skeleton
+        │
+        ├── Layer 0  (base locomotion)
+        │     ├── Idle.ani   loop=true   weight=1.0   speed=1.0
+        │     ├── Run.ani    loop=true   weight=1.0   speed=1.0 → 1.5 (sprint)
+        │     └── Jump.ani   loop=true   weight=1.0   speed=1.0
+        │           │
+        │           └── Play() cross-fades between these automatically
+        │                       (only one active at a time per layer)
+        │
+        └── Layer 1  (upper-body overlay)
+              └── Wave.ani   loop=false  weight=0.8   speed=1.0
+                    │
+                    └── Plays simultaneously with layer 0
+                        Stopped via Stop() or when clip ends
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<h2>What you learned</h2>
+
+<ul>
+  <li>
+    <strong>AddAnimationController / GetAnimationController</strong> &mdash;
+    always call <code>AddModel()</code> first, then attach the controller and
+    store the returned pointer for use in <code>Update()</code>.
+  </li>
+  <li>
+    <strong>Play(clipName, layer, loop, fadeTime)</strong> &mdash;
+    plays a clip exclusively on the given layer with an automatic cross-fade,
+    smoothly blending out the previous clip on that same layer.
+  </li>
+  <li>
+    <strong>Stop(clipName, fadeTime)</strong> &mdash;
+    fades out one specific clip; <code>StopAll()</code> clears every layer
+    instantly.
+  </li>
+  <li>
+    <strong>IsPlaying(clipName)</strong> &mdash;
+    lets you test whether a clip is still running so you can guard transitions
+    and avoid redundant <code>Play()</code> calls.
+  </li>
+  <li>
+    <strong>SetWeight(clipName, 0&ndash;1)</strong> &mdash;
+    controls how strongly a clip blends into the final pose; essential for
+    partial upper-body overlays that should not completely override locomotion
+    arm motion.
+  </li>
+  <li>
+    <strong>SetSpeed(clipName, multiplier)</strong> &mdash;
+    adjusts playback rate at runtime to match visual cycle speed with
+    physical movement speed.
+  </li>
+  <li>
+    <strong>GetTime(clipName)</strong> &mdash;
+    reads the current playback position in seconds, useful for synchronising
+    sound effects to specific animation frames.
+  </li>
+  <li>
+    <strong>Blend layers</strong> &mdash;
+    layer&nbsp;0 is the base (locomotion); layer&nbsp;1 is an upper-body
+    overlay.  Different layers compose rather than compete, letting you run
+    and wave at the same time.
+  </li>
+  <li>
+    <strong>Idle / run / jump pattern</strong> &mdash;
+    guard every <code>Play()</code> call with a current-state variable to
+    prevent restarting the fade-in every frame.
+  </li>
+</ul>
+
+<p>
+  In <strong>Part&nbsp;09</strong> you will replace this hand-written state
+  machine with the declarative <code>AnimStateMachine</code> API, adding
+  condition-driven transitions, one-shot auto-returns, and float-threshold
+  blending &mdash; all without a single <code>if</code> statement in
+  <code>Update()</code>.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-07.html">&#8592; Part 07: Character Controller</a>
+  <a href="tutorial-09.html">Part 09: Animation State Machine &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

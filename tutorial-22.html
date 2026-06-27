@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 22: Entity Hierarchy — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list" style="list-style:none;padding:0;margin:0;">
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-01.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">01. Hello World</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-02.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">02. Lights and Colors</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-03.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">03. Keyboard Input</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-04.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">04. 3D Physics</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-05.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">05. Third-Person Camera</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-06.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">06. Lua Scripting Basics</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-07.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">07. Character Controller</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-08.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">08. Skeletal Animation</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-09.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">09. Animation State Machine</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-10.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">10. Audio</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-11.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">11. Spatial Audio</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-12.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">12. 2D Mode</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-13.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">13. 2D Physics</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-14.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">14. Navigation and Pathfinding</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-15.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">15. Gamepad Input</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-16.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">16. Input Actions</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-17.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">17. UI System</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-18.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">18. UI Advanced</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-19.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">19. Save and Load</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-20.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">20. Scene Management</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-21.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">21. Particle Systems</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-22.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;background:var(--surface2);color:var(--accent);text-decoration:none;">22. Entity Hierarchy</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-23.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">23. Physics Constraints</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-24.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">24. Collision Triggers</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-25.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">25. AI Behavior FSM</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-26.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">26. Ray Picking</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-27.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">27. Debug Draw</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-28.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">28. Tweens</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-29.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">29. Sky and Atmosphere</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-30.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb" style="font-size:0.85rem;color:var(--muted);margin-bottom:1.2rem;">
+  <a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 22
+</div>
+
+<h1><span class="tutorial-part" style="display:block;font-size:0.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.09em;margin-bottom:0.3rem;">Part 22 of 30</span>Entity Hierarchy</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>entity-&gt;CreateChild(name)</code> &nbsp;&bull;&nbsp;
+    <code>child-&gt;GetParent()</code> &nbsp;&bull;&nbsp;
+    <code>entity-&gt;GetChildCount()</code> &nbsp;&bull;&nbsp;
+    <code>entity-&gt;GetChild(index)</code> &nbsp;&bull;&nbsp;
+    <code>entity-&gt;GetChildren()</code> &nbsp;&bull;&nbsp;
+    <code>SetLocalPosition()</code> / <code>GetLocalPosition()</code> &nbsp;&bull;&nbsp;
+    <code>SetLocalRotation()</code> / <code>GetLocalRotation()</code> &nbsp;&bull;&nbsp;
+    <code>TranslateLocal()</code> &nbsp;&bull;&nbsp;
+    <code>TranslateWorld()</code> &nbsp;&bull;&nbsp;
+    weapon socket attachment pattern
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ─────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How entities in simple-3d form a <strong>scene graph</strong> — a tree structure where each entity can own child entities</li>
+  <li>How to attach a new child entity to an existing one using <code>CreateChild(name)</code></li>
+  <li>The critical difference between <strong>local space</strong> (relative to the parent) and <strong>world space</strong> (absolute scene coordinates) — and which transform methods operate in each</li>
+  <li>How to express a child entity's intended offset using <code>SetLocalPosition()</code> and <code>SetLocalRotation()</code> rather than world-space setters</li>
+  <li>How <strong>transform propagation</strong> works: moving or rotating a parent automatically repositions all its descendants in world space without any per-frame sync code</li>
+  <li>How to walk a hierarchy: <code>GetParent()</code>, <code>GetChildCount()</code>, <code>GetChild(index)</code>, and <code>GetChildren()</code></li>
+  <li>The difference between <code>TranslateLocal()</code> (moves along the entity's own rotated axes) and <code>TranslateWorld()</code> (always moves along the fixed world axes)</li>
+  <li>The <strong>player body / visual child</strong> split — keeping the physics capsule at ground level while attaching the renderable mesh as a child slightly above it</li>
+  <li>The <strong>weapon socket pattern</strong> — attaching an empty transform entity to the character mesh, then parenting the weapon model beneath it so equipping and unequipping require only reparenting</li>
+  <li>How <code>SetActive(false)</code> propagates through a subtree, suspending the entire branch at once</li>
+</ul>
+
+<!-- ─── OVERVIEW ──────────────────────────────────────────────────── -->
+<h2>Overview</h2>
+<p>
+  Every entity in simple-3d is a node in a <em>scene graph</em> — an implicit tree rooted at the
+  invisible scene root. When you call <code>CreateEntity("Player")</code> you add a node directly
+  beneath that root. When you subsequently call <code>player-&gt;CreateChild("PlayerVisual")</code>
+  you add another node one level deeper, making <code>PlayerVisual</code> a child of
+  <code>Player</code>.
+</p>
+<p>
+  The most important consequence of this tree is <strong>transform inheritance</strong>. A child
+  entity's position, rotation, and scale are always expressed <em>relative to its parent</em> in
+  local space. When the engine computes where to draw the child on screen it walks up the tree,
+  composing transforms, to arrive at a final world-space position. This means that moving the parent
+  entity automatically moves every descendant — you never need to write per-frame code to keep a
+  weapon glued to a hand or a camera target glued to a character's mid-body.
+</p>
+<p>
+  This tutorial builds a three-level hierarchy that demonstrates all of these ideas in a single
+  running scene:
+</p>
+<ul>
+  <li><strong>Player</strong> — root entity with a physics character controller</li>
+  <li><strong>PlayerVisual</strong> — child of Player; carries the renderable mesh, offset 0.8&nbsp;m above the capsule centre</li>
+  <li><strong>WeaponSocket</strong> — child of PlayerVisual; an empty transform entity positioned at the right-hand grip point</li>
+  <li><strong>Sword</strong> — child of WeaponSocket; the actual weapon model</li>
+</ul>
+<p>
+  When you walk the player around with WASD, the visual mesh, the socket, and the sword all follow
+  automatically. Pressing <kbd>F</kbd> hides the entire weapon subtree with a single
+  <code>SetActive(false)</code> call. Pressing <kbd>Q</kbd>/<kbd>E</kbd> raises and lowers the
+  socket using <code>TranslateLocal()</code>, which moves in the socket's own rotated coordinate
+  frame — a clean demonstration of local versus world translation.
+</p>
+
+<!-- ─── COMPLETE SOURCE ───────────────────────────────────────────── -->
+<h2>Complete source</h2>
+<p>
+  The listing below is the complete, self-contained program for this tutorial. Read through it
+  once in full, then follow the step-by-step explanation that breaks each new concept down in
+  detail.
+</p>
+
+<pre><span class="cm">// main.cpp — Part 22: Entity Hierarchy</span>
+<span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;string&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;vector&gt;</span>
+<span class="pp">#include</span> <span class="st">&lt;sstream&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="cm">// ─────────────────────────────────────────────────────────────────────────────
+// HierarchyDemo — demonstrates parent/child entity relationships, local-space
+// transforms, and the weapon socket pattern used in real action games.
+// ─────────────────────────────────────────────────────────────────────────────</span>
+<span class="kw">class</span> <span class="ty">HierarchyDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Entity Hierarchy — simple-3d Part 22"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.12f</span>, <span class="val">0.15f</span>, <span class="val">0.20f</span>, <span class="val">1.0f</span>));
+
+        <span class="cm">// ── Directional light ────────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.93f</span>, <span class="val">0.82f</span>), <span class="val">1.2f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50.0f</span>, <span class="val">30.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── Ground plane (static geometry) ──────────────────────────────────</span>
+        <span class="ty">Entity</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground-&gt;<span class="fn">SetScale</span>(<span class="val">12.0f</span>);
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">24.0f</span>, <span class="val">0.2f</span>, <span class="val">24.0f</span>));
+        ground-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::StaticGeometry);
+
+        <span class="cm">// ── Level 1: Player body (the physics root) ──────────────────────────
+        //
+        // The player entity is a ROOT entity — it lives directly under the
+        // scene root.  It carries the CharacterController for physics-driven
+        // movement and is the anchor point for the entire player hierarchy.
+        //
+        // Its position represents the BOTTOM of the capsule; we start at y=1
+        // so the capsule (1.8 m tall) straddles the ground plane cleanly.</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>);
+
+        cc_ = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+        cc_-&gt;<span class="fn">SetGravity</span>(<span class="val">20.0f</span>);
+
+        player_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::Actor);
+        player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::StaticGeometry
+        }));
+
+        <span class="cm">// ── Level 2: PlayerVisual child ──────────────────────────────────────
+        //
+        // CreateChild() attaches a new entity directly beneath player_ in the
+        // scene graph.  The child is owned by the engine — never delete it.
+        //
+        // We set the LOCAL position to (0, 0.8, 0) so the mesh sits 0.8 m
+        // above the capsule centre, placing the character model correctly on
+        // top of the physics body rather than at the feet.</span>
+        visual_ = player_-&gt;<span class="fn">CreateChild</span>(<span class="st">"PlayerVisual"</span>);
+        visual_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Character.mdl"</span>);
+        visual_-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, <span class="val">0.8f</span>, <span class="val">0.0f</span>);  <span class="cm">// LOCAL offset from parent</span>
+
+        <span class="cm">// ── Level 3: WeaponSocket grandchild ─────────────────────────────────
+        //
+        // An EMPTY transform entity acts as the attachment point for the weapon.
+        // Its local position is tuned to match the character's right-hand grip.
+        // Tilting it by -20 degrees on Z makes the sword angle outward naturally.
+        //
+        // This "socket" pattern decouples the weapon from the mesh skeleton.
+        // To swap weapons, reparent a different weapon model under this socket.</span>
+        weaponSocket_ = visual_-&gt;<span class="fn">CreateChild</span>(<span class="st">"WeaponSocket"</span>);
+        weaponSocket_-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.45f</span>, <span class="val">0.55f</span>, <span class="val">0.25f</span>);
+        weaponSocket_-&gt;<span class="fn">SetLocalRotation</span>(<span class="ty">Quaternion</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, -<span class="val">20.0f</span>));
+
+        <span class="cm">// ── Level 4: Sword (child of the socket) ─────────────────────────────
+        //
+        // The actual weapon model hangs beneath WeaponSocket.  Its own local
+        // offset positions the blade correctly relative to the grip point.</span>
+        sword_ = weaponSocket_-&gt;<span class="fn">CreateChild</span>(<span class="st">"Sword"</span>);
+        sword_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Sword.mdl"</span>);
+        sword_-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, <span class="val">0.35f</span>, <span class="val">0.0f</span>);
+        sword_-&gt;<span class="fn">SetScale</span>(<span class="val">0.75f</span>);                   <span class="cm">// scale propagates to children</span>
+
+        <span class="cm">// ── Camera orbiting the visual child ─────────────────────────────────
+        //
+        // We orbit the VISUAL child, not the physics body.  This centres the
+        // camera at mid-body (0.8 m above feet) for a nicer third-person view.</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">SetOrbitMode</span>(visual_, <span class="val">6.0f</span>);
+        cam_-&gt;<span class="fn">SetOrbitAngles</span>(<span class="val">0.0f</span>, <span class="val">15.0f</span>);
+        cam_-&gt;<span class="fn">SetOrbitPitchLimits</span>(-<span class="val">10.0f</span>, <span class="val">60.0f</span>);
+        cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">6.0f</span>);
+
+        <span class="cm">// ── HUD information label ────────────────────────────────────────────</span>
+        label_ = <span class="fn">CreateLabel</span>(<span class="st">""</span>);
+        label_-&gt;<span class="fn">SetPosition</span>(<span class="val">16</span>, <span class="val">16</span>);
+        label_-&gt;<span class="fn">SetFontSize</span>(<span class="val">15</span>);
+        label_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::WHITE);
+
+        <span class="cm">// Print hierarchy statistics to the console at startup</span>
+        <span class="fn">PrintHierarchyInfo</span>();
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="kw">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+
+        <span class="cm">// ── Player movement (WASD) ───────────────────────────────────────────</span>
+        <span class="ty">Vector3</span> moveDir(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::W)) moveDir.z_ += <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::S)) moveDir.z_ -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::A)) moveDir.x_ -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::D)) moveDir.x_ += <span class="val">1.0f</span>;
+        cc_-&gt;<span class="fn">Move</span>(moveDir * <span class="val">5.0f</span>, dt);
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::Space)) cc_-&gt;<span class="fn">TryJump</span>(<span class="val">10.0f</span>);
+
+        <span class="cm">// ── F: toggle sword visibility ───────────────────────────────────────
+        // SetActive(false) on a parent propagates to all children — the socket
+        // AND the sword both disappear with a single call on weaponSocket_.</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::F)) {
+            swordEquipped_ = !swordEquipped_;
+            weaponSocket_-&gt;<span class="fn">SetActive</span>(swordEquipped_);
+        }
+
+        <span class="cm">// ── Q / E: raise / lower the weapon socket using TranslateLocal ──────
+        //
+        // TranslateLocal() moves the entity along ITS OWN rotated axes.
+        // Because weaponSocket_ is rotated -20 degrees on Z, "up" in local
+        // space is slightly tilted relative to world Y.  Compare this with
+        // TranslateWorld() below, which always uses the fixed world axes.</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Q))
+            weaponSocket_-&gt;<span class="fn">TranslateLocal</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>,  <span class="val">0.8f</span> * dt, <span class="val">0.0f</span>));
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::E))
+            weaponSocket_-&gt;<span class="fn">TranslateLocal</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, -<span class="val">0.8f</span> * dt, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── G / H: push socket forward / back using TranslateWorld ───────────
+        //
+        // TranslateWorld() moves in WORLD axes regardless of the entity's own
+        // rotation.  World +Z always points in the same scene direction even
+        // if weaponSocket_ is rotated.</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::G))
+            weaponSocket_-&gt;<span class="fn">TranslateWorld</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>,  <span class="val">0.8f</span> * dt));
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::H))
+            weaponSocket_-&gt;<span class="fn">TranslateWorld</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, -<span class="val">0.8f</span> * dt));
+
+        <span class="cm">// ── R: reset socket to default local position ────────────────────────</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::R)) {
+            weaponSocket_-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.45f</span>, <span class="val">0.55f</span>, <span class="val">0.25f</span>);
+            weaponSocket_-&gt;<span class="fn">SetLocalRotation</span>(<span class="ty">Quaternion</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, -<span class="val">20.0f</span>));
+        }
+
+        <span class="cm">// ── Update HUD ────────────────────────────────────────────────────────</span>
+        <span class="fn">UpdateLabel</span>();
+    }
+
+<span class="kw">private</span>:
+    <span class="cm">// ── Scene entities ───────────────────────────────────────────────────────</span>
+    <span class="ty">Entity</span>*              player_       = <span class="kw">nullptr</span>;   <span class="cm">// Level 1 — physics root</span>
+    <span class="ty">Entity</span>*              visual_       = <span class="kw">nullptr</span>;   <span class="cm">// Level 2 — renderable mesh</span>
+    <span class="ty">Entity</span>*              weaponSocket_ = <span class="kw">nullptr</span>;   <span class="cm">// Level 3 — attachment point</span>
+    <span class="ty">Entity</span>*              sword_        = <span class="kw">nullptr</span>;   <span class="cm">// Level 4 — weapon model</span>
+    <span class="ty">Camera</span>*              cam_          = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*               label_        = <span class="kw">nullptr</span>;
+    <span class="ty">CharacterController</span>* cc_           = <span class="kw">nullptr</span>;
+    <span class="kw">bool</span>                 swordEquipped_ = <span class="kw">true</span>;
+
+    <span class="cm">// ── PrintHierarchyInfo ───────────────────────────────────────────────────
+    // Demonstrates GetChildCount(), GetChild(index), GetChildren(), and
+    // GetParent() by walking parts of the hierarchy at startup.</span>
+    <span class="kw">void</span> <span class="fn">PrintHierarchyInfo</span>() {
+        <span class="cm">// GetChildCount() — number of direct (first-level) children</span>
+        <span class="kw">int</span> playerChildren = player_-&gt;<span class="fn">GetChildCount</span>();   <span class="cm">// → 1  (visual_)</span>
+        <span class="kw">int</span> visualChildren = visual_-&gt;<span class="fn">GetChildCount</span>();   <span class="cm">// → 1  (weaponSocket_)</span>
+        <span class="kw">int</span> socketChildren = weaponSocket_-&gt;<span class="fn">GetChildCount</span>();  <span class="cm">// → 1  (sword_)</span>
+        <span class="kw">int</span> swordChildren  = sword_-&gt;<span class="fn">GetChildCount</span>();    <span class="cm">// → 0  (leaf node)</span>
+
+        <span class="cm">// GetChild(index) — access by zero-based position; returns nullptr if out of range</span>
+        <span class="ty">Entity</span>* firstChild = player_-&gt;<span class="fn">GetChild</span>(<span class="val">0</span>);   <span class="cm">// → visual_</span>
+        <span class="ty">Entity</span>* noChild    = player_-&gt;<span class="fn">GetChild</span>(<span class="val">5</span>);   <span class="cm">// → nullptr (out of range)</span>
+
+        <span class="cm">// GetChildren() — returns a vector of ALL direct children</span>
+        std::vector&lt;<span class="ty">Entity</span>*&gt; playerKids = player_-&gt;<span class="fn">GetChildren</span>();
+        <span class="cm">// playerKids.size() == 1;  playerKids[0] == visual_</span>
+
+        <span class="cm">// GetParent() — navigate upward; returns nullptr at scene root</span>
+        <span class="ty">Entity</span>* visualParent  = visual_-&gt;<span class="fn">GetParent</span>();       <span class="cm">// → player_</span>
+        <span class="ty">Entity</span>* socketParent  = weaponSocket_-&gt;<span class="fn">GetParent</span>();  <span class="cm">// → visual_</span>
+        <span class="ty">Entity</span>* playerParent  = player_-&gt;<span class="fn">GetParent</span>();       <span class="cm">// → nullptr (root entity)</span>
+
+        <span class="cm">// Iterate all of visual_'s direct children and shrink them slightly</span>
+        <span class="kw">for</span> (<span class="ty">Entity</span>* child : visual_-&gt;<span class="fn">GetChildren</span>()) {
+            child-&gt;<span class="fn">SetScale</span>(<span class="val">0.9f</span>);   <span class="cm">// only weaponSocket_ is affected here</span>
+        }
+
+        <span class="cm">// Silence unused-variable warnings in minimal builds</span>
+        (<span class="kw">void</span>)playerChildren; (<span class="kw">void</span>)visualChildren;
+        (<span class="kw">void</span>)socketChildren; (<span class="kw">void</span>)swordChildren;
+        (<span class="kw">void</span>)firstChild;     (<span class="kw">void</span>)noChild;
+        (<span class="kw">void</span>)playerKids;
+        (<span class="kw">void</span>)visualParent;   (<span class="kw">void</span>)socketParent; (<span class="kw">void</span>)playerParent;
+    }
+
+    <span class="cm">// ── UpdateLabel ──────────────────────────────────────────────────────────
+    // Rebuilds the HUD each frame to show live hierarchy state.</span>
+    <span class="kw">void</span> <span class="fn">UpdateLabel</span>() {
+        <span class="ty">Vector3</span> playerPos  = player_-&gt;<span class="fn">GetPosition</span>();         <span class="cm">// world-space</span>
+        <span class="ty">Vector3</span> socketLocal = weaponSocket_-&gt;<span class="fn">GetLocalPosition</span>(); <span class="cm">// parent-relative</span>
+        <span class="ty">Vector3</span> socketWorld = weaponSocket_-&gt;<span class="fn">GetPosition</span>();    <span class="cm">// absolute world</span>
+
+        std::ostringstream ss;
+        ss.precision(<span class="val">2</span>);
+        ss &lt;&lt; std::fixed;
+        ss &lt;&lt; <span class="st">"Player world:  ("</span>
+           &lt;&lt; playerPos.x_ &lt;&lt; <span class="st">", "</span> &lt;&lt; playerPos.y_ &lt;&lt; <span class="st">", "</span> &lt;&lt; playerPos.z_ &lt;&lt; <span class="st">")\n"</span>
+           &lt;&lt; <span class="st">"Socket local:  ("</span>
+           &lt;&lt; socketLocal.x_ &lt;&lt; <span class="st">", "</span> &lt;&lt; socketLocal.y_ &lt;&lt; <span class="st">", "</span> &lt;&lt; socketLocal.z_ &lt;&lt; <span class="st">")\n"</span>
+           &lt;&lt; <span class="st">"Socket world:  ("</span>
+           &lt;&lt; socketWorld.x_ &lt;&lt; <span class="st">", "</span> &lt;&lt; socketWorld.y_ &lt;&lt; <span class="st">", "</span> &lt;&lt; socketWorld.z_ &lt;&lt; <span class="st">")\n"</span>
+           &lt;&lt; <span class="st">"Player children: "</span> &lt;&lt; player_-&gt;<span class="fn">GetChildCount</span>() &lt;&lt; <span class="st">"\n"</span>
+           &lt;&lt; <span class="st">"Sword equipped: "</span> &lt;&lt; (swordEquipped_ ? <span class="st">"yes"</span> : <span class="st">"no"</span>) &lt;&lt; <span class="st">"\n\n"</span>
+           &lt;&lt; <span class="st">"WASD=move  Space=jump  F=toggle sword\n"</span>
+           &lt;&lt; <span class="st">"Q/E=socket up/down (local)  G/H=forward/back (world)  R=reset"</span>;
+
+        label_-&gt;<span class="fn">SetText</span>(ss.str());
+    }
+};
+
+<span class="kw">int</span> <span class="fn">main</span>(<span class="kw">int</span>, <span class="kw">char</span>**) {
+    <span class="kw">auto</span> game = <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">HierarchyDemo</span>&gt;();
+    game-&gt;<span class="fn">SetResourcePrefixPaths</span>(<span class="st">"/path/to/u3d/bin"</span>);
+    <span class="kw">return</span> game-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ──────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<!-- 1 -->
+<h3>1. The scene graph — entities as a tree</h3>
+<p>
+  Before diving into individual API calls it helps to picture the tree this demo builds:
+</p>
+<pre><span class="cm">Scene root (invisible)
+ └─ Player              ← CreateEntity("Player")          — Level 1
+     └─ PlayerVisual    ← player_→CreateChild("...")      — Level 2
+         └─ WeaponSocket← visual_→CreateChild("...")      — Level 3
+             └─ Sword   ← weaponSocket_→CreateChild("...") — Level 4</span></pre>
+<p>
+  Every entity you create via <code>CreateEntity()</code> is a direct child of the scene root —
+  a root entity. Every entity you create via <code>parent-&gt;CreateChild()</code> is one level
+  deeper, owned by that parent. The engine owns the lifetime of both kinds — never call
+  <code>delete</code> on any entity pointer.
+</p>
+<p>
+  The key invariant of the scene graph: a child entity's <em>world-space transform</em> is the
+  result of composing its local transform with its parent's world-space transform, recursively up
+  to the root. This composition happens automatically every frame before rendering. You never
+  write any sync code.
+</p>
+
+<!-- 2 -->
+<h3>2. <code>CreateChild(name)</code></h3>
+<pre>visual_ = player_-&gt;<span class="fn">CreateChild</span>(<span class="st">"PlayerVisual"</span>);</pre>
+<p>
+  <code>CreateChild(name)</code> allocates a new entity, immediately inserts it as a direct child
+  of the calling entity in the scene graph, and returns a raw non-owning pointer. The returned
+  entity is just as capable as any entity created through <code>CreateEntity()</code> — you can
+  attach models, physics, scripts, lights, and further children to it.
+</p>
+<p>
+  The <em>name</em> argument is used for debugging and can be retrieved with
+  <code>entity-&gt;GetName()</code>. Names are not required to be unique, but giving each node a
+  descriptive unique name makes hierarchy dumps much easier to read during development.
+</p>
+<p>
+  You can chain calls to build arbitrarily deep trees:
+</p>
+<pre><span class="ty">Entity</span>* body   = <span class="fn">CreateEntity</span>(<span class="st">"Robot"</span>);
+<span class="ty">Entity</span>* torso  = body-&gt;<span class="fn">CreateChild</span>(<span class="st">"Torso"</span>);
+<span class="ty">Entity</span>* lArm   = torso-&gt;<span class="fn">CreateChild</span>(<span class="st">"LeftArm"</span>);
+<span class="ty">Entity</span>* lHand  = lArm-&gt;<span class="fn">CreateChild</span>(<span class="st">"LeftHand"</span>);
+<span class="ty">Entity</span>* rArm   = torso-&gt;<span class="fn">CreateChild</span>(<span class="st">"RightArm"</span>);  <span class="cm">// sibling of lArm</span></pre>
+
+<!-- 3 -->
+<h3>3. Local space versus world space</h3>
+<p>
+  This is the single most important concept in this tutorial. Every entity in the hierarchy has
+  <em>two coordinate frames</em>:
+</p>
+<table>
+  <tr><th>Frame</th><th>Methods</th><th>Meaning</th></tr>
+  <tr>
+    <td><strong>World space</strong></td>
+    <td><code>SetPosition()</code>, <code>GetPosition()</code>, <code>SetRotation()</code>, <code>GetRotation()</code></td>
+    <td>Absolute coordinates relative to the scene origin; unaffected by where the parent is</td>
+  </tr>
+  <tr>
+    <td><strong>Local space</strong></td>
+    <td><code>SetLocalPosition()</code>, <code>GetLocalPosition()</code>, <code>SetLocalRotation()</code>, <code>GetLocalRotation()</code></td>
+    <td>Coordinates relative to the parent entity's own origin and axes</td>
+  </tr>
+</table>
+<p>
+  For root entities (direct children of the scene root) local space and world space are identical
+  — there is no parent transform to compose with. For child entities the two frames differ
+  whenever the parent has a non-zero position or rotation.
+</p>
+<p>
+  The golden rule: <strong>always use local-space setters to express a child's intended
+  offset.</strong> If you call <code>visual_-&gt;SetPosition(0, 0.8f, 0)</code> in world space,
+  the engine immediately overwrites that world position with the result of composing
+  <code>visual_</code>'s local transform with the parent's new world transform on the very next
+  frame. The apparent position will jump. Use <code>SetLocalPosition()</code> instead to declare
+  the permanent offset <em>relative to the parent</em>:
+</p>
+<pre><span class="cm">// Wrong — world position gets overridden by the parent transform every frame</span>
+visual_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.8f</span>, <span class="val">0.0f</span>);   <span class="cm">// do NOT do this on a child entity</span>
+
+<span class="cm">// Correct — the local offset is fixed relative to the parent; never drifts</span>
+visual_-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, <span class="val">0.8f</span>, <span class="val">0.0f</span>);</pre>
+<p>
+  Reading <code>GetPosition()</code> on a child still gives a useful result — it returns the
+  world-space position the engine computed after composing the full chain of parent transforms.
+  The HUD in this tutorial prints both <code>GetLocalPosition()</code> and <code>GetPosition()</code>
+  for the weapon socket so you can observe them changing independently as you move the player
+  around.
+</p>
+<p>
+  <strong>Scale</strong> also composes through the hierarchy, but there is only one
+  <code>SetScale()</code> method. For a child entity, <code>SetScale(0.5f)</code> sets the child's
+  scale <em>in its own local frame</em>, and the final world-space scale is the product of all
+  ancestor scales. In the demo, calling <code>sword_-&gt;SetScale(0.75f)</code> makes the sword
+  three-quarters of the weapon socket's natural size.
+</p>
+
+<!-- 4 -->
+<h3>4. <code>SetLocalPosition()</code> and <code>SetLocalRotation()</code></h3>
+<pre><span class="cm">// Offset the visual mesh 0.8 m above the capsule centre</span>
+visual_-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, <span class="val">0.8f</span>, <span class="val">0.0f</span>);
+
+<span class="cm">// Position weapon socket at the character's right-hand grip point</span>
+weaponSocket_-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.45f</span>, <span class="val">0.55f</span>, <span class="val">0.25f</span>);
+
+<span class="cm">// Tilt the socket so the sword angles outward naturally</span>
+weaponSocket_-&gt;<span class="fn">SetLocalRotation</span>(<span class="ty">Quaternion</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, -<span class="val">20.0f</span>));</pre>
+<p>
+  <code>SetLocalPosition()</code> accepts either three floats or a <code>Vector3</code>. The
+  coordinates are in the parent's local space — so <code>(0.45, 0.55, 0.25)</code> means 0.45 m
+  to the right, 0.55 m up, and 0.25 m forward <em>relative to the visual child's origin and
+  facing direction</em>, not relative to the world.
+</p>
+<p>
+  <code>SetLocalRotation()</code> takes a <code>Quaternion</code>, most conveniently constructed
+  as <code>Quaternion(pitch, yaw, roll)</code> in degrees. The rotation is applied
+  <em>relative to the parent's rotation</em>. If the player rotates to face a different direction,
+  the weapon socket's local rotation <code>(0, 0, -20)</code> will continue to tilt the sword
+  20 degrees inward regardless of which direction the player faces — the local frame turns with
+  the parent automatically.
+</p>
+<p>
+  You can read local values back with <code>GetLocalPosition()</code> and
+  <code>GetLocalRotation()</code>, which return the same values you set (unmodified by any parent
+  transform). Use these when you need to save or compare an entity's offset independent of where
+  its parent currently happens to be.
+</p>
+
+<!-- 5 -->
+<h3>5. Transform propagation in action</h3>
+<p>
+  Consider the chain of transforms when the player is at world position <code>(3, 1, 5)</code> and
+  facing along the <code>-Z</code> axis:
+</p>
+<pre><span class="cm">Player     world pos: (3.00, 1.00, 5.00)   — set directly via SetPosition()
+
+PlayerVisual
+  local pos: (0.00, 0.80, 0.00)            — set via SetLocalPosition()
+  world pos: (3.00, 1.80, 5.00)            — parent pos + rotated local offset
+
+WeaponSocket
+  local pos: (0.45, 0.55, 0.25)            — set via SetLocalPosition()
+  world pos: ≈ (2.55, 2.35, 4.75)         — composed through two parent transforms
+
+Sword
+  local pos: (0.00, 0.35, 0.00)            — set via SetLocalPosition()
+  world pos: ≈ (2.55, 2.70, 4.75)         — composed through three parent transforms</span></pre>
+<p>
+  Every time the player moves, all four world positions are recomputed automatically by the
+  engine. If you press WASD in the demo and watch the HUD, the socket's world position tracks
+  the player's position exactly — no per-frame update code was written for that.
+</p>
+<p>
+  Rotation composes the same way. If the player turns 90 degrees to the right, the visual child
+  turns with it, which rotates the socket's local frame, which in turn changes where the sword
+  sits in world space — all without a single line of sync code.
+</p>
+
+<!-- 6 -->
+<h3>6. <code>GetParent()</code></h3>
+<pre><span class="ty">Entity</span>* parent = visual_-&gt;<span class="fn">GetParent</span>();       <span class="cm">// → player_</span>
+<span class="ty">Entity</span>* root   = player_-&gt;<span class="fn">GetParent</span>();       <span class="cm">// → nullptr (root entity)</span></pre>
+<p>
+  <code>GetParent()</code> returns the direct parent entity in the scene graph, or
+  <code>nullptr</code> if the entity is a root entity (parented directly to the scene root via
+  <code>CreateEntity()</code>). You should always null-check the result before dereferencing it.
+</p>
+<p>
+  A common pattern is to walk the hierarchy upward from any entity to locate the root of an
+  articulated character:
+</p>
+<pre><span class="cm">// Walk up to the root entity from an arbitrary descendant</span>
+<span class="ty">Entity</span>* findRoot(<span class="ty">Entity</span>* e) {
+    <span class="kw">while</span> (<span class="ty">Entity</span>* p = e-&gt;<span class="fn">GetParent</span>())
+        e = p;
+    <span class="kw">return</span> e;   <span class="cm">// first entity with no parent</span>
+}</pre>
+
+<!-- 7 -->
+<h3>7. <code>GetChildCount()</code>, <code>GetChild(index)</code>, and <code>GetChildren()</code></h3>
+<pre><span class="cm">// GetChildCount — number of DIRECT children only</span>
+<span class="kw">int</span> n = player_-&gt;<span class="fn">GetChildCount</span>();   <span class="cm">// → 1 (only visual_; socket and sword are grandchildren)</span>
+
+<span class="cm">// GetChild(index) — zero-based; returns nullptr when index &gt;= GetChildCount()</span>
+<span class="ty">Entity</span>* first  = player_-&gt;<span class="fn">GetChild</span>(<span class="val">0</span>);   <span class="cm">// → visual_</span>
+<span class="ty">Entity</span>* bad    = player_-&gt;<span class="fn">GetChild</span>(<span class="val">9</span>);   <span class="cm">// → nullptr</span>
+
+<span class="cm">// GetChildren — returns a vector of ALL direct children</span>
+std::vector&lt;<span class="ty">Entity</span>*&gt; kids = player_-&gt;<span class="fn">GetChildren</span>();
+<span class="kw">for</span> (<span class="ty">Entity</span>* child : kids) {
+    child-&gt;<span class="fn">SetActive</span>(<span class="kw">false</span>);   <span class="cm">// hide every direct child</span>
+}</pre>
+<p>
+  All three methods report only <strong>direct</strong> children — not grandchildren or deeper
+  descendants. <code>GetChild(0)</code> on <code>player_</code> returns <code>visual_</code> but
+  does not see <code>weaponSocket_</code> or <code>sword_</code>. If you need to walk the entire
+  subtree you must recurse:
+</p>
+<pre><span class="cm">// Recursive subtree walk: collect all descendants</span>
+<span class="kw">void</span> <span class="fn">collectAll</span>(<span class="ty">Entity</span>* root, std::vector&lt;<span class="ty">Entity</span>*&gt;&amp; out) {
+    <span class="kw">for</span> (<span class="ty">Entity</span>* child : root-&gt;<span class="fn">GetChildren</span>()) {
+        out.<span class="fn">push_back</span>(child);
+        <span class="fn">collectAll</span>(child, out);   <span class="cm">// recurse into grandchildren</span>
+    }
+}
+
+<span class="cm">// Usage: every entity beneath player_ (visual_, socket_, sword_)</span>
+std::vector&lt;<span class="ty">Entity</span>*&gt; all;
+<span class="fn">collectAll</span>(player_, all);   <span class="cm">// all.size() == 3</span></pre>
+
+<!-- 8 -->
+<h3>8. <code>TranslateLocal()</code> versus <code>TranslateWorld()</code></h3>
+<pre><span class="cm">// TranslateLocal — moves along the ENTITY'S OWN rotated axes</span>
+weaponSocket_-&gt;<span class="fn">TranslateLocal</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">0.8f</span> * dt, <span class="val">0.0f</span>));
+
+<span class="cm">// TranslateWorld — moves along the fixed WORLD axes (Y is always up in the scene)</span>
+weaponSocket_-&gt;<span class="fn">TranslateWorld</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.8f</span> * dt));</pre>
+<p>
+  Both methods add a positional delta each frame, but they interpret the delta differently.
+  <code>TranslateLocal()</code> applies the delta in the entity's <em>own local coordinate
+  frame</em> — "forward" means along the entity's current facing direction, even if that direction
+  is rotated relative to the world. This is the natural choice for AI movement, weapon recoil
+  effects, or any motion that should follow an entity's own orientation.
+</p>
+<p>
+  <code>TranslateWorld()</code> always interprets the delta in the fixed world coordinate frame.
+  <code>Vector3(0, 0, 1)</code> always moves the entity one unit in the world's <code>+Z</code>
+  direction, regardless of where the entity is facing. This is useful when you want motion that
+  is absolute — for instance sliding a platform along a fixed track axis, or moving a head-bob
+  entity strictly up and down in the world.
+</p>
+<p>
+  You can see the contrast clearly in the demo: press <kbd>Q</kbd>/<kbd>E</kbd> to raise and lower
+  the socket along its own (possibly tilted) local Y axis with <code>TranslateLocal()</code>. Then
+  press <kbd>G</kbd>/<kbd>H</kbd> to push it along world Z with <code>TranslateWorld()</code>.
+  The trajectories diverge whenever the socket's local frame is rotated away from the world axes.
+</p>
+<div class="callout info">
+  <h4>Legacy alias</h4>
+  <p>
+    The API also exposes <code>entity-&gt;MoveRelative(delta)</code>, which is an alias for
+    <code>TranslateWorld()</code>. It exists for backward compatibility. In new code prefer the
+    explicit <code>TranslateWorld()</code> name.
+  </p>
+</div>
+
+<!-- 9 -->
+<h3>9. The weapon socket pattern</h3>
+<p>
+  The weapon socket is the single most reused hierarchy pattern in 3D action games. The idea is
+  simple: instead of parenting a weapon model directly to a character bone, you first create an
+  empty transform entity — the "socket" — at the desired attachment point. The weapon model then
+  hangs beneath the socket.
+</p>
+<pre><span class="cm">// Create the socket at the character's right-hand grip position</span>
+weaponSocket_ = visual_-&gt;<span class="fn">CreateChild</span>(<span class="st">"WeaponSocket"</span>);
+weaponSocket_-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.45f</span>, <span class="val">0.55f</span>, <span class="val">0.25f</span>);
+weaponSocket_-&gt;<span class="fn">SetLocalRotation</span>(<span class="ty">Quaternion</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, -<span class="val">20.0f</span>));
+
+<span class="cm">// Attach the sword under the socket</span>
+sword_ = weaponSocket_-&gt;<span class="fn">CreateChild</span>(<span class="st">"Sword"</span>);
+sword_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Sword.mdl"</span>);
+sword_-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, <span class="val">0.35f</span>, <span class="val">0.0f</span>);   <span class="cm">// blade offset within grip</span>
+sword_-&gt;<span class="fn">SetScale</span>(<span class="val">0.75f</span>);</pre>
+<p>
+  The advantages of this indirection become clear when you want to swap weapons. Rather than
+  destroying and recreating entities with careful coordinate adjustments, you simply hide the old
+  weapon and show the new one (or reparent a different model to the same socket):
+</p>
+<pre><span class="cm">// Equip an axe instead of the sword — same socket, different weapon child</span>
+sword_-&gt;<span class="fn">SetActive</span>(<span class="kw">false</span>);           <span class="cm">// hide sword (subtree suspended)</span>
+<span class="ty">Entity</span>* axe = weaponSocket_-&gt;<span class="fn">CreateChild</span>(<span class="st">"Axe"</span>);
+axe-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Axe.mdl"</span>);
+axe-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, <span class="val">0.30f</span>, <span class="val">0.0f</span>);</pre>
+<p>
+  The socket's local position and rotation remain unchanged — the new weapon inherits the
+  same grip placement automatically. You can also define multiple sockets in a single setup
+  (one per hand, one on the back for a sheathed weapon) and toggle which socket is active
+  depending on game state.
+</p>
+<p>
+  In the demo, pressing <kbd>F</kbd> toggles <code>weaponSocket_-&gt;SetActive(false)</code>. This
+  hides <em>both</em> the socket and the sword in one call, because activating or deactivating a
+  parent entity always propagates to every entity in its subtree.
+</p>
+
+<!-- 10 -->
+<h3>10. <code>SetActive()</code> propagation through the subtree</h3>
+<pre><span class="cm">// Deactivate the entire weapon subtree (socket + sword) in one call</span>
+weaponSocket_-&gt;<span class="fn">SetActive</span>(<span class="kw">false</span>);
+
+<span class="cm">// Re-activate</span>
+weaponSocket_-&gt;<span class="fn">SetActive</span>(<span class="kw">true</span>);
+
+<span class="cm">// Check the state of any individual node</span>
+<span class="kw">bool</span> on = weaponSocket_-&gt;<span class="fn">IsActive</span>();</pre>
+<p>
+  Deactivating a parent entity suspends rendering, physics, and scripting for the entire
+  subtree. You do not need to iterate through children to hide them individually.
+  <code>SetActive(true)</code> restores all descendants that were active before the parent was
+  deactivated. This makes <code>SetActive</code> ideal for toggling groups of related objects —
+  weapon rigs, cutscene props, enemy spawners — without destroying and recreating them.
+</p>
+<p>
+  Note that <code>SetActive(false)</code> is <em>not</em> the same as
+  <code>DestroyEntity()</code>. Destroyed entities are permanently removed and their pointers
+  become invalid. Deactivated entities remain in memory and can be restored. Use
+  <code>SetActive</code> for temporary visibility changes (equipping/unequipping, opening/closing
+  doors, object pooling) and <code>DestroyEntity()</code> only when an object should never return.
+</p>
+
+<!-- 11 -->
+<h3>11. Persistent entities across scene transitions</h3>
+<p>
+  When you call <code>LoadScene()</code> the engine destroys all non-persistent entities. If your
+  player hierarchy should survive a level transition, mark only the root entity as persistent:
+</p>
+<pre><span class="cm">// Both player_ and ALL its descendants (visual_, socket_, sword_) will survive</span>
+<span class="fn">SetPersistentEntity</span>(player_);   <span class="cm">// call this BEFORE the first LoadScene()</span></pre>
+<p>
+  The entire subtree of a persistent entity is automatically preserved. You do not need to mark
+  each child individually.
+</p>
+
+<!-- ─── FULL PATTERN: BODY/VISUAL SPLIT ──────────────────────────── -->
+<h2>The body / visual split in depth</h2>
+<p>
+  The demo's player hierarchy follows the pattern used in the <em>blupi_proto</em> reference
+  implementation and in many commercial character-controller games. Understanding why the split
+  exists will help you apply it correctly.
+</p>
+<p>
+  A <code>CharacterController</code> attaches to the entity at its origin. The capsule's centre
+  is at the entity's position; a 1.8 m tall capsule has its bottom at <code>y - 0.9</code> and
+  its top at <code>y + 0.9</code>. If you place the player entity at <code>(0, 1, 0)</code> the
+  capsule bottom is exactly at <code>y = 0.1</code> — just above ground zero.
+</p>
+<p>
+  If you attach the character model directly to the physics entity, the mesh origin (usually
+  the character's feet) sits at the capsule's centre, making the character float 0.9 m in the
+  air. By instead attaching the model to a <em>child entity</em> with a local Y offset of
+  <code>−0.9</code> (or whatever offset your art requires), the feet of the mesh align with the
+  ground while the capsule's centre remains at the correct physics height.
+</p>
+<p>
+  A second advantage: the camera can follow the <em>visual</em> child rather than the physics
+  body. The visual child sits at mid-body height, producing a natural third-person orbit target
+  centred on the character's torso. If the camera followed the physics body directly it would
+  orbit a point at the capsule's centre, which often feels too low.
+</p>
+<pre><span class="cm">// The full body/visual split pattern:</span>
+
+<span class="ty">Entity</span>* player = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+player-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.9f</span>, <span class="val">0.0f</span>);      <span class="cm">// capsule centre 0.9 m above ground</span>
+player-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);   <span class="cm">// radius 0.35, height 1.8</span>
+player-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::Actor);
+player-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+    <span class="ty">CollisionLayer</span>::StaticGeometry,
+    <span class="ty">CollisionLayer</span>::Trigger
+}));
+
+<span class="ty">Entity</span>* visual = player-&gt;<span class="fn">CreateChild</span>(<span class="st">"PlayerVisual"</span>);
+visual-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Character.mdl"</span>);
+visual-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, -<span class="val">0.9f</span>, <span class="val">0.0f</span>);  <span class="cm">// feet at ground level</span>
+
+<span class="ty">Camera</span>* cam = <span class="fn">CreateCamera</span>();
+cam-&gt;<span class="fn">Follow</span>(visual);                            <span class="cm">// orbit mid-body, not feet</span></pre>
+
+<!-- ─── LUA EQUIVALENT ────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+<p>
+  All of the hierarchy API is available in Lua. The example below builds the same three-level
+  player hierarchy and demonstrates <code>GetParent()</code>, <code>GetChildren()</code>, and
+  <code>TranslateLocal()</code>.
+</p>
+
+<pre><span class="lua-cm">-- game.lua — Lua equivalent of the Entity Hierarchy tutorial (Part 22)</span>
+
+<span class="lua-kw">local</span> player, visual, weaponSocket, sword, cam, label
+<span class="lua-kw">local</span> cc
+<span class="lua-kw">local</span> swordEquipped = <span class="lua-kw">true</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    game:<span class="lua-fn">SetWindowTitle</span>(<span class="lua-str">"Entity Hierarchy — Lua"</span>)
+    game:<span class="lua-fn">SetClearColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.12</span>, <span class="lua-num">0.15</span>, <span class="lua-num">0.20</span>, <span class="lua-num">1.0</span>))
+
+    <span class="lua-cm">-- Light</span>
+    <span class="lua-kw">local</span> sun = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Sun"</span>)
+    sun:<span class="lua-fn">AddDirectionalLight</span>(<span class="lua-fn">Color</span>(<span class="lua-num">1.0</span>, <span class="lua-num">0.93</span>, <span class="lua-num">0.82</span>), <span class="lua-num">1.2</span>)
+    sun:<span class="lua-fn">SetRotation</span>(<span class="lua-fn">Quaternion</span>(<span class="lua-num">50</span>, <span class="lua-num">30</span>, <span class="lua-num">0</span>))
+
+    <span class="lua-cm">-- Level 1: Player (root)</span>
+    player = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Player"</span>)
+    player:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">1</span>, <span class="lua-num">0</span>)
+    cc = player:<span class="lua-fn">AddCharacterController</span>(<span class="lua-num">0.35</span>, <span class="lua-num">1.8</span>)
+
+    <span class="lua-cm">-- Level 2: Visual child — CreateChild() attaches a new entity to player</span>
+    visual = player:<span class="lua-fn">CreateChild</span>(<span class="lua-str">"PlayerVisual"</span>)
+    visual:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Character.mdl"</span>)
+    visual:<span class="lua-fn">SetLocalPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">0.8</span>, <span class="lua-num">0</span>)   <span class="lua-cm">-- LOCAL offset, not world!</span>
+
+    <span class="lua-cm">-- Level 3: Weapon socket (empty transform entity)</span>
+    weaponSocket = visual:<span class="lua-fn">CreateChild</span>(<span class="lua-str">"WeaponSocket"</span>)
+    weaponSocket:<span class="lua-fn">SetLocalPosition</span>(<span class="lua-num">0.45</span>, <span class="lua-num">0.55</span>, <span class="lua-num">0.25</span>)
+    weaponSocket:<span class="lua-fn">SetLocalRotation</span>(<span class="lua-fn">Quaternion</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">-20</span>))
+
+    <span class="lua-cm">-- Level 4: Sword (child of socket)</span>
+    sword = weaponSocket:<span class="lua-fn">CreateChild</span>(<span class="lua-str">"Sword"</span>)
+    sword:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Sword.mdl"</span>)
+    sword:<span class="lua-fn">SetLocalPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">0.35</span>, <span class="lua-num">0</span>)
+    sword:<span class="lua-fn">SetScale</span>(<span class="lua-num">0.75</span>)
+
+    <span class="lua-cm">-- Camera orbiting the mid-body visual child</span>
+    cam = game:<span class="lua-fn">CreateCamera</span>()
+    cam:<span class="lua-fn">SetOrbitMode</span>(visual, <span class="lua-num">6.0</span>)
+    cam:<span class="lua-fn">SetOrbitAngles</span>(<span class="lua-num">0</span>, <span class="lua-num">15</span>)
+
+    <span class="lua-cm">-- Demonstrate hierarchy enumeration in Lua</span>
+    <span class="lua-kw">local</span> count = player:<span class="lua-fn">GetChildCount</span>()   <span class="lua-cm">-- → 1</span>
+    <span class="lua-kw">local</span> first = player:<span class="lua-fn">GetChild</span>(<span class="lua-num">0</span>)       <span class="lua-cm">-- → visual</span>
+    <span class="lua-kw">local</span> kids  = player:<span class="lua-fn">GetChildren</span>()     <span class="lua-cm">-- table of direct children</span>
+    <span class="lua-kw">local</span> par   = visual:<span class="lua-fn">GetParent</span>()       <span class="lua-cm">-- → player</span>
+    <span class="lua-cm">-- par:GetName() == "Player"</span>
+
+    <span class="lua-cm">-- Iterate all direct children of visual and print names</span>
+    <span class="lua-kw">for</span> _, child <span class="lua-kw">in</span> <span class="lua-fn">ipairs</span>(visual:<span class="lua-fn">GetChildren</span>()) <span class="lua-kw">do</span>
+        <span class="lua-fn">print</span>(<span class="lua-str">"Visual child: "</span> .. child:<span class="lua-fn">GetName</span>())
+    <span class="lua-kw">end</span>
+
+    label = game:<span class="lua-fn">CreateLabel</span>(<span class="lua-str">""</span>)
+    label:<span class="lua-fn">SetPosition</span>(<span class="lua-num">16</span>, <span class="lua-num">16</span>)
+    label:<span class="lua-fn">SetFontSize</span>(<span class="lua-num">15</span>)
+    label:<span class="lua-fn">SetColor</span>(Color.WHITE)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyPressed</span>(<span class="lua-str">"Escape"</span>) <span class="lua-kw">then</span> game:<span class="lua-fn">Quit</span>() <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Movement</span>
+    <span class="lua-kw">local</span> move = <span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"W"</span>) <span class="lua-kw">then</span> move.z = move.z + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"S"</span>) <span class="lua-kw">then</span> move.z = move.z - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"A"</span>) <span class="lua-kw">then</span> move.x = move.x - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"D"</span>) <span class="lua-kw">then</span> move.x = move.x + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    cc:<span class="lua-fn">Move</span>(move * <span class="lua-num">5</span>, dt)
+
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyPressed</span>(<span class="lua-str">"Space"</span>) <span class="lua-kw">then</span> cc:<span class="lua-fn">TryJump</span>(<span class="lua-num">10</span>) <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Toggle sword</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyPressed</span>(<span class="lua-str">"F"</span>) <span class="lua-kw">then</span>
+        swordEquipped = <span class="lua-kw">not</span> swordEquipped
+        weaponSocket:<span class="lua-fn">SetActive</span>(swordEquipped)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Raise / lower socket using TranslateLocal (entity's own axes)</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"Q"</span>) <span class="lua-kw">then</span>
+        weaponSocket:<span class="lua-fn">TranslateLocal</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">0.8</span> * dt, <span class="lua-num">0</span>))
+    <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"E"</span>) <span class="lua-kw">then</span>
+        weaponSocket:<span class="lua-fn">TranslateLocal</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, -<span class="lua-num">0.8</span> * dt, <span class="lua-num">0</span>))
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Push socket along world Z using TranslateWorld (fixed world axes)</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"G"</span>) <span class="lua-kw">then</span>
+        weaponSocket:<span class="lua-fn">TranslateWorld</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0.8</span> * dt))
+    <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"H"</span>) <span class="lua-kw">then</span>
+        weaponSocket:<span class="lua-fn">TranslateWorld</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, -<span class="lua-num">0.8</span> * dt))
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- HUD update</span>
+    <span class="lua-kw">local</span> wpos  = weaponSocket:<span class="lua-fn">GetPosition</span>()
+    <span class="lua-kw">local</span> lpos  = weaponSocket:<span class="lua-fn">GetLocalPosition</span>()
+    label:<span class="lua-fn">SetText</span>(
+        <span class="lua-str">"Children of player: "</span> .. player:<span class="lua-fn">GetChildCount</span>() .. <span class="lua-str">"\n"</span> ..
+        <span class="lua-str">"Socket local:  ("</span>  .. <span class="lua-fn">string.format</span>(<span class="lua-str">"%.2f %.2f %.2f"</span>, lpos.x, lpos.y, lpos.z) .. <span class="lua-str">")\n"</span> ..
+        <span class="lua-str">"Socket world:  ("</span>  .. <span class="lua-fn">string.format</span>(<span class="lua-str">"%.2f %.2f %.2f"</span>, wpos.x, wpos.y, wpos.z) .. <span class="lua-str">")\n"</span> ..
+        <span class="lua-str">"Sword: "</span> .. (swordEquipped <span class="lua-kw">and</span> <span class="lua-str">"equipped"</span> <span class="lua-kw">or</span> <span class="lua-str">"unequipped"</span>) .. <span class="lua-str">"\n"</span> ..
+        <span class="lua-str">"WASD=move  Space=jump  F=toggle  Q/E=local  G/H=world"</span>
+    )
+<span class="lua-kw">end</span></pre>
+<p>
+  In Lua, <code>GetChildren()</code> returns a Lua table (array) rather than a
+  <code>std::vector</code>. Iterate it with <code>ipairs()</code>. All other method names and
+  argument types are identical to the C++ API.
+</p>
+
+<!-- ─── API QUICK REFERENCE ───────────────────────────────────────── -->
+<h2>API quick reference — this part</h2>
+<table>
+  <tr><th>Method</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>entity-&gt;CreateChild(string name)</code></td>
+    <td><code>Entity*</code></td>
+    <td>Creates a new entity immediately beneath <code>entity</code> in the scene graph; engine owns the lifetime</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;GetParent()</code></td>
+    <td><code>Entity*</code></td>
+    <td>Direct parent entity, or <code>nullptr</code> for root entities; always null-check the result</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;GetChildCount()</code></td>
+    <td><code>int</code></td>
+    <td>Number of <em>direct</em> children only; grandchildren are not counted</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;GetChild(int index)</code></td>
+    <td><code>Entity*</code></td>
+    <td>Zero-based direct child lookup; returns <code>nullptr</code> when <code>index &gt;= GetChildCount()</code></td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;GetChildren()</code></td>
+    <td><code>vector&lt;Entity*&gt;</code></td>
+    <td>All direct children as a vector; empty vector if the entity is a leaf node</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;SetLocalPosition(x, y, z)</code></td>
+    <td>—</td>
+    <td>Sets position in the parent's coordinate frame; also accepts <code>Vector3</code></td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;GetLocalPosition()</code></td>
+    <td><code>Vector3</code></td>
+    <td>Parent-relative position, unaffected by where the parent currently sits in world space</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;SetLocalRotation(Quaternion)</code></td>
+    <td>—</td>
+    <td>Rotation relative to the parent's facing direction; use <code>Quaternion(pitch, yaw, roll)</code></td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;GetLocalRotation()</code></td>
+    <td><code>Quaternion</code></td>
+    <td>Parent-relative rotation; the value set by <code>SetLocalRotation()</code></td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;TranslateLocal(Vector3 delta)</code></td>
+    <td>—</td>
+    <td>Moves the entity by <code>delta</code> in its <em>own</em> rotated local axes</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;TranslateWorld(Vector3 delta)</code></td>
+    <td>—</td>
+    <td>Moves the entity by <code>delta</code> in the fixed world axes; ignores entity rotation</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;SetActive(bool)</code></td>
+    <td>—</td>
+    <td>Shows/hides the entity and all descendants; <code>false</code> suspends rendering and physics</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;IsActive()</code></td>
+    <td><code>bool</code></td>
+    <td>Current activation state of this individual entity node</td>
+  </tr>
+  <tr>
+    <td><code>SetPersistentEntity(Entity*)</code></td>
+    <td>—</td>
+    <td>Marks the entity (and its entire subtree) to survive <code>LoadScene()</code> calls</td>
+  </tr>
+</table>
+
+<!-- ─── COMMON MISTAKES ──────────────────────────────────────────── -->
+<h2>Common mistakes</h2>
+<div class="callout warn">
+  <h4>Common mistakes — Part 22</h4>
+  <ul style="margin-left:1.3rem;margin-top:0.4rem;">
+    <li style="margin-bottom:0.7rem;">
+      <strong>Using <code>SetPosition()</code> on a child entity to set its offset.</strong>
+      Calling <code>child-&gt;SetPosition(0, 0.8f, 0)</code> writes a world-space coordinate.
+      The parent's transform will override it the next frame, causing the child to snap back or
+      drift erratically. Use <code>SetLocalPosition()</code> to declare a permanent parent-relative
+      offset that persists across all parent movements.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Confusing <code>TranslateLocal()</code> and <code>TranslateWorld()</code>.</strong>
+      When an entity's local frame is aligned with the world (zero rotation) the two methods
+      produce the same result. They diverge only once the entity is rotated. A common symptom:
+      an AI character "strafes" diagonally instead of moving straight ahead because the code
+      used <code>TranslateWorld(Vector3::FORWARD)</code> without accounting for the character's
+      facing rotation. Use <code>TranslateLocal()</code> when you want motion to follow the
+      entity's own facing direction.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Calling <code>GetChildren()</code> expecting grandchildren.</strong>
+      All enumeration methods (<code>GetChildCount()</code>, <code>GetChild()</code>,
+      <code>GetChildren()</code>) report only the <em>direct</em> children of the queried entity.
+      They never descend into nested levels. If you need all descendants, write a recursive
+      walk using <code>GetChildren()</code> on each entity in turn.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Dereferencing a <code>nullptr</code> returned by <code>GetParent()</code> or <code>GetChild()</code>.</strong>
+      <code>GetParent()</code> returns <code>nullptr</code> for root entities.
+      <code>GetChild(index)</code> returns <code>nullptr</code> when the index is out of range.
+      Both must be null-checked before use. The pattern
+      <code>if (Entity* p = child-&gt;GetParent()) { p-&gt;DoSomething(); }</code>
+      is the safest idiom.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Positioning the weapon in world space and wondering why it floats in place.</strong>
+      The weapon socket and the weapon beneath it must both use <code>SetLocalPosition()</code>.
+      If you accidentally call <code>sword-&gt;SetPosition(worldCoord)</code>, the sword will
+      snap to that world coordinate — and then the parent's transform will try to move it somewhere
+      else, resulting in a visually glitched, oscillating position.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Parenting physics bodies to each other as a substitute for constraints.</strong>
+      Child entities do not contribute their own physics response to the parent. If you need two
+      physics bodies to move together rigidly, use a <code>Fixed</code> physics constraint (Part 23),
+      not a parent/child relationship. Parent/child hierarchy is purely a transform relationship —
+      it does not simulate physical forces between the linked bodies.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Calling <code>SetPersistentEntity()</code> on a child instead of the root.</strong>
+      Only the subtree root needs to be marked persistent. Marking an individual child
+      (such as the visual or the weapon) persistent while leaving the parent non-persistent
+      will result in the parent being destroyed at scene transition and the child becoming an
+      orphaned, dangling subtree. Always call <code>SetPersistentEntity()</code> on the
+      topmost entity you want to preserve.
+    </li>
+    <li style="margin-bottom:0.0rem;">
+      <strong>Using <code>SetActive(false)</code> after calling <code>DestroyEntity()</code>.</strong>
+      After <code>DestroyEntity(ptr)</code> the pointer is invalid. Any subsequent access — including
+      <code>ptr-&gt;SetActive()</code> — is undefined behaviour. Set the pointer to
+      <code>nullptr</code> immediately after calling <code>DestroyEntity()</code> and guard all
+      subsequent uses with a null-check.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── TRY IT YOURSELF ────────────────────────────────────────────── -->
+<h2>Try it yourself</h2>
+<p>
+  Once the example is running, try these exercises to deepen your understanding:
+</p>
+<ol>
+  <li>
+    Add a second weapon socket on the <em>left</em> hand by calling
+    <code>visual_-&gt;CreateChild("WeaponSocketLeft")</code> with a mirrored X position (negative X).
+    Attach a shield model beneath it. Verify that moving the player carries both weapons along.
+  </li>
+  <li>
+    Change the camera to follow <code>player_</code> (the physics body) instead of
+    <code>visual_</code> (the mid-body child). Observe how the orbit pivot changes — it drops to
+    the capsule centre instead of the torso height.
+  </li>
+  <li>
+    In <code>Update()</code>, iterate all of <code>visual_-&gt;GetChildren()</code> and print their
+    names and world positions to the label. Extend the list by adding a "BackScabbard" child to
+    the visual and watch it appear in the loop automatically.
+  </li>
+  <li>
+    Use <code>GetParent()</code> to navigate from the <code>sword_</code> entity back up to the
+    scene root and print each ancestor's name to trace the full chain:
+    <code>Sword → WeaponSocket → PlayerVisual → Player</code>.
+  </li>
+  <li>
+    Replace the <kbd>F</kbd> key binding with a timer that toggles the sword on and off every
+    two seconds by calling <code>weaponSocket_-&gt;SetActive()</code>. This simulates a
+    "flicker" damage-invincibility effect applied to the entire weapon sub-hierarchy at once.
+  </li>
+  <li>
+    Add a point light as a child of <code>weaponSocket_</code> so the sword casts a coloured glow
+    on nearby surfaces. Because the light is a child of the socket, it follows the sword
+    automatically without any per-frame positioning code.
+  </li>
+</ol>
+
+<!-- ─── WHAT YOU LEARNED ──────────────────────────────────────────── -->
+<h2>What you learned</h2>
+<p>
+  Entity hierarchy is the structural backbone of every complex scene in simple-3d. Here is a
+  summary of what this part covered:
+</p>
+<ul>
+  <li>
+    <strong>The scene graph</strong> is an implicit tree. <code>CreateEntity()</code> creates root
+    nodes; <code>entity-&gt;CreateChild(name)</code> creates child nodes one level deeper. The
+    engine owns all nodes regardless of how they were created.
+  </li>
+  <li>
+    <strong>Transform inheritance</strong> is automatic. Moving or rotating a parent entity
+    repositions all descendants in world space. No per-frame sync code is ever needed.
+  </li>
+  <li>
+    <strong>Local space vs. world space</strong> is the central distinction. Use
+    <code>SetLocalPosition()</code> and <code>SetLocalRotation()</code> to express a child's
+    fixed offset relative to its parent. Use <code>GetPosition()</code> to read back the
+    computed absolute world coordinate.
+  </li>
+  <li>
+    <strong><code>TranslateLocal()</code></strong> moves an entity along its own rotated axes —
+    correct for orientation-aware motion like character movement or weapon recoil.
+    <strong><code>TranslateWorld()</code></strong> moves along fixed world axes — correct for
+    motion that must stay aligned with the scene regardless of entity rotation.
+  </li>
+  <li>
+    <strong>Hierarchy enumeration</strong> via <code>GetChildCount()</code>,
+    <code>GetChild(index)</code>, <code>GetChildren()</code>, and <code>GetParent()</code> lets
+    you inspect and traverse the tree at runtime. All methods operate on direct children only;
+    recurse for full subtree walks.
+  </li>
+  <li>
+    <strong>The body / visual child split</strong> is the idiomatic pattern for characters with
+    a physics capsule: place the physics root at the capsule centre, attach the renderable mesh
+    as a child with a local Y offset so the feet align with the ground, and orbit the camera
+    around the visual child for a natural mid-body pivot.
+  </li>
+  <li>
+    <strong>The weapon socket pattern</strong> inserts an empty transform entity at the desired
+    grip point. Weapon models hang beneath this socket. Swapping weapons is then a matter of
+    toggling child entities rather than repositioning and re-orienting models from scratch.
+  </li>
+  <li>
+    <strong><code>SetActive(false)</code></strong> on any node propagates to its entire subtree,
+    suspending rendering and physics for the whole branch in one call — ideal for pooled objects,
+    hidden loot, and equipment toggles.
+  </li>
+  <li>
+    <strong><code>SetPersistentEntity()</code></strong> on the root of a subtree preserves the
+    entire hierarchy across <code>LoadScene()</code> transitions.
+  </li>
+</ul>
+<p>
+  The next tutorial, Part 23, introduces physics constraints — hinges, sliders, and ball-socket
+  joints that connect rigid bodies in ways the scene-graph parent/child relationship alone
+  cannot, opening the door to swinging doors, motorised platforms, and chain-link simulations.
+</p>
+
+<nav class="tutorial-nav" style="display:flex;justify-content:space-between;margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--border);">
+  <a href="tutorial-21.html" style="font-size:0.9rem;">&#8592; Part 21: Particle Systems</a>
+  <a href="tutorial-23.html" style="font-size:0.9rem;">Part 23: Physics Constraints &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

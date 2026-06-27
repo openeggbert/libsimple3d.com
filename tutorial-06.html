@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 06: Lua Scripting Basics — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+    <li><a href="tutorial-01.html">01. Hello World</a></li>
+    <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+    <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+    <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+    <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+    <li class="active"><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+    <li><a href="tutorial-07.html">07. Character Controller</a></li>
+    <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+    <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+    <li><a href="tutorial-10.html">10. Audio</a></li>
+    <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+    <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+    <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+    <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+    <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+    <li><a href="tutorial-16.html">16. Input Actions</a></li>
+    <li><a href="tutorial-17.html">17. UI System</a></li>
+    <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+    <li><a href="tutorial-19.html">19. Save and Load</a></li>
+    <li><a href="tutorial-20.html">20. Scene Management</a></li>
+    <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+    <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+    <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+    <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+    <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+    <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+    <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+    <li><a href="tutorial-28.html">28. Tweens</a></li>
+    <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+    <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 06</div>
+
+<h1><span class="tutorial-part">Part 06 of 30</span>Lua Scripting Basics</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>entity-&gt;AddScript(path)</code> &mdash; attaching a Lua script to an entity in C++.<br>
+    Lua lifecycle callbacks: <code>Start()</code>, <code>Update(dt)</code>, <code>Stop()</code>.<br>
+    <code>self.node</code> &mdash; the owning entity node inside a Lua script.<br>
+    <code>local entity = self.node</code> &mdash; the standard alias convention.<br>
+    <code>Vector3(x, y, z)</code> and <code>Quaternion(yaw, pitch, roll)</code> constructors in Lua.<br>
+    <code>entity:SetRotation()</code> and <code>entity:MoveRelative()</code> from Lua.<br>
+    The <code>Data/Scripts/</code> directory and resource-path conventions.<br>
+    <code>luac -p</code> &mdash; syntax-checking a Lua file before running.
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ──────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>Why Lua scripting exists alongside C++ and when to use each.</li>
+  <li>How to call <code>entity-&gt;AddScript("Scripts/myscript.lua")</code> to attach a script to any entity.</li>
+  <li>Where scripts live on disk: the <code>Data/Scripts/</code> folder inside the resource search path.</li>
+  <li>The three lifecycle callbacks the engine calls automatically: <code>Start()</code>, <code>Update(dt)</code>, and <code>Stop()</code>.</li>
+  <li>The <code>self.node</code> convention: how to access the entity that owns the script.</li>
+  <li>Why you copy <code>self.node</code> into a module-level <code>entity</code> variable in <code>Start()</code>.</li>
+  <li>How to construct and use <code>Vector3</code> and <code>Quaternion</code> values inside Lua.</li>
+  <li>How to call <code>entity:SetRotation()</code> and <code>entity:MoveRelative()</code> from Lua.</li>
+  <li>How to read keyboard state with <code>Input:IsKeyDown()</code> in a Lua script.</li>
+  <li>How to use <code>luac -p</code> to catch syntax errors before the game loads the script.</li>
+</ul>
+
+<!-- ─── OVERVIEW ─────────────────────────────────────────────── -->
+<h2>Why Lua alongside C++?</h2>
+<p>
+  simple-3d embeds LuaJIT (via U3D/Urho3D) so that you can drive per-entity runtime
+  behaviour without recompiling C++. The intended division of labour is:
+</p>
+<ul>
+  <li><strong>C++ (Start / Update / Stop on the Game subclass)</strong> &mdash; scene creation,
+      entity construction, component wiring, action binding, and any logic that must be fast
+      or type-safe.</li>
+  <li><strong>Lua scripts (Start / Update / Stop per entity)</strong> &mdash; per-entity runtime
+      behaviour: movement, animation, AI decisions, sound triggers. Scripts can be edited
+      and hot-reloaded without rebuilding the binary.</li>
+</ul>
+<p>
+  Each script file is a plain Lua 5.1 / LuaJIT-compatible text file. The engine gives it its
+  own execution environment and calls the global functions <code>Start</code>, <code>Update</code>,
+  and <code>Stop</code> automatically, exactly like the C++ lifecycle callbacks you have already
+  seen on the <code>Game</code> class.
+</p>
+
+<div class="callout info">
+  <h4>LuaJIT vs standard Lua</h4>
+  <p>
+    simple-3d uses LuaJIT which is binary-compatible with Lua 5.1. All standard Lua 5.1
+    libraries (<code>math</code>, <code>string</code>, <code>table</code>, <code>io</code>, etc.)
+    are available inside scripts. LuaJIT's JIT compiler makes numeric-heavy Update loops
+    run at near-native speed with no extra effort.
+  </p>
+</div>
+
+<!-- ─── PROJECT FILE LAYOUT ──────────────────────────────────── -->
+<h2>Where scripts live: Data/Scripts/</h2>
+<p>
+  All Lua scripts must reside somewhere inside the engine's <em>resource search path</em>.
+  The canonical location, consistent with the project structure introduced in the Getting
+  Started guide, is:
+</p>
+<pre>my-game/
+└── Data/
+    └── Scripts/          <span class="sh-cm">&lt;-- all .lua files go here</span>
+        ├── crystal.lua
+        └── enemy.lua</pre>
+<p>
+  When you call <code>entity-&gt;AddScript("Scripts/crystal.lua")</code> in C++, the engine
+  resolves this path relative to the <code>Data/</code> root, just like model or texture paths.
+  The full path on disk becomes <code>Data/Scripts/crystal.lua</code> next to the executable.
+</p>
+<p>
+  You do <em>not</em> include the <code>Data/</code> prefix in the path string &mdash; the
+  engine searches inside all registered resource directories automatically.
+</p>
+
+<!-- ─── COMPLETE WORKING EXAMPLE ─────────────────────────────── -->
+<h2>Complete working example</h2>
+<p>
+  The demo below creates a spinning, keyboard-controlled crystal object. All movement and
+  rotation logic lives entirely in a Lua script; C++ only constructs the scene and wires
+  things together. This is the recommended pattern.
+</p>
+
+<h3>C++ &mdash; main.cpp</h3>
+<pre><span class="kw">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">LuaDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+    <span class="ty">Entity</span>* crystal_ = <span class="kw">nullptr</span>;
+
+<span class="kw">public</span>:
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Part 06 &mdash; Lua Scripting Basics"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.05f</span>, <span class="val">0.05f</span>, <span class="val">0.12f</span>));
+
+        <span class="cm">// ── Ground plane (static physics body) ──────────────────────</span>
+        <span class="ty">Entity</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground-&gt;<span class="fn">SetScale</span>(<span class="val">12.0f</span>);
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);                        <span class="cm">// 0 = static</span>
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">12.0f</span>, <span class="val">0.2f</span>, <span class="val">12.0f</span>));
+        ground-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::StaticGeometry);
+
+        <span class="cm">// ── Crystal entity: model + Lua script ──────────────────────</span>
+        crystal_ = <span class="fn">CreateEntity</span>(<span class="st">"Crystal"</span>);
+        crystal_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        crystal_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">1.5f</span>, <span class="val">0.0f</span>);
+
+        <span class="cm">// NEW: attach a Lua script to this entity.</span>
+        <span class="cm">// Path is relative to Data/ inside the resource search path.</span>
+        crystal_-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/crystal.lua"</span>);
+
+        <span class="cm">// ── Lighting ─────────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.9f</span>, <span class="val">0.8f</span>), <span class="val">1.2f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45.0f</span>, -<span class="val">30.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="ty">Entity</span>* fill = <span class="fn">CreateEntity</span>(<span class="st">"Fill"</span>);
+        fill-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.3f</span>, <span class="val">0.6f</span>), <span class="val">0.5f</span>);
+        fill-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(-<span class="val">30.0f</span>, <span class="val">60.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── Camera following the crystal ──────────────────────────────</span>
+        <span class="ty">Camera</span>* cam = <span class="fn">CreateCamera</span>();
+        cam-&gt;<span class="fn">Follow</span>(crystal_, <span class="val">8.0f</span>, <span class="val">3.0f</span>);
+        cam-&gt;<span class="fn">LookAt</span>(crystal_);
+        cam-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">4.0f</span>);
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span> {
+        <span class="cm">// C++ Update only handles global quit; per-entity logic is in Lua.</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>() {
+    <span class="kw">return</span> <span class="fn">CreateGame</span>&lt;<span class="ty">LuaDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<h3>Lua &mdash; Data/Scripts/crystal.lua</h3>
+<pre><span class="lua-cm">-- Data/Scripts/crystal.lua</span>
+<span class="lua-cm">-- Demonstrates: lifecycle callbacks, self.node alias,</span>
+<span class="lua-cm">--               Vector3, Quaternion, SetRotation, MoveRelative.</span>
+
+<span class="lua-kw">local</span> entity           <span class="lua-cm">-- module-level reference to self.node (set in Start)</span>
+<span class="lua-kw">local</span> spinAngle = <span class="lua-num">0</span>    <span class="lua-cm">-- accumulated Y-axis rotation in degrees</span>
+<span class="lua-kw">local</span> spinSpeed = <span class="lua-num">90</span>   <span class="lua-cm">-- degrees per second</span>
+<span class="lua-kw">local</span> moveSpeed = <span class="lua-num">4</span>    <span class="lua-cm">-- world units per second (WASD movement)</span>
+
+<span class="lua-cm">-- ── Start(): called once when the script is loaded ───────────────────</span>
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-cm">-- self.node is the Urho3D Node that owns this script.</span>
+    <span class="lua-cm">-- Copying it to a module-level variable avoids repeating "self.node"</span>
+    <span class="lua-cm">-- in every callback and keeps the code readable.</span>
+    entity = self.node
+
+    <span class="lua-cm">-- GetName() is a standard Urho3D Node method exposed to Lua.</span>
+    print(<span class="lua-str">"[crystal.lua] Start() on entity: "</span> .. entity:GetName())
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- ── Update(dt): called every frame; dt = seconds since last frame ────</span>
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-cm">-- 1. SPIN: accumulate the angle, then set rotation from Euler angles.</span>
+    <span class="lua-cm">--    Quaternion(yaw, pitch, roll) — first argument is yaw (Y-axis).</span>
+    spinAngle = spinAngle + spinSpeed * dt
+    entity:SetRotation(Quaternion(spinAngle, <span class="lua-num">0</span>, <span class="lua-num">0</span>))
+
+    <span class="lua-cm">-- 2. MOVE: build a direction Vector3 from WASD keys, then translate.</span>
+    <span class="lua-kw">local</span> dir = Vector3(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+
+    <span class="lua-kw">if</span> Input:IsKeyDown(KEY_W) <span class="lua-kw">then</span> dir.z = dir.z + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:IsKeyDown(KEY_S) <span class="lua-kw">then</span> dir.z = dir.z - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:IsKeyDown(KEY_A) <span class="lua-kw">then</span> dir.x = dir.x - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:IsKeyDown(KEY_D) <span class="lua-kw">then</span> dir.x = dir.x + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Normalise so diagonal movement is not faster than cardinal movement.</span>
+    <span class="lua-kw">if</span> dir:Length() &gt; <span class="lua-num">0</span> <span class="lua-kw">then</span>
+        <span class="lua-cm">-- MoveRelative adds the delta to the entity's world-space position.</span>
+        entity:MoveRelative(dir:Normalized() * moveSpeed * dt)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- 3. SPEED BOOST: hold Shift to spin twice as fast.</span>
+    <span class="lua-kw">if</span> Input:IsKeyDown(KEY_LSHIFT) <span class="lua-kw">then</span>
+        spinAngle = spinAngle + spinSpeed * dt   <span class="lua-cm">-- extra spin this frame</span>
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- ── Stop(): called when the entity is removed or the scene closes ────</span>
+<span class="lua-kw">function</span> <span class="lua-fn">Stop</span>()
+    print(<span class="lua-str">"[crystal.lua] Stop() — entity is being removed."</span>)
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── STEP BY STEP ────────────────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<h3>1. <code>entity-&gt;AddScript(path)</code></h3>
+<p>
+  This single C++ call is the only bridge between your C++ scene setup and the Lua world:
+</p>
+<pre>crystal_-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/crystal.lua"</span>);</pre>
+<p>
+  The engine loads the file from <code>Data/Scripts/crystal.lua</code>, compiles it with LuaJIT,
+  and registers the script's lifecycle callbacks. From that point on, every game frame the
+  engine calls <code>Update(dt)</code> in the script &mdash; with no further involvement from
+  C++ code.
+</p>
+<p>
+  You can call <code>AddScript</code> on any entity at any time &mdash; but the most common
+  pattern is to do it in <code>Game::Start()</code> immediately after constructing the entity,
+  before the first frame runs. A single entity may only hold one script at a time.
+</p>
+
+<h3>2. The <code>Data/Scripts/</code> directory convention</h3>
+<p>
+  The path string you pass to <code>AddScript</code> is resolved inside the engine's resource
+  search path, the same way model and texture paths work. The canonical home for scripts is:
+</p>
+<pre>Data/
+└── Scripts/
+    └── crystal.lua     <span class="sh-cm">&lt;-- engine resolves "Scripts/crystal.lua" to here</span></pre>
+<p>
+  Never put scripts outside <code>Data/</code> (or another registered resource directory).
+  The engine will log <code>Failed to load Script</code> and silently skip the file if it
+  cannot be found.
+</p>
+
+<h3>3. Lua lifecycle callbacks</h3>
+<p>
+  The engine checks for three global functions in every loaded script and calls them
+  automatically. You do not need to register them anywhere &mdash; the names are the contract:
+</p>
+<table>
+  <tr>
+    <th>Callback</th>
+    <th>Signature</th>
+    <th>Called when</th>
+  </tr>
+  <tr>
+    <td><code>Start()</code></td>
+    <td><code>function Start() &hellip; end</code></td>
+    <td>Once, immediately after the script is loaded. Use this to obtain component proxies
+        and save the <code>self.node</code> reference.</td>
+  </tr>
+  <tr>
+    <td><code>Update(dt)</code></td>
+    <td><code>function Update(dt) &hellip; end</code></td>
+    <td>Every frame. <code>dt</code> is the scaled delta time in seconds (same value the
+        C++ <code>Update(float dt)</code> receives).</td>
+  </tr>
+  <tr>
+    <td><code>Stop()</code></td>
+    <td><code>function Stop() &hellip; end</code></td>
+    <td>Once, when the entity is removed from the scene or the scene is unloaded. Good for
+        cleanup and final logging.</td>
+  </tr>
+</table>
+<p>
+  All three are optional. A script that only defines <code>Update</code> is perfectly valid,
+  as is a script that only defines <code>Start</code>. The engine checks for each function's
+  existence before calling it.
+</p>
+
+<h3>4. <code>self.node</code> &mdash; accessing the owning entity</h3>
+<p>
+  Every Lua script runs in an environment where <code>self</code> is a table representing
+  the <em>ScriptInstance</em> component. The underlying Urho3D Node (the entity) is accessible
+  as <code>self.node</code>. Through this reference you can call any Urho3D Node method,
+  including all the simple-3d extensions (<code>SetRotation</code>, <code>MoveRelative</code>,
+  <code>GetCharacterController</code>, and so on).
+</p>
+<pre><span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-cm">-- Access the owning node through self.node</span>
+    <span class="lua-kw">local</span> name = self.node:GetName()
+    print(<span class="lua-str">"My entity name: "</span> .. name)
+<span class="lua-kw">end</span></pre>
+
+<h3>5. <code>local entity = self.node</code> &mdash; the alias convention</h3>
+<p>
+  Typing <code>self.node</code> in every method call inside <code>Update</code> is verbose
+  and slightly slower than a local variable lookup. The simple-3d convention is to copy
+  the reference into a <em>module-level</em> (file-scope) local in <code>Start()</code>:
+</p>
+<pre><span class="lua-kw">local</span> entity   <span class="lua-cm">-- declared at the top of the file (module scope)</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node   <span class="lua-cm">-- assign once; available in Update and Stop</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    entity:SetRotation(Quaternion(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>))  <span class="lua-cm">-- clean, no "self.node"</span>
+<span class="lua-kw">end</span></pre>
+<p>
+  You must declare the variable at file scope (<code>local entity</code> at the top) so that
+  both <code>Start</code> and <code>Update</code> can see it. Declaring it inside
+  <code>Start</code> with <code>local</code> would limit it to that function's scope and make
+  it invisible to <code>Update</code>.
+</p>
+
+<div class="callout info">
+  <h4>Module-level vs local scope in Lua</h4>
+  <p>
+    In Lua, a <code>local</code> variable declared at file scope (outside any function)
+    is accessible to all functions defined in the same file. This is sometimes called
+    "upvalue" or "module-level" scope. It is the correct place for state that persists
+    across frames, such as <code>entity</code>, accumulated angles, timers, and component proxies.
+  </p>
+</div>
+
+<h3>6. <code>Vector3(x, y, z)</code> in Lua</h3>
+<p>
+  <code>Vector3</code> is exposed to Lua as a global constructor. You create instances the
+  same way you would in C++:
+</p>
+<pre><span class="lua-kw">local</span> zero  = Vector3(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+<span class="lua-kw">local</span> up    = Vector3(<span class="lua-num">0</span>, <span class="lua-num">1</span>, <span class="lua-num">0</span>)
+<span class="lua-kw">local</span> speed = Vector3(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">5</span>) * dt   <span class="lua-cm">-- scalar multiply supported</span></pre>
+<p>
+  You can read and write individual components with <code>.x</code>, <code>.y</code>, and
+  <code>.z</code>, and call methods directly on the value:
+</p>
+<pre><span class="lua-kw">local</span> dir = Vector3(<span class="lua-num">1</span>, <span class="lua-num">0</span>, <span class="lua-num">1</span>)
+<span class="lua-kw">local</span> len  = dir:Length()           <span class="lua-cm">-- float ~= 1.414</span>
+<span class="lua-kw">local</span> norm = dir:Normalized()       <span class="lua-cm">-- unit vector</span>
+
+dir.x = dir.x + <span class="lua-num">0.5</span>               <span class="lua-cm">-- component assignment</span></pre>
+<p>
+  Arithmetic operators (<code>+</code>, <code>-</code>, <code>*</code>) work element-wise
+  and with scalars, just like the C++ type. Subtraction of two entity positions gives
+  a direction vector:
+</p>
+<pre><span class="lua-cm">-- Direction from this entity toward another entity</span>
+<span class="lua-kw">local</span> target = FindEntity(<span class="lua-str">"Enemy"</span>)
+<span class="lua-kw">if</span> target <span class="lua-kw">then</span>
+    <span class="lua-kw">local</span> diff = target:GetWorldPosition() - entity:GetWorldPosition()
+    <span class="lua-kw">local</span> dir  = diff:Normalized()
+    entity:MoveRelative(dir * <span class="lua-num">3.0</span> * dt)
+<span class="lua-kw">end</span></pre>
+
+<h3>7. <code>Quaternion(yaw, pitch, roll)</code> in Lua</h3>
+<p>
+  <code>Quaternion</code> is also exposed as a global constructor. The three arguments are
+  Euler angles in degrees:
+</p>
+<table>
+  <tr><th>Argument</th><th>Axis</th><th>Example use</th></tr>
+  <tr><td><code>yaw</code></td><td>Y (up)</td><td>Character facing direction, compass heading</td></tr>
+  <tr><td><code>pitch</code></td><td>X (right)</td><td>Looking up/down, nose-up angle</td></tr>
+  <tr><td><code>roll</code></td><td>Z (forward)</td><td>Banking, tilting sideways</td></tr>
+</table>
+<pre><span class="lua-cm">-- Spin around Y axis only (common for upright objects)</span>
+entity:SetRotation(Quaternion(spinAngle, <span class="lua-num">0</span>, <span class="lua-num">0</span>))
+
+<span class="lua-cm">-- Tilt 30 degrees forward (pitch only)</span>
+entity:SetRotation(Quaternion(<span class="lua-num">0</span>, <span class="lua-num">30</span>, <span class="lua-num">0</span>))
+
+<span class="lua-cm">-- Combined: face south-east at 45 degrees while tilted slightly</span>
+entity:SetRotation(Quaternion(<span class="lua-num">135</span>, <span class="lua-num">15</span>, <span class="lua-num">0</span>))</pre>
+<p>
+  Quaternions do not suffer from gimbal lock when composed, but constructing them from
+  Euler angles (as above) is the most readable approach for simple rotations. For
+  more complex orientations (slerping between two rotations, for example), use the full
+  Quaternion API exposed by Urho3D.
+</p>
+
+<h3>8. <code>entity:SetRotation(Quaternion)</code></h3>
+<p>
+  Sets the entity's world-space rotation to the given quaternion. Call it every frame
+  with an updated angle to create continuous rotation:
+</p>
+<pre><span class="lua-kw">local</span> angle = <span class="lua-num">0</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    angle = angle + <span class="lua-num">90</span> * dt              <span class="lua-cm">-- 90 degrees per second</span>
+    entity:SetRotation(Quaternion(angle, <span class="lua-num">0</span>, <span class="lua-num">0</span>))
+<span class="lua-kw">end</span></pre>
+<p>
+  Notice that we accumulate <code>angle</code> outside the function (module scope) so that
+  its value persists between frames. A variable declared inside <code>Update</code> would
+  reset to 0 on every call and produce no visible rotation.
+</p>
+<p>
+  <code>SetRotation</code> is an absolute set, not an increment. To add a small rotation delta
+  on top of the current rotation, read <code>entity:GetRotation()</code> first and compose the
+  quaternions, or simply track the accumulated angle yourself as shown above.
+</p>
+
+<h3>9. <code>entity:MoveRelative(Vector3)</code></h3>
+<p>
+  Adds the given offset to the entity's current world-space position. It is equivalent to
+  <code>entity:SetPosition(entity:GetWorldPosition() + delta)</code>, but more concise.
+</p>
+<pre><span class="lua-cm">-- Move 5 units per second in the +Z direction</span>
+entity:MoveRelative(Vector3(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">1</span>) * <span class="lua-num">5</span> * dt)
+
+<span class="lua-cm">-- Move in a player-controlled direction</span>
+<span class="lua-kw">if</span> dir:Length() &gt; <span class="lua-num">0</span> <span class="lua-kw">then</span>
+    entity:MoveRelative(dir:Normalized() * moveSpeed * dt)
+<span class="lua-kw">end</span></pre>
+<p>
+  Always multiply by <code>dt</code> when moving an entity so that the speed stays consistent
+  regardless of the frame rate. Forgetting <code>dt</code> means the object will move
+  60&times; faster on a 60 fps machine than on a 1 fps machine.
+</p>
+<p>
+  The name "MoveRelative" reflects that the movement is added relative to the entity's
+  current position in world space. It does <em>not</em> move along the entity's local
+  forward axis &mdash; use <code>TranslateLocal</code> for that.
+</p>
+
+<h3>10. Low-level keyboard input in Lua: <code>Input:IsKeyDown(KEY_*)</code></h3>
+<p>
+  The global <code>Input</code> object exposes Urho3D's input system to Lua. The method
+  <code>Input:IsKeyDown(KEY_W)</code> returns <code>true</code> as long as the W key is held:
+</p>
+<pre><span class="lua-kw">if</span> Input:IsKeyDown(KEY_W) <span class="lua-kw">then</span>
+    entity:MoveRelative(Vector3(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">1</span>) * speed * dt)
+<span class="lua-kw">end</span></pre>
+<p>
+  Key constants follow the pattern <code>KEY_</code> + the key name in capitals:
+  <code>KEY_W</code>, <code>KEY_SPACE</code>, <code>KEY_LSHIFT</code>, <code>KEY_ESCAPE</code>, etc.
+  These are integer constants defined by Urho3D and available as globals in every script.
+</p>
+<p>
+  For first-frame-only detection (key was just pressed this frame), use
+  <code>Input:IsKeyPress(KEY_SPACE)</code> instead of <code>IsKeyDown</code>:
+</p>
+<pre><span class="lua-kw">if</span> Input:IsKeyPress(KEY_SPACE) <span class="lua-kw">then</span>
+    <span class="lua-cm">-- fires only on the first frame Space is pressed</span>
+    PlaySound(<span class="lua-str">"Sounds/jump.wav"</span>)
+<span class="lua-kw">end</span></pre>
+<div class="callout info">
+  <h4>Input Actions are preferred for game controls</h4>
+  <p>
+    Raw <code>KEY_*</code> checks are useful for quick prototyping, but for a real game you
+    should bind named Input Actions in C++ (<code>BindAction</code>, <code>BindAxis2D</code>)
+    and then query them in Lua with <code>IsActionDown("Jump")</code> and
+    <code>GetAxis2D("Move")</code>. Named actions work with keyboard <em>and</em> gamepad
+    without any extra code, and support player remapping. Part 16 covers Input Actions in
+    detail.
+  </p>
+</div>
+
+<!-- ─── EXTENDED EXAMPLE ──────────────────────────────────────── -->
+<h2>Extended example: multiple scripts, shared world state</h2>
+<p>
+  A more realistic scene has several entities, each with its own script. The example below
+  adds a second entity &mdash; a slowly orbiting satellite &mdash; to the C++ setup, with
+  its own dedicated Lua script. This shows how multiple scripts run in parallel, each with
+  private module-level state.
+</p>
+
+<h3>C++ addition in Start()</h3>
+<pre><span class="cm">// Add after the crystal_ setup in Start()</span>
+<span class="ty">Entity</span>* satellite = <span class="fn">CreateEntity</span>(<span class="st">"Satellite"</span>);
+satellite-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Sphere.mdl"</span>);
+satellite-&gt;<span class="fn">SetScale</span>(<span class="val">0.4f</span>);
+satellite-&gt;<span class="fn">SetPosition</span>(<span class="val">3.0f</span>, <span class="val">1.5f</span>, <span class="val">0.0f</span>);
+satellite-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/satellite.lua"</span>);</pre>
+
+<h3>Lua &mdash; Data/Scripts/satellite.lua</h3>
+<pre><span class="lua-cm">-- Data/Scripts/satellite.lua</span>
+<span class="lua-cm">-- Orbits around world origin at a fixed radius and height.</span>
+
+<span class="lua-kw">local</span> entity
+<span class="lua-kw">local</span> orbitAngle = <span class="lua-num">0</span>     <span class="lua-cm">-- current angle around Y axis (degrees)</span>
+<span class="lua-kw">local</span> orbitRadius = <span class="lua-num">3.0</span>  <span class="lua-cm">-- orbit radius in world units</span>
+<span class="lua-kw">local</span> orbitSpeed  = <span class="lua-num">45</span>   <span class="lua-cm">-- degrees per second</span>
+<span class="lua-kw">local</span> orbitHeight = <span class="lua-num">2.5</span>  <span class="lua-cm">-- Y position (constant)</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node
+    print(<span class="lua-str">"[satellite.lua] Start() on: "</span> .. entity:GetName())
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    orbitAngle = orbitAngle + orbitSpeed * dt
+
+    <span class="lua-cm">-- Convert polar angle to Cartesian XZ coordinates</span>
+    <span class="lua-kw">local</span> rad = math.rad(orbitAngle)   <span class="lua-cm">-- degrees to radians for math.cos/sin</span>
+    <span class="lua-kw">local</span> x   = math.cos(rad) * orbitRadius
+    <span class="lua-kw">local</span> z   = math.sin(rad) * orbitRadius
+
+    <span class="lua-cm">-- SetPosition sets the absolute world position each frame.</span>
+    entity:SetPosition(Vector3(x, orbitHeight, z))
+
+    <span class="lua-cm">-- Also spin the satellite on its own axis.</span>
+    entity:SetRotation(Quaternion(orbitAngle * <span class="lua-num">2</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>))
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Stop</span>()
+    print(<span class="lua-str">"[satellite.lua] Stop()."</span>)
+<span class="lua-kw">end</span></pre>
+<p>
+  Each script has its own <code>orbitAngle</code>, completely separate from <code>crystal.lua</code>'s
+  <code>spinAngle</code>. Lua module-level locals are per-script-instance, so there is no risk
+  of one script's state leaking into another.
+</p>
+
+<!-- ─── SetRotation vs MoveRelative comparison ─────────────── -->
+<h2>SetRotation vs MoveRelative: a comparison</h2>
+<table>
+  <tr>
+    <th>Method</th>
+    <th>What it does</th>
+    <th>Typical use</th>
+  </tr>
+  <tr>
+    <td><code>entity:SetRotation(Quaternion)</code></td>
+    <td>Replaces the entity's rotation with the given quaternion. Position is unchanged.</td>
+    <td>Spinning objects, turret facing direction, character yaw.</td>
+  </tr>
+  <tr>
+    <td><code>entity:MoveRelative(Vector3)</code></td>
+    <td>Adds the delta vector to the entity's current world position. Rotation is unchanged.</td>
+    <td>Keyboard-driven movement, frame-by-frame translation.</td>
+  </tr>
+  <tr>
+    <td><code>entity:SetPosition(Vector3)</code></td>
+    <td>Sets the absolute world position. Overwrites any previous translation.</td>
+    <td>Scripted paths, orbit calculations, teleportation.</td>
+  </tr>
+</table>
+<p>
+  Use <code>MoveRelative</code> when you want to accumulate movement over multiple frames
+  (player walking). Use <code>SetPosition</code> when you know the exact desired world
+  coordinate on every frame (orbital path, scripted cutscene).
+</p>
+
+<!-- ─── luac -p SYNTAX CHECK ──────────────────────────────────── -->
+<h2>Checking syntax with <code>luac -p</code></h2>
+<p>
+  Lua syntax errors do not produce compiler errors &mdash; they appear as runtime log messages
+  when the engine loads the file. The fastest way to catch them before running the game is
+  the <code>luac</code> command-line tool:
+</p>
+<pre>luac -p Data/Scripts/crystal.lua</pre>
+<p>
+  The <code>-p</code> flag ("parse only") compiles the script without writing a bytecode file.
+  If the file is syntactically correct, the command exits silently with code 0. If there is
+  an error, it prints the line number and description:
+</p>
+<pre><span class="sh-cm"># Example error output (missing 'end' on a function):</span>
+luac: Data/Scripts/crystal.lua:22: 'end' expected (to close 'function' at line 14) near &lt;eof&gt;</pre>
+<p>
+  Run <code>luac -p</code> on every script before launching the game during development.
+  It is also easy to add to a Makefile or CMake custom command so that syntax is validated
+  at build time:
+</p>
+<pre><span class="sh-cm"># Validate all scripts before building</span>
+find Data/Scripts -name <span class="sh-str">'*.lua'</span> -exec luac -p {} \;</pre>
+
+<div class="callout info">
+  <h4>Install luac</h4>
+  <p>
+    On Debian/Ubuntu: <code>sudo apt install lua5.1</code> (installs <code>luac</code> for Lua 5.1,
+    compatible with LuaJIT). On macOS with Homebrew: <code>brew install lua@5.1</code>.
+    Alternatively, <code>luajit -bl</code> can be used to check LuaJIT-specific bytecode.
+  </p>
+</div>
+
+<!-- ─── QUICK REFERENCE ───────────────────────────────────────── -->
+<h2>Quick reference</h2>
+<h3>C++ side</h3>
+<table>
+  <tr><th>Call</th><th>Description</th></tr>
+  <tr>
+    <td><code>entity-&gt;AddScript("Scripts/foo.lua")</code></td>
+    <td>Load and attach a Lua script. Path is relative to <code>Data/</code>.</td>
+  </tr>
+</table>
+
+<h3>Lua side</h3>
+<table>
+  <tr><th>Symbol</th><th>Type / signature</th><th>Description</th></tr>
+  <tr>
+    <td><code>self.node</code></td>
+    <td>Urho3D Node</td>
+    <td>The entity that owns this script. Accessible in all lifecycle callbacks.</td>
+  </tr>
+  <tr>
+    <td><code>function Start()</code></td>
+    <td>Lifecycle callback</td>
+    <td>Called once after the script loads. Assign <code>entity = self.node</code> here.</td>
+  </tr>
+  <tr>
+    <td><code>function Update(dt)</code></td>
+    <td>Lifecycle callback</td>
+    <td>Called every frame. <code>dt</code> is scaled delta time in seconds.</td>
+  </tr>
+  <tr>
+    <td><code>function Stop()</code></td>
+    <td>Lifecycle callback</td>
+    <td>Called when entity is removed or scene is unloaded.</td>
+  </tr>
+  <tr>
+    <td><code>Vector3(x, y, z)</code></td>
+    <td>Constructor</td>
+    <td>Creates a 3D vector. Supports <code>.x/.y/.z</code>, arithmetic, <code>:Length()</code>, <code>:Normalized()</code>.</td>
+  </tr>
+  <tr>
+    <td><code>Quaternion(yaw, pitch, roll)</code></td>
+    <td>Constructor</td>
+    <td>Rotation from Euler angles in degrees. yaw=Y, pitch=X, roll=Z.</td>
+  </tr>
+  <tr>
+    <td><code>entity:SetRotation(q)</code></td>
+    <td><code>(Quaternion) &rarr; nil</code></td>
+    <td>Set absolute world-space rotation.</td>
+  </tr>
+  <tr>
+    <td><code>entity:MoveRelative(v)</code></td>
+    <td><code>(Vector3) &rarr; nil</code></td>
+    <td>Add delta to world-space position.</td>
+  </tr>
+  <tr>
+    <td><code>entity:SetPosition(v)</code></td>
+    <td><code>(Vector3) &rarr; nil</code></td>
+    <td>Set absolute world-space position.</td>
+  </tr>
+  <tr>
+    <td><code>entity:GetName()</code></td>
+    <td><code>() &rarr; string</code></td>
+    <td>Returns the entity's name (set in <code>CreateEntity("name")</code>).</td>
+  </tr>
+  <tr>
+    <td><code>entity:GetWorldPosition()</code></td>
+    <td><code>() &rarr; Vector3</code></td>
+    <td>Current world-space position.</td>
+  </tr>
+  <tr>
+    <td><code>Input:IsKeyDown(KEY_W)</code></td>
+    <td><code>(int) &rarr; bool</code></td>
+    <td>True while the key is held. Use <code>KEY_</code> prefixed constants.</td>
+  </tr>
+  <tr>
+    <td><code>Input:IsKeyPress(KEY_SPACE)</code></td>
+    <td><code>(int) &rarr; bool</code></td>
+    <td>True on the first frame the key is pressed.</td>
+  </tr>
+  <tr>
+    <td><code>FindEntity("Name")</code></td>
+    <td><code>(string) &rarr; Node|nil</code></td>
+    <td>Find any entity by name; returns <code>nil</code> if not found.</td>
+  </tr>
+  <tr>
+    <td><code>print(...)</code></td>
+    <td><code>(any) &rarr; nil</code></td>
+    <td>Outputs to stdout. Useful for debug logging from scripts.</td>
+  </tr>
+</table>
+
+<!-- ─── COMMON MISTAKES ───────────────────────────────────────── -->
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+
+  <p><strong>Declaring <code>entity</code> with <code>local</code> inside <code>Start()</code>.</strong><br>
+  If you write <code>local entity = self.node</code> inside <code>Start()</code>, the variable
+  is local to that function and invisible in <code>Update()</code>. Always declare it at the
+  top of the file: <code>local entity</code>, then assign <code>entity = self.node</code>
+  (without <code>local</code>) inside <code>Start()</code>.</p>
+
+  <p><strong>Forgetting <code>dt</code> in movement.</strong><br>
+  <code>entity:MoveRelative(Vector3(0, 0, 1) * 5)</code> moves 5 units per <em>frame</em>, not
+  per second. On a 60 fps display that is 300 units/second. Always multiply by <code>dt</code>:
+  <code>Vector3(0, 0, 1) * 5 * dt</code>.</p>
+
+  <p><strong>Wrong script path.</strong><br>
+  If <code>AddScript("Scripts/foo.lua")</code> silently does nothing, the file was not found.
+  Check that:
+  (a) the file is at <code>Data/Scripts/foo.lua</code> next to the executable,
+  (b) the path in the call does <em>not</em> start with <code>Data/</code>,
+  (c) the filename capitalisation matches exactly (Linux filesystems are case-sensitive).
+  The log will contain <code>Failed to load Script</code> if the path is wrong.</p>
+
+  <p><strong>Syntax errors silent until runtime.</strong><br>
+  A missing <code>end</code> or a typo in a keyword will not fail at compile time. The error
+  only appears in the log when the game loads the script. Run <code>luac -p yourscript.lua</code>
+  before each test session to catch these early.</p>
+
+  <p><strong>Calling entity methods before <code>Start()</code> assigns <code>entity</code>.</strong><br>
+  Never call <code>entity:SetRotation()</code> at file scope (outside a function). The module
+  runs before <code>Start()</code> is called, so <code>entity</code> is still <code>nil</code>
+  at that point and the call will crash with a nil-dereference error.</p>
+
+  <p><strong>Using <code>KEY_w</code> (lowercase).</strong><br>
+  Key constants are all-caps: <code>KEY_W</code>, <code>KEY_SPACE</code>, <code>KEY_LSHIFT</code>.
+  Lowercase <code>KEY_w</code> is <code>nil</code> in Lua and <code>IsKeyDown(nil)</code> always
+  returns <code>false</code>, so the key will appear to never be pressed.</p>
+
+  <p><strong>Multiplying a nil vector.</strong><br>
+  <code>dir:Normalized() * speed * dt</code> crashes if <code>dir:Length()</code> is exactly 0
+  (the zero vector has no defined normalisation). Always guard with
+  <code>if dir:Length() &gt; 0 then</code> before normalising.</p>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ──────────────────────────────────────── -->
+<h2>What you learned</h2>
+<ul>
+  <li>
+    <strong><code>entity-&gt;AddScript("Scripts/foo.lua")</code></strong> in C++ attaches a Lua
+    script to any entity. The path is relative to <code>Data/</code> in the resource search path.
+  </li>
+  <li>
+    The engine automatically calls <strong><code>Start()</code></strong> once when the script loads,
+    <strong><code>Update(dt)</code></strong> every frame, and <strong><code>Stop()</code></strong>
+    when the entity is removed. All three are optional.
+  </li>
+  <li>
+    Inside every script, <strong><code>self.node</code></strong> is the Urho3D Node that owns
+    the script. The convention is to copy it into a module-level <strong><code>entity</code></strong>
+    variable inside <code>Start()</code> for cleaner syntax everywhere else.
+  </li>
+  <li>
+    <strong><code>Vector3(x, y, z)</code></strong> and <strong><code>Quaternion(yaw, pitch, roll)</code></strong>
+    are global constructors available in every script. Arithmetic operators and methods like
+    <code>:Length()</code> and <code>:Normalized()</code> work as expected.
+  </li>
+  <li>
+    <strong><code>entity:SetRotation(Quaternion(angle, 0, 0))</code></strong> sets the entity's
+    world-space rotation from an accumulated Euler angle. Call it every frame to create
+    continuous rotation.
+  </li>
+  <li>
+    <strong><code>entity:MoveRelative(Vector3(dx, 0, dz) * speed * dt)</code></strong> adds a
+    position delta every frame. Always multiply by <code>dt</code> to make movement
+    frame-rate independent.
+  </li>
+  <li>
+    <strong><code>Input:IsKeyDown(KEY_W)</code></strong> (held) and
+    <strong><code>Input:IsKeyPress(KEY_SPACE)</code></strong> (first frame) give raw keyboard
+    access inside Lua. Named Input Actions (Part 16) are preferred for production games.
+  </li>
+  <li>
+    <strong><code>luac -p Data/Scripts/foo.lua</code></strong> validates syntax without executing
+    the script. Running it before each test session catches missing <code>end</code> keywords
+    and other common errors immediately.
+  </li>
+  <li>
+    Multiple entities can each carry their own script. Each script file has private module-level
+    state &mdash; variables do not leak between script instances.
+  </li>
+</ul>
+
+<p>
+  In the next part you will add a <strong>CharacterController</strong> component to the player
+  entity and drive it from Lua, adding gravity, slope handling, jumping, and ground detection
+  to the movement you have been building.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-05.html">&#8592; Part 05: Third-Person Camera</a>
+  <a href="tutorial-07.html">Part 07: Character Controller &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

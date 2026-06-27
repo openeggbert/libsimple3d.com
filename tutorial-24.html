@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 24: Collision Triggers — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li class="active"><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 24</div>
+
+<h1><span class="tutorial-part">Part 24 of 30</span>Collision Triggers</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>entity-&gt;AddTriggerBox(size)</code> &mdash;
+    <code>entity-&gt;AddTriggerSphere(radius)</code> &mdash;
+    <code>entity-&gt;AddTriggerCapsule(r, h)</code> &mdash;
+    <code>entity-&gt;SetOnTriggerEnter(callback)</code> &mdash;
+    <code>entity-&gt;SetOnTriggerExit(callback)</code> &mdash;
+    <code>CollisionLayer::Trigger</code> &mdash;
+    <code>MakeCollisionMask({...})</code> filtering &mdash;
+    <code>other-&gt;HasTag("player")</code> inside a callback &mdash;
+    deferred <code>DestroyEntity</code> pattern inside callbacks &mdash;
+    collectible coin pattern.
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ─────────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>What a <em>trigger volume</em> is and how it differs from a solid physics collider.</li>
+  <li>How to attach box, sphere, and capsule trigger shapes to any entity with <code>AddTriggerBox</code>, <code>AddTriggerSphere</code>, and <code>AddTriggerCapsule</code>.</li>
+  <li>How to register enter and exit callbacks with <code>SetOnTriggerEnter</code> and <code>SetOnTriggerExit</code>.</li>
+  <li>How to filter which physics bodies activate a trigger using <code>CollisionLayer::Trigger</code> and <code>MakeCollisionMask</code>.</li>
+  <li>How to identify the intruding entity inside a callback using <code>other-&gt;HasTag</code>.</li>
+  <li>Why you must never call <code>DestroyEntity</code> directly inside a trigger callback and how to defer destruction safely.</li>
+  <li>How to implement a complete collectible coin system using the trigger pattern.</li>
+</ul>
+
+<!-- ─── BACKGROUND ───────────────────────────────────────────────────── -->
+<h2>Background: triggers vs. solid colliders</h2>
+
+<p>
+  In previous physics parts you added <code>AddBoxCollider</code>, <code>AddCapsuleCollider</code>,
+  and <code>AddSphereCollider</code> to create surfaces that rigid bodies physically
+  bounce off or rest on.  Trigger volumes are the opposite: they have no physical
+  response whatsoever.  An entity walking through a trigger is not blocked, pushed,
+  or otherwise affected by the collision.  Instead the engine fires a callback so
+  you can react in code.
+</p>
+
+<div class="grid2">
+  <div class="card card-blue">
+    <h3>Solid collider</h3>
+    <p>
+      Generates a collision manifold.  Bodies separate, friction is applied, impulses
+      are exchanged.  Use for floors, walls, crates &mdash; anything the player should
+      <em>not</em> pass through.
+    </p>
+  </div>
+  <div class="card card-green">
+    <h3>Trigger volume</h3>
+    <p>
+      No manifold, no separation force.  The overlapping body passes straight through.
+      Instead, <code>SetOnTriggerEnter</code> fires on the first overlapping frame and
+      <code>SetOnTriggerExit</code> fires when the overlap ends.  Use for checkpoints,
+      collectibles, area effects, death zones, and door openers.
+    </p>
+  </div>
+</div>
+
+<p>
+  Triggers are placed on <code>CollisionLayer::Trigger</code> (bit&nbsp;4) automatically
+  when you call any of the <code>AddTrigger*</code> helpers.  You only need to touch the
+  layer/mask settings explicitly when you want to <em>filter</em> which bodies can
+  activate the volume.
+</p>
+
+<!-- ─── COMPLETE WORKING EXAMPLE ─────────────────────────────────────── -->
+<h2>Complete working example</h2>
+
+<p>
+  The example below builds a level containing a moving player, a checkpoint gate
+  (box trigger), a death-zone pit (sphere trigger), and a field of ten collectible
+  coins (sphere triggers, destroyed on pickup).  Every new API from this part is
+  used at least once.
+</p>
+
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="cm">// ── Forward declarations ─────────────────────────────────────────────</span>
+<span class="kw">static constexpr</span> <span class="ty">int</span> COIN_COUNT = <span class="val">10</span>;
+
+<span class="kw">class</span> <span class="ty">TriggerDemo</span> : <span class="kw">public</span> <span class="ty">Game</span>
+{
+<span class="kw">public</span>:
+    <span class="cm">// ── Scene objects ─────────────────────────────────────────────────</span>
+    <span class="ty">Entity</span>*  player_        = <span class="kw">nullptr</span>;
+    <span class="ty">Camera</span>*  cam_           = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── UI ────────────────────────────────────────────────────────────</span>
+    <span class="ty">Label</span>*   scoreLabel_    = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*   statusLabel_   = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── State ─────────────────────────────────────────────────────────</span>
+    <span class="ty">int</span>      coinsCollected_ = <span class="val">0</span>;
+
+    <span class="cm">// Entities queued for deferred destruction (cannot destroy inside callback)</span>
+    <span class="ty">std</span>::<span class="ty">vector</span>&lt;<span class="ty">Entity</span>*&gt; pendingDestroy_;
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Trigger Demo"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.18f</span>, <span class="val">0.18f</span>, <span class="val">0.22f</span>, <span class="val">1.0f</span>));
+
+        <span class="cm">// ── Lighting ──────────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.95f</span>, <span class="val">0.8f</span>), <span class="val">1.2f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50.0f</span>, <span class="val">30.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── Ground ────────────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground-&gt;<span class="fn">SetScale</span>(<span class="val">30.0f</span>);
+        ground-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.4f</span>, <span class="val">0.55f</span>, <span class="val">0.4f</span>));
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">30.0f</span>, <span class="val">0.1f</span>, <span class="val">30.0f</span>));
+        ground-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+        <span class="cm">// ── Player ────────────────────────────────────────────────────</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        player_-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.5f</span>, <span class="val">1.0f</span>));
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>);
+        player_-&gt;<span class="fn">AddTag</span>(<span class="st">"player"</span>);   <span class="cm">// used by trigger callbacks to identify the player</span>
+
+        <span class="ty">CharacterController</span>* cc = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+        cc-&gt;<span class="fn">SetGravity</span>(<span class="val">22.0f</span>);
+
+        <span class="cm">// Player lives on the Actor layer and collides with StaticGeometry + Trigger.</span>
+        player_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+        player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>,
+            <span class="ty">CollisionLayer</span>::<span class="val">Trigger</span>
+        }));
+
+        <span class="cm">// ── Camera ────────────────────────────────────────────────────</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">Follow</span>(player_, <span class="val">9.0f</span>, <span class="val">4.0f</span>);
+        cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">5.0f</span>);
+
+        <span class="cm">// ── HUD ───────────────────────────────────────────────────────</span>
+        scoreLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Coins: 0 / 10"</span>);
+        scoreLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">10</span>);
+        scoreLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">20</span>);
+        scoreLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.9f</span>, <span class="val">0.2f</span>));
+
+        statusLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Walk into the coins and the gate!"</span>);
+        statusLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">38</span>);
+        statusLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">15</span>);
+        statusLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>);
+
+        <span class="cm">// ── Triggers ──────────────────────────────────────────────────</span>
+        <span class="fn">SpawnCoins</span>();
+        <span class="fn">SpawnCheckpointGate</span>();
+        <span class="fn">SpawnDeathZone</span>();
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────
+    // SpawnCoins — creates 10 collectible coin entities arranged in a ring.
+    // Each coin uses a sphere trigger volume and destroys itself on contact
+    // with the player.  Destruction is deferred to avoid modifying the
+    // physics world while inside a callback.
+    // ─────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">SpawnCoins</span>()
+    {
+        <span class="kw">for</span> (<span class="ty">int</span> i = <span class="val">0</span>; i &lt; COIN_COUNT; ++i)
+        {
+            <span class="ty">float</span> angle = (<span class="ty">float</span>)i * (<span class="val">360.0f</span> / COIN_COUNT) * <span class="val">3.14159f</span> / <span class="val">180.0f</span>;
+            <span class="ty">float</span> rx    = <span class="fn">Cos</span>(angle) * <span class="val">7.0f</span>;
+            <span class="ty">float</span> rz    = <span class="fn">Sin</span>(angle) * <span class="val">7.0f</span>;
+
+            <span class="ty">Entity</span>* coin = <span class="fn">CreateEntity</span>(<span class="st">"Coin_"</span> + <span class="ty">String</span>(i));
+            coin-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Sphere.mdl"</span>);
+            coin-&gt;<span class="fn">SetScale</span>(<span class="val">0.4f</span>);
+            coin-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.85f</span>, <span class="val">0.1f</span>));
+            coin-&gt;<span class="fn">SetPosition</span>(rx, <span class="val">0.5f</span>, rz);
+            coin-&gt;<span class="fn">AddTag</span>(<span class="st">"coin"</span>);
+
+            <span class="cm">// Attach a sphere trigger volume (radius 0.6).
+            // AddTriggerSphere automatically sets CollisionLayer::Trigger on this entity.</span>
+            coin-&gt;<span class="fn">AddTriggerSphere</span>(<span class="val">0.6f</span>);
+
+            <span class="cm">// Only react to bodies on the Actor layer — ignore static geometry,
+            // other triggers, etc.  MakeCollisionMask converts the enum list to
+            // the correct bitmask integer.</span>
+            coin-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({ <span class="ty">CollisionLayer</span>::<span class="val">Actor</span> }));
+
+            <span class="cm">// Capture 'coin' by value so the lambda stays valid even after
+            // other coins have been collected.  Use 'this' to reach game state.</span>
+            coin-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>, coin](<span class="ty">Entity</span>* other)
+            {
+                <span class="cm">// Guard: only the player should collect coins.</span>
+                <span class="kw">if</span> (!other-&gt;<span class="fn">HasTag</span>(<span class="st">"player"</span>)) <span class="kw">return</span>;
+
+                <span class="cm">// Queue the coin for destruction next frame.
+                // Calling DestroyEntity directly here would modify the physics
+                // broadphase while the engine is still iterating contacts —
+                // undefined behaviour.  The pendingDestroy_ list is processed
+                // safely at the top of Update() instead.</span>
+                pendingDestroy_.<span class="fn">push_back</span>(coin);
+
+                ++coinsCollected_;
+                scoreLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Coins: "</span> + <span class="ty">String</span>(coinsCollected_) + <span class="st">" / 10"</span>);
+                <span class="fn">PlaySound</span>(<span class="st">"Sounds/coin.wav"</span>, <span class="val">0.9f</span>);
+
+                <span class="kw">if</span> (coinsCollected_ == COIN_COUNT)
+                    statusLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"All coins collected! Head for the gate."</span>);
+            });
+        }
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────
+    // SpawnCheckpointGate — a tall box trigger that only reacts to the player.
+    // On enter: display a message and play a sound.
+    // On exit:  update the HUD to show the player has left the zone.
+    // ─────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">SpawnCheckpointGate</span>()
+    {
+        <span class="ty">Entity</span>* gate = <span class="fn">CreateEntity</span>(<span class="st">"CheckpointGate"</span>);
+        gate-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        gate-&gt;<span class="fn">SetScale</span>(<span class="ty">Vector3</span>(<span class="val">3.0f</span>, <span class="val">4.0f</span>, <span class="val">0.3f</span>));
+        gate-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.1f</span>, <span class="val">0.8f</span>, <span class="val">0.4f</span>, <span class="val">0.35f</span>));
+        gate-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">2.0f</span>, <span class="val">-12.0f</span>);
+
+        <span class="cm">// AddTriggerBox takes the FULL extents (not half-extents), matching the
+        // convention used by AddBoxCollider.</span>
+        gate-&gt;<span class="fn">AddTriggerBox</span>(<span class="ty">Vector3</span>(<span class="val">3.0f</span>, <span class="val">4.0f</span>, <span class="val">0.6f</span>));
+        gate-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({ <span class="ty">CollisionLayer</span>::<span class="val">Actor</span> }));
+
+        gate-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>](<span class="ty">Entity</span>* other)
+        {
+            <span class="kw">if</span> (!other-&gt;<span class="fn">HasTag</span>(<span class="st">"player"</span>)) <span class="kw">return</span>;
+            statusLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Checkpoint reached!"</span>);
+            <span class="fn">PlaySound</span>(<span class="st">"Sounds/checkpoint.wav"</span>, <span class="val">1.0f</span>);
+        });
+
+        gate-&gt;<span class="fn">SetOnTriggerExit</span>([<span class="kw">this</span>](<span class="ty">Entity</span>* other)
+        {
+            <span class="kw">if</span> (!other-&gt;<span class="fn">HasTag</span>(<span class="st">"player"</span>)) <span class="kw">return</span>;
+            statusLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Left the checkpoint zone."</span>);
+        });
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────
+    // SpawnDeathZone — a large sphere trigger in a pit.  Walking in kills
+    // the player and resets their position.  Demonstrates that triggers
+    // can be used without visible geometry.
+    // ─────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">SpawnDeathZone</span>()
+    {
+        <span class="ty">Entity</span>* pit = <span class="fn">CreateEntity</span>(<span class="st">"DeathZone"</span>);
+        <span class="cm">// No model — the trigger volume is invisible.  This is intentional;
+        // in a real game you would show a hazard texture or a particle effect.</span>
+        pit-&gt;<span class="fn">SetPosition</span>(<span class="val">12.0f</span>, <span class="val">0.5f</span>, <span class="val">0.0f</span>);
+
+        pit-&gt;<span class="fn">AddTriggerSphere</span>(<span class="val">3.5f</span>);
+        pit-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({ <span class="ty">CollisionLayer</span>::<span class="val">Actor</span> }));
+
+        pit-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>](<span class="ty">Entity</span>* other)
+        {
+            <span class="kw">if</span> (!other-&gt;<span class="fn">HasTag</span>(<span class="st">"player"</span>)) <span class="kw">return</span>;
+
+            <span class="cm">// Teleport the player back to the start without destroying anything.</span>
+            other-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>);
+            other-&gt;<span class="fn">SetLinearVelocity</span>(<span class="ty">Vector3</span>::<span class="val">ZERO</span>);
+            statusLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"You fell into the pit! Respawned."</span>);
+            <span class="fn">PlaySound</span>(<span class="st">"Sounds/hurt.wav"</span>, <span class="val">0.8f</span>);
+        });
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="cm">// ── Flush deferred destruction ───────────────────────────────
+        // Destroy coin entities that were collected during the previous physics
+        // step.  This must happen at the start of Update(), before any new
+        // physics contacts are processed, so the broadphase is in a clean state.</span>
+        <span class="kw">for</span> (<span class="ty">Entity</span>* e : pendingDestroy_)
+            <span class="fn">DestroyEntity</span>(e);
+        pendingDestroy_.<span class="fn">clear</span>();
+
+        <span class="cm">// ── Player movement ──────────────────────────────────────────</span>
+        <span class="ty">CharacterController</span>* cc = player_-&gt;<span class="fn">GetComponent</span>&lt;<span class="ty">CharacterController</span>&gt;();
+        <span class="kw">if</span> (!cc) <span class="kw">return</span>;
+
+        <span class="ty">float</span> mx = <span class="val">0.0f</span>, mz = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Left</span>)  || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">A</span>)) mx -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Right</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">D</span>)) mx += <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Up</span>)    || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">W</span>)) mz -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Down</span>)  || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">S</span>)) mz += <span class="val">1.0f</span>;
+
+        cc-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(mx, <span class="val">0.0f</span>, mz) * <span class="val">5.0f</span>, dt);
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Space</span>) &amp;&amp; cc-&gt;<span class="fn">IsOnGround</span>())
+            cc-&gt;<span class="fn">Jump</span>(<span class="val">10.0f</span>);
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Escape</span>))
+            <span class="fn">Quit</span>();
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">TriggerDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ─────────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<!-- AddTriggerBox / AddTriggerSphere / AddTriggerCapsule -->
+<h3>AddTriggerBox, AddTriggerSphere, AddTriggerCapsule</h3>
+
+<p>
+  These three helpers attach a trigger-only collision shape to an entity.  Unlike their
+  <code>AddBoxCollider</code> / <code>AddSphereCollider</code> counterparts, they generate
+  no physics response when another body overlaps them.  Internally each call:
+</p>
+<ol>
+  <li>Creates a Urho3D <code>CollisionShape</code> with the <em>ghost</em> / <em>trigger</em>
+      flag set.</li>
+  <li>Automatically places the entity on <code>CollisionLayer::Trigger</code> (bit&nbsp;4)
+      so the physics broadphase can find it efficiently.</li>
+</ol>
+
+<p>
+  The size argument matches the convention used by the corresponding solid collider:
+  <code>AddTriggerBox</code> takes <em>full extents</em> (not half-extents),
+  <code>AddTriggerSphere</code> takes a radius, and <code>AddTriggerCapsule</code>
+  takes radius then height.
+</p>
+
+<pre><span class="cm">// Box trigger — full extents 4 m wide, 2 m tall, 4 m deep</span>
+zone-&gt;<span class="fn">AddTriggerBox</span>(<span class="ty">Vector3</span>(<span class="val">4.0f</span>, <span class="val">2.0f</span>, <span class="val">4.0f</span>));
+
+<span class="cm">// Sphere trigger — radius 1.5 m</span>
+pickup-&gt;<span class="fn">AddTriggerSphere</span>(<span class="val">1.5f</span>);
+
+<span class="cm">// Capsule trigger — radius 0.5 m, height 2.0 m
+// Useful for character-shaped detection areas (e.g. a proximity sensor on an enemy).</span>
+sensor-&gt;<span class="fn">AddTriggerCapsule</span>(<span class="val">0.5f</span>, <span class="val">2.0f</span>);</pre>
+
+<!-- SetOnTriggerEnter -->
+<h3>SetOnTriggerEnter(callback)</h3>
+
+<p>
+  Registers a function to be called the <strong>first frame</strong> that a qualifying
+  physics body overlaps the trigger volume.  The callback receives a single
+  <code>Entity*&nbsp;other</code> pointer — the entity whose collider entered the volume.
+  Setting a new callback with a second call to <code>SetOnTriggerEnter</code> replaces the
+  previous one; passing <code>nullptr</code> clears it.
+</p>
+<p>
+  The callback is fired from inside the physics update, so avoid heavyweight work
+  such as loading assets, calling <code>DestroyEntity</code>, or any function that
+  modifies the scene graph.  See the deferred destruction pattern below for how to
+  safely destroy entities collected during callbacks.
+</p>
+
+<pre><span class="cm">// Minimal enter callback</span>
+door-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>](<span class="ty">Entity</span>* other)
+{
+    <span class="kw">if</span> (other-&gt;<span class="fn">HasTag</span>(<span class="st">"player"</span>))
+        statusLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Door opening..."</span>);
+});
+
+<span class="cm">// Clear an existing callback</span>
+door-&gt;<span class="fn">SetOnTriggerEnter</span>(<span class="kw">nullptr</span>);</pre>
+
+<!-- SetOnTriggerExit -->
+<h3>SetOnTriggerExit(callback)</h3>
+
+<p>
+  Mirrors <code>SetOnTriggerEnter</code> but fires when the overlapping body
+  <strong>stops touching</strong> the trigger volume.  This happens either because
+  the body physically moved out of the volume, or because the body was destroyed
+  (in that case, the exit callback may or may not fire depending on timing — do
+  not rely on it to clean up destroyed entities).  As with enter callbacks, the
+  same <code>Entity*&nbsp;other</code> pointer is passed.
+</p>
+
+<pre><span class="cm">// Show different messages on enter and exit</span>
+aura-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>](<span class="ty">Entity</span>* other)
+{
+    <span class="kw">if</span> (other-&gt;<span class="fn">HasTag</span>(<span class="st">"player"</span>)) buffActive_ = <span class="kw">true</span>;
+});
+
+aura-&gt;<span class="fn">SetOnTriggerExit</span>([<span class="kw">this</span>](<span class="ty">Entity</span>* other)
+{
+    <span class="kw">if</span> (other-&gt;<span class="fn">HasTag</span>(<span class="st">"player"</span>)) buffActive_ = <span class="kw">false</span>;
+});</pre>
+
+<!-- CollisionLayer::Trigger -->
+<h3>CollisionLayer::Trigger</h3>
+
+<p>
+  The <code>CollisionLayer</code> enum (from <code>&lt;Simple3D/Core/Collision.h&gt;</code>,
+  also included by <code>Simple3D.h</code>) defines named bit positions for the
+  Bullet physics broadphase filter:
+</p>
+
+<pre><span class="kw">enum class</span> <span class="ty">CollisionLayer</span> : <span class="ty">unsigned</span> {
+    <span class="val">None</span>           = <span class="val">0</span>,
+    <span class="val">Actor</span>          = <span class="val">1</span>,     <span class="cm">// player / NPCs / dynamic bodies</span>
+    <span class="val">StaticGeometry</span> = <span class="val">2</span>,     <span class="cm">// ground, walls, solid platforms</span>
+    <span class="val">Trigger</span>        = <span class="val">4</span>,     <span class="cm">// auto-set by AddTrigger*() helpers</span>
+    <span class="val">All</span>            = <span class="val">0xFFFF</span>
+};</pre>
+
+<p>
+  You rarely need to set <code>CollisionLayer::Trigger</code> manually because
+  <code>AddTriggerBox</code>, <code>AddTriggerSphere</code>, and
+  <code>AddTriggerCapsule</code> all set it automatically.  You <em>do</em> need to
+  reference it when configuring <em>other</em> entities' collision masks so they can
+  interact with trigger volumes:
+</p>
+
+<pre><span class="cm">// Player must include Trigger in its mask to activate trigger volumes</span>
+player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+    <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>,
+    <span class="ty">CollisionLayer</span>::<span class="val">Trigger</span>          <span class="cm">// without this, the player ignores all triggers</span>
+}));</pre>
+
+<!-- MakeCollisionMask -->
+<h3>MakeCollisionMask({...})</h3>
+
+<p>
+  <code>MakeCollisionMask</code> accepts an initializer list of
+  <code>CollisionLayer</code> values and returns a single <code>unsigned int</code>
+  bitmask with those bits set.  Using it instead of raw bit arithmetic keeps
+  code readable and type-safe.
+</p>
+
+<pre><span class="cm">// Static geometry only</span>
+wall-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({ <span class="ty">CollisionLayer</span>::<span class="val">Actor</span> }));
+
+<span class="cm">// Actors and static geometry but NOT other triggers</span>
+bullet-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+    <span class="ty">CollisionLayer</span>::<span class="val">Actor</span>,
+    <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>
+}));
+
+<span class="cm">// Everything (the default)</span>
+box-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({ <span class="ty">CollisionLayer</span>::<span class="val">All</span> }));</pre>
+
+<p>
+  The mask is checked <em>bidirectionally</em>: a trigger fires its callback only if
+  the entering body's layer is set in the trigger's mask <strong>and</strong> the
+  trigger's layer (<code>Trigger</code>) is set in the entering body's mask.
+  That is why you must add <code>CollisionLayer::Trigger</code> to the player's mask
+  <em>and</em> set the trigger's own mask to include <code>CollisionLayer::Actor</code>.
+</p>
+
+<!-- other->HasTag -->
+<h3>other-&gt;HasTag("player") inside a callback</h3>
+
+<p>
+  When multiple entity types pass through the same trigger, you need to distinguish
+  them.  <code>HasTag</code> is the canonical way to do this.  Assign tags to entities
+  at creation time (in <code>Start()</code> or when spawning) and check them in the
+  callback.  Multiple tags on one entity are fully supported.
+</p>
+
+<pre><span class="cm">// Assign tags during spawn</span>
+player_-&gt;<span class="fn">AddTag</span>(<span class="st">"player"</span>);
+enemy-&gt;<span class="fn">AddTag</span>(<span class="st">"enemy"</span>);
+enemy-&gt;<span class="fn">AddTag</span>(<span class="st">"ai"</span>);
+
+<span class="cm">// In a trigger that reacts to different entity types differently</span>
+warpGate-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>](<span class="ty">Entity</span>* other)
+{
+    <span class="kw">if</span> (other-&gt;<span class="fn">HasTag</span>(<span class="st">"player"</span>))
+    {
+        <span class="cm">// Transport the player to the next level</span>
+        <span class="fn">LoadNextLevel</span>();
+    }
+    <span class="kw">else if</span> (other-&gt;<span class="fn">HasTag</span>(<span class="st">"enemy"</span>))
+    {
+        <span class="cm">// Enemies are repelled by the gate instead</span>
+        other-&gt;<span class="fn">ApplyImpulse</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">5.0f</span>, <span class="val">5.0f</span>));
+    }
+});</pre>
+
+<!-- Deferred DestroyEntity -->
+<h3>Deferred DestroyEntity inside callbacks</h3>
+
+<p>
+  The trigger callbacks are fired from within Bullet's contact processing loop.
+  At that exact moment the engine is iterating over collision pairs, so any call
+  that removes a physics body — such as <code>DestroyEntity</code> — will corrupt
+  the broadphase data structure and cause a crash or silent heap corruption.
+</p>
+<p>
+  The safe pattern is a <em>pending destroy list</em>: push the entity pointer into a
+  <code>std::vector</code> inside the callback, then drain the vector at the
+  <strong>beginning</strong> of <code>Update()</code>, before any physics contacts
+  are processed for the new frame.
+</p>
+
+<pre><span class="cm">// Member variable</span>
+<span class="ty">std</span>::<span class="ty">vector</span>&lt;<span class="ty">Entity</span>*&gt; pendingDestroy_;
+
+<span class="cm">// Inside a trigger callback — NEVER call DestroyEntity directly here</span>
+item-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>, item](<span class="ty">Entity</span>* other)
+{
+    <span class="kw">if</span> (!other-&gt;<span class="fn">HasTag</span>(<span class="st">"player"</span>)) <span class="kw">return</span>;
+    pendingDestroy_.<span class="fn">push_back</span>(item);  <span class="cm">// safe: no scene-graph modification yet</span>
+    ++score_;
+});
+
+<span class="cm">// In Update() — flush the list before any other logic</span>
+<span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+{
+    <span class="kw">for</span> (<span class="ty">Entity</span>* e : pendingDestroy_)
+        <span class="fn">DestroyEntity</span>(e);
+    pendingDestroy_.<span class="fn">clear</span>();
+
+    <span class="cm">// ... rest of Update</span>
+}</pre>
+
+<p>
+  The same rule applies to <code>SetActive(false)</code> when you want to hide rather
+  than destroy an entity after collection.  If your game respawns collectibles
+  (e.g. health packs that reappear after 30 seconds), deactivate and re-activate
+  from <code>Update()</code> rather than from inside the callback.
+</p>
+
+<!-- ─── COLLECTIBLE COIN PATTERN ──────────────────────────────────────── -->
+<h2>Collectible coin pattern</h2>
+
+<p>
+  The combination of trigger sphere + tag check + deferred destruction is so common
+  for pickups that it is worth spelling out as a reusable recipe.  Here is the
+  minimal version, stripped of the demo's ring layout, suitable for copy-pasting
+  into any project:
+</p>
+
+<pre><span class="cm">// ── Spawn a single collectible at a given world position ─────────────</span>
+<span class="kw">void</span> <span class="fn">SpawnPickup</span>(<span class="ty">Vector3</span> pos, <span class="kw">const</span> <span class="ty">std</span>::<span class="ty">string</span>&amp; name, <span class="ty">int</span> value)
+{
+    <span class="ty">Entity</span>* pickup = <span class="fn">CreateEntity</span>(name);
+    pickup-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Sphere.mdl"</span>);
+    pickup-&gt;<span class="fn">SetScale</span>(<span class="val">0.35f</span>);
+    pickup-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.85f</span>, <span class="val">0.1f</span>));
+    pickup-&gt;<span class="fn">SetPosition</span>(pos);
+    pickup-&gt;<span class="fn">AddTag</span>(<span class="st">"pickup"</span>);
+
+    <span class="cm">// 1. Attach the trigger volume (sets CollisionLayer::Trigger automatically).</span>
+    pickup-&gt;<span class="fn">AddTriggerSphere</span>(<span class="val">0.55f</span>);
+
+    <span class="cm">// 2. Only fire when the Actor layer touches the trigger.</span>
+    pickup-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({ <span class="ty">CollisionLayer</span>::<span class="val">Actor</span> }));
+
+    <span class="cm">// 3. Capture pickup by value so the lambda is self-contained.</span>
+    pickup-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>, pickup, value](<span class="ty">Entity</span>* other)
+    {
+        <span class="cm">// 4. Tag check — only the player collects pickups.</span>
+        <span class="kw">if</span> (!other-&gt;<span class="fn">HasTag</span>(<span class="st">"player"</span>)) <span class="kw">return</span>;
+
+        <span class="cm">// 5. Defer destruction — never call DestroyEntity inside a callback.</span>
+        pendingDestroy_.<span class="fn">push_back</span>(pickup);
+
+        <span class="cm">// 6. Update game state — safe to do here.</span>
+        score_ += value;
+        scoreLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Score: "</span> + <span class="ty">String</span>(score_));
+        <span class="fn">PlaySound</span>(<span class="st">"Sounds/coin.wav"</span>, <span class="val">0.9f</span>);
+    });
+}
+
+<span class="cm">// Ensure the player mask includes Trigger so these volumes activate</span>
+<span class="kw">void</span> <span class="fn">SetupPlayer</span>(<span class="ty">Entity</span>* p)
+{
+    p-&gt;<span class="fn">AddTag</span>(<span class="st">"player"</span>);
+    p-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+    p-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+    p-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+        <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>,
+        <span class="ty">CollisionLayer</span>::<span class="val">Trigger</span>
+    }));
+}</pre>
+
+<!-- ─── QUICK REFERENCE TABLE ─────────────────────────────────────────── -->
+<h2>Quick reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method / Concept</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>entity-&gt;AddTriggerBox(Vector3 fullExtents)</code></td>
+      <td>Box trigger; auto-sets <code>CollisionLayer::Trigger</code>.</td>
+    </tr>
+    <tr>
+      <td><code>entity-&gt;AddTriggerSphere(float radius)</code></td>
+      <td>Sphere trigger; auto-sets <code>CollisionLayer::Trigger</code>.</td>
+    </tr>
+    <tr>
+      <td><code>entity-&gt;AddTriggerCapsule(float r, float h)</code></td>
+      <td>Capsule trigger; auto-sets <code>CollisionLayer::Trigger</code>.</td>
+    </tr>
+    <tr>
+      <td><code>entity-&gt;SetOnTriggerEnter(callback(Entity*))</code></td>
+      <td>Fires once on the first frame of overlap.</td>
+    </tr>
+    <tr>
+      <td><code>entity-&gt;SetOnTriggerExit(callback(Entity*))</code></td>
+      <td>Fires once when the body leaves the volume.</td>
+    </tr>
+    <tr>
+      <td><code>CollisionLayer::Trigger</code></td>
+      <td>Bit flag (= 4) assigned to all trigger volumes.</td>
+    </tr>
+    <tr>
+      <td><code>MakeCollisionMask({layers...})</code></td>
+      <td>Combines multiple <code>CollisionLayer</code> values into one <code>unsigned</code> mask.</td>
+    </tr>
+    <tr>
+      <td><code>other-&gt;HasTag("player")</code></td>
+      <td>Identity check inside callbacks; returns <code>bool</code>.</td>
+    </tr>
+    <tr>
+      <td>Deferred destroy pattern</td>
+      <td>Push to <code>pendingDestroy_</code> in callback; call <code>DestroyEntity</code> in <code>Update()</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ─── LUA EQUIVALENT ────────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+
+<p>
+  Trigger volumes and their callbacks are fully accessible from Lua.  The callbacks
+  receive an entity userdata as their first (and only) argument, equivalent to the
+  <code>Entity*&nbsp;other</code> pointer in C++.
+</p>
+
+<pre><span class="lua-cm">-- Scripts/coin_pickup.lua
+-- Attach this script to a coin entity to make it collectible.
+-- The game object must have a pendingDestroy table on its game global
+-- (or use a simpler SetActive approach shown below).
+
+-- References set from the outside (or in Start if you have them):</span>
+<span class="lua-kw">local</span> VALUE = <span class="lua-num">10</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-cm">-- self is the entity this script is attached to.</span>
+    self:<span class="lua-fn">AddTriggerSphere</span>(<span class="lua-num">0.55</span>)
+    self:<span class="lua-fn">SetCollisionMask</span>(<span class="lua-fn">MakeCollisionMask</span>({ CollisionLayer.Actor }))
+
+    self:<span class="lua-fn">SetOnTriggerEnter</span>(<span class="lua-kw">function</span>(other)
+        <span class="lua-kw">if</span> <span class="lua-kw">not</span> other:<span class="lua-fn">HasTag</span>(<span class="lua-str">"player"</span>) <span class="lua-kw">then</span> <span class="lua-kw">return</span> <span class="lua-kw">end</span>
+
+        <span class="lua-cm">-- Deactivate immediately (safe inside callback)
+        -- This hides the coin; DestroyEntity is called from Update or after
+        -- the level ends.</span>
+        self:<span class="lua-fn">SetActive</span>(<span class="lua-kw">false</span>)
+
+        <span class="lua-cm">-- Update shared score (stored on a global table for simplicity)</span>
+        GameState.score = GameState.score + VALUE
+        game:<span class="lua-fn">PlaySound</span>(<span class="lua-str">"Sounds/coin.wav"</span>, <span class="lua-num">0.9</span>)
+    <span class="lua-kw">end</span>)
+<span class="lua-kw">end</span></pre>
+
+<pre><span class="lua-cm">-- Scripts/checkpoint.lua
+-- Attach to any box-trigger entity acting as a checkpoint.</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    self:<span class="lua-fn">AddTriggerBox</span>(Vector3(<span class="lua-num">3.0</span>, <span class="lua-num">4.0</span>, <span class="lua-num">0.6</span>))
+    self:<span class="lua-fn">SetCollisionMask</span>(<span class="lua-fn">MakeCollisionMask</span>({ CollisionLayer.Actor }))
+
+    self:<span class="lua-fn">SetOnTriggerEnter</span>(<span class="lua-kw">function</span>(other)
+        <span class="lua-kw">if</span> other:<span class="lua-fn">HasTag</span>(<span class="lua-str">"player"</span>) <span class="lua-kw">then</span>
+            GameState.lastCheckpoint = other:<span class="lua-fn">GetPosition</span>()
+            game:<span class="lua-fn">PlaySound</span>(<span class="lua-str">"Sounds/checkpoint.wav"</span>, <span class="lua-num">1.0</span>)
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>)
+
+    self:<span class="lua-fn">SetOnTriggerExit</span>(<span class="lua-kw">function</span>(other)
+        <span class="lua-kw">if</span> other:<span class="lua-fn">HasTag</span>(<span class="lua-str">"player"</span>) <span class="lua-kw">then</span>
+            <span class="lua-cm">-- Could log or react to the player leaving the safe zone</span>
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>)
+<span class="lua-kw">end</span></pre>
+
+<p>
+  In Lua, <code>SetActive(false)</code> is safe to call inside trigger callbacks
+  because it does not destroy the physics body immediately — it only disables the
+  scene node.  Call <code>DestroyEntity</code> from Lua's <code>Update</code> function
+  (or leave cleanup to level unloading) exactly as you would in C++.
+</p>
+
+<!-- ─── PATTERNS AND TIPS ──────────────────────────────────────────────── -->
+<h2>Patterns and tips</h2>
+
+<h3>Invisible vs. visible trigger volumes</h3>
+<p>
+  Trigger volumes do not require a visible model.  For game-play elements where the
+  boundary should be hidden from the player (death zones, ambient audio triggers,
+  NPC awareness radii), simply skip <code>AddModel</code>.  For visible zones such as
+  checkpoints or interactable doors, add a semi-transparent model to the same entity
+  and set its alpha below 1:
+</p>
+<pre><span class="cm">// Visible checkpoint arch — translucent box</span>
+arch-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+arch-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.1f</span>, <span class="val">0.9f</span>, <span class="val">0.4f</span>, <span class="val">0.3f</span>));  <span class="cm">// alpha = 0.3</span>
+arch-&gt;<span class="fn">AddTriggerBox</span>(<span class="ty">Vector3</span>(<span class="val">4.0f</span>, <span class="val">5.0f</span>, <span class="val">0.8f</span>));</pre>
+
+<h3>Proximity sensor for enemies</h3>
+<p>
+  A trigger capsule on an enemy is an efficient way to implement a proximity sensor
+  without ray-casting every frame.  Put it on a child entity so it can be resized
+  independently of the enemy mesh:
+</p>
+<pre><span class="ty">Entity</span>* sensor = enemy_-&gt;<span class="fn">CreateChild</span>(<span class="st">"ProxSensor"</span>);
+sensor-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);
+sensor-&gt;<span class="fn">AddTriggerCapsule</span>(<span class="val">6.0f</span>, <span class="val">4.0f</span>);  <span class="cm">// large detection radius</span>
+sensor-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({ <span class="ty">CollisionLayer</span>::<span class="val">Actor</span> }));
+
+sensor-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>](<span class="ty">Entity</span>* other)
+{
+    <span class="kw">if</span> (other-&gt;<span class="fn">HasTag</span>(<span class="st">"player"</span>))
+        fsm_-&gt;<span class="fn">SetState</span>(<span class="st">"chase"</span>);   <span class="cm">// switch AI state (see Part 25)</span>
+});
+
+sensor-&gt;<span class="fn">SetOnTriggerExit</span>([<span class="kw">this</span>](<span class="ty">Entity</span>* other)
+{
+    <span class="kw">if</span> (other-&gt;<span class="fn">HasTag</span>(<span class="st">"player"</span>))
+        fsm_-&gt;<span class="fn">SetState</span>(<span class="st">"patrol"</span>);
+});</pre>
+
+<h3>One-time triggers</h3>
+<p>
+  To fire a trigger only once (e.g. a story cutscene), clear the callback inside
+  the callback itself by setting it to <code>nullptr</code> after queuing any work:
+</p>
+<pre>cutscene-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>, cutscene](<span class="ty">Entity</span>* other)
+{
+    <span class="kw">if</span> (!other-&gt;<span class="fn">HasTag</span>(<span class="st">"player"</span>)) <span class="kw">return</span>;
+
+    <span class="cm">// Remove callback immediately so it fires exactly once.</span>
+    cutscene-&gt;<span class="fn">SetOnTriggerEnter</span>(<span class="kw">nullptr</span>);
+
+    <span class="cm">// Queue scene transition for next frame</span>
+    pendingScene_ = <span class="st">"cutscene_intro.xml"</span>;
+});</pre>
+
+<!-- ─── COMMON MISTAKES ────────────────────────────────────────────────── -->
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Calling <code>DestroyEntity</code> directly inside a trigger callback.</strong>
+      This is the most dangerous mistake with triggers.  Bullet is iterating its
+      contact list when the callback fires; removing a body mid-iteration corrupts
+      the broadphase and typically causes a crash on the next physics step.
+      Always use the deferred destroy pattern: push to a list, drain in <code>Update()</code>.
+    </li>
+    <li>
+      <strong>Forgetting to include <code>CollisionLayer::Trigger</code> in the player's mask.</strong>
+      The player's <code>SetCollisionMask</code> must list <code>CollisionLayer::Trigger</code>
+      or the player will never activate any trigger volume, no matter how many
+      <code>AddTrigger*</code> calls you make.  Both sides of the pair must opt in.
+    </li>
+    <li>
+      <strong>Setting the trigger's mask to <code>CollisionLayer::All</code> unintentionally.</strong>
+      If a trigger responds to all layers, it will fire when static geometry
+      (walls, floors) overlaps it during level load.  Always narrow the mask to
+      <code>CollisionLayer::Actor</code> for player/enemy-only triggers.
+    </li>
+    <li>
+      <strong>Capturing an <code>Entity*</code> by reference in a lambda when the entity may be destroyed.</strong>
+      Lambdas that capture <code>coin</code> by reference (using <code>[&amp;]</code>) will
+      dereference a dangling pointer after the coin is destroyed.  Capture by value
+      (<code>[this, coin]</code>) so the pointer snapshot taken at registration time is
+      preserved safely in the closure.
+    </li>
+    <li>
+      <strong>Mixing <code>AddBoxCollider</code> and <code>AddTriggerBox</code> on the same entity.</strong>
+      An entity can have multiple collision shapes, but mixing a solid collider with a
+      trigger volume on the same body produces undefined behaviour in most physics
+      engines.  If you need both a solid surface and a detection area, create a child
+      entity for the trigger and leave the parent with only the solid collider.
+    </li>
+    <li>
+      <strong>Relying on <code>SetOnTriggerExit</code> firing after <code>DestroyEntity</code>.</strong>
+      When you destroy an entity that is currently overlapping a trigger, the exit
+      callback may not fire.  Do not use the exit callback to clean up state that
+      depends on the removed entity's continued existence.
+    </li>
+    <li>
+      <strong>Adding a trigger volume but forgetting <code>AddRigidBody</code> on the entering entity.</strong>
+      The broadphase only tracks bodies that have a <code>RigidBody</code> component.
+      <code>CharacterController</code> adds its own internal body, so players work.
+      Pure visual entities with no rigid body will never activate a trigger regardless
+      of mask settings.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ──────────────────────────────────────────────── -->
+<h2>What you learned</h2>
+
+<p>
+  In this part you mastered the trigger system in simple-3d:
+</p>
+<ul>
+  <li>
+    <strong>Trigger shapes:</strong> <code>AddTriggerBox</code>, <code>AddTriggerSphere</code>,
+    and <code>AddTriggerCapsule</code> attach non-solid detection volumes to any entity
+    and automatically assign <code>CollisionLayer::Trigger</code>.
+  </li>
+  <li>
+    <strong>Callbacks:</strong> <code>SetOnTriggerEnter</code> fires on the first
+    overlapping frame; <code>SetOnTriggerExit</code> fires when the body leaves.
+    Both receive an <code>Entity*&nbsp;other</code> pointer.
+  </li>
+  <li>
+    <strong>Filtering:</strong> <code>CollisionLayer::Trigger</code> and
+    <code>MakeCollisionMask</code> control exactly which physics bodies can activate
+    a volume.  The check is bidirectional — both the entering body's mask and the
+    trigger's mask must include the other's layer.
+  </li>
+  <li>
+    <strong>Identity:</strong> <code>other-&gt;HasTag("player")</code> inside a callback
+    is the clean way to distinguish the player from other physics bodies.
+  </li>
+  <li>
+    <strong>Deferred destruction:</strong> Never call <code>DestroyEntity</code> inside
+    a trigger callback.  Queue pointers in a <code>pendingDestroy_</code> vector and
+    drain it at the top of <code>Update()</code>.
+  </li>
+  <li>
+    <strong>Collectible coin pattern:</strong> Trigger sphere + tag check + deferred
+    destroy + score update is the standard recipe for any pickup in simple-3d.
+  </li>
+</ul>
+
+<p>
+  Next up: <a href="tutorial-25.html">Part 25: AI Behavior FSM</a> &mdash; building
+  patrol, chase, and attack states for enemies, and wiring them to trigger-based
+  proximity sensors you just learned.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-23.html">&#8592; Part 23: Physics Constraints</a>
+  <a href="tutorial-25.html">Part 25: AI Behavior FSM &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

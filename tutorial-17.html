@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 17: UI System — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list" style="list-style:none;padding:0;margin:0;">
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-01.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">01. Hello World</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-02.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">02. Lights and Colors</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-03.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">03. Keyboard Input</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-04.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">04. 3D Physics</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-05.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">05. Third-Person Camera</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-06.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">06. Lua Scripting Basics</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-07.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">07. Character Controller</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-08.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">08. Skeletal Animation</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-09.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">09. Animation State Machine</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-10.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">10. Audio</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-11.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">11. Spatial Audio</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-12.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">12. 2D Mode</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-13.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">13. 2D Physics</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-14.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">14. Navigation and Pathfinding</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-15.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">15. Gamepad Input</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-16.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">16. Input Actions</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-17.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;background:var(--surface2);color:var(--accent);text-decoration:none;">17. UI System</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-18.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">18. UI Advanced</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-19.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">19. Save and Load</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-20.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">20. Scene Management</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-21.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">21. Particle Systems</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-22.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">22. Entity Hierarchy</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-23.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">23. Physics Constraints</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-24.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">24. Collision Triggers</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-25.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">25. AI Behavior FSM</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-26.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">26. Ray Picking</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-27.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">27. Debug Draw</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-28.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">28. Tweens</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-29.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">29. Sky and Atmosphere</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-30.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb" style="font-size:0.85rem;color:var(--muted);margin-bottom:1.2rem;">
+  <a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 17
+</div>
+
+<h1><span class="tutorial-part" style="display:block;font-size:0.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.09em;margin-bottom:0.3rem;">Part 17 of 30</span>UI System</h1>
+
+<div class="callout ok">
+  <h4>New in this part</h4>
+  <p>
+    <code>CreateImage()</code> &nbsp;&bull;&nbsp;
+    <code>CreatePanel()</code> &nbsp;&bull;&nbsp;
+    <code>CreateButton()</code> &nbsp;&bull;&nbsp;
+    <code>UI::Element::SetPosition(x,y)</code> &nbsp;&bull;&nbsp;
+    <code>UI::Element::SetSize(w,h)</code> &nbsp;&bull;&nbsp;
+    <code>UI::Element::SetVisible()</code> &nbsp;&bull;&nbsp;
+    <code>UI::Element::SetZOrder()</code> &nbsp;&bull;&nbsp;
+    <code>UI::Element::SetAnchor()</code> &nbsp;&bull;&nbsp;
+    <code>UI::Element::AddChild()</code> &nbsp;&bull;&nbsp;
+    <code>Label::SetText()</code> &nbsp;&bull;&nbsp;
+    <code>Label::SetFontSize()</code> &nbsp;&bull;&nbsp;
+    <code>Label::SetColor()</code> &nbsp;&bull;&nbsp;
+    <code>Image::SetColor()</code> (tint) &nbsp;&bull;&nbsp;
+    <code>Image::SetImageRect()</code> (atlas) &nbsp;&bull;&nbsp;
+    <code>Button::SetOnClick()</code> &nbsp;&bull;&nbsp;
+    all nine <code>Anchor</code> enum values
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ─────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How the <code>Simple3D::UI</code> system is structured: <code>Label</code>, <code>Image</code>, <code>Panel</code>, and <code>Button</code> and their shared <code>Element</code> base class</li>
+  <li>How to create and position all four widget types using the factory methods on <code>Game</code></li>
+  <li>How <code>SetAnchor()</code> aligns a widget to any of the nine screen regions and how <code>SetPosition()</code> becomes a pixel offset from that anchor point</li>
+  <li>How to use all nine values of the <code>UI::Anchor</code> enum: <code>TopLeft</code>, <code>TopCenter</code>, <code>TopRight</code>, <code>CenterLeft</code>, <code>Center</code>, <code>CenterRight</code>, <code>BottomLeft</code>, <code>BottomCenter</code>, and <code>BottomRight</code></li>
+  <li>How to update a <code>Label</code> at runtime with <code>SetText()</code>, adjust its font size with <code>SetFontSize()</code>, and change its colour with <code>SetColor()</code></li>
+  <li>How to create textured and untextured <code>Image</code> widgets, apply a colour tint with <code>SetColor()</code>, and sample a sub-rectangle from a texture atlas with <code>SetImageRect()</code></li>
+  <li>How to attach a click callback to a <code>Button</code> using <code>SetOnClick()</code> with a C++ lambda</li>
+  <li>How to layer widgets correctly with <code>SetZOrder()</code> so that menus always appear above HUD elements</li>
+  <li>How to show and hide entire UI subtrees at once with <code>SetVisible()</code></li>
+  <li>How to group widgets into a parent-child hierarchy using <code>Element::AddChild()</code> so that hiding a panel hides all its children automatically</li>
+  <li>What simple-3d owns and what you must not delete manually</li>
+</ul>
+
+<!-- ─── OVERVIEW ──────────────────────────────────────────────────── -->
+<h2>Overview</h2>
+<p>
+  Every game eventually needs a HUD — a score counter, a health bar, a minimap icon, a pause menu. Up
+  to this point you have already used <code>CreateLabel()</code> (introduced in Part 01) to display
+  raw text. Part 17 completes the picture by introducing the three remaining screen-space widget types:
+  <code>Image</code>, <code>Panel</code>, and <code>Button</code>.
+</p>
+<p>
+  All four types live in <code>namespace Simple3D::UI</code>. <code>Image</code>, <code>Panel</code>,
+  and <code>Button</code> inherit a common <code>Element</code> base class that provides positioning,
+  sizing, visibility, depth ordering, and anchor alignment. <code>Label</code> predates the
+  <code>Element</code> hierarchy and has its own interface, but it exposes the same conceptual
+  operations and can be reparented into an <code>Element</code> group using an overloaded
+  <code>AddChild</code>.
+</p>
+<p>
+  This tutorial builds a complete scene with a live HUD (score counter, icon strip, status bar) and a
+  pause menu (semi-transparent dark panel containing a title label, a resume button, and a quit button).
+  Pressing <kbd>Escape</kbd> toggles the pause menu. When the menu is visible a single
+  <code>SetVisible(false)</code> call on the root panel hides everything inside it automatically.
+</p>
+
+<!-- ─── UI TYPE TABLE ─────────────────────────────────────────────── -->
+<h2>Widget types at a glance</h2>
+<table>
+  <tr><th>Type</th><th>Factory method</th><th>Underlying renderer</th><th>Typical use</th></tr>
+  <tr>
+    <td><code>Label</code></td>
+    <td><code>CreateLabel(text)</code></td>
+    <td><code>Urho3D::Text</code></td>
+    <td>Score counter, hint text, damage numbers</td>
+  </tr>
+  <tr>
+    <td><code>UI::Image</code></td>
+    <td><code>CreateImage(texturePath="")</code></td>
+    <td><code>Urho3D::BorderImage</code></td>
+    <td>Icons, health bar fill, atlas sprites, coloured rects</td>
+  </tr>
+  <tr>
+    <td><code>UI::Panel</code></td>
+    <td><code>CreatePanel()</code></td>
+    <td><code>Urho3D::UIElement</code></td>
+    <td>Opaque or semi-transparent containers for grouping widgets</td>
+  </tr>
+  <tr>
+    <td><code>UI::Button</code></td>
+    <td><code>CreateButton(text="")</code></td>
+    <td><code>Urho3D::Button</code></td>
+    <td>Menu items, clickable HUD elements</td>
+  </tr>
+</table>
+
+<!-- ─── COMPLETE SOURCE ───────────────────────────────────────────── -->
+<h2>Complete source</h2>
+<p>
+  The program below builds a small interactive demo that exercises every API introduced in this part.
+  When you run it you will see a spinning box in the centre of a dark scene, a top-left HUD panel
+  containing a life icon, a health-bar image, and a live score label, and a centred pause menu that
+  toggles with <kbd>Escape</kbd>. Read through the full listing first, then work through the
+  step-by-step explanation below.
+</p>
+
+<pre><span class="cm">// main.cpp — Part 17: UI System</span>
+<span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="cm">// ─────────────────────────────────────────────────────────────────────────────
+// UIDemo — demonstrates Label, Image, Panel, and Button together.
+// ─────────────────────────────────────────────────────────────────────────────</span>
+<span class="kw">class</span> <span class="ty">UIDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Part 17 — UI System"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.06f</span>, <span class="val">0.06f</span>, <span class="val">0.10f</span>, <span class="val">1.0f</span>));
+
+        <span class="cm">// ── 3D scene (background) ────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.9f</span>, <span class="val">0.8f</span>), <span class="val">1.2f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">45.0f</span>, <span class="val">45.0f</span>, <span class="val">0.0f</span>));
+
+        box_ = <span class="fn">CreateEntity</span>(<span class="st">"Box"</span>);
+        box_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        box_-&gt;<span class="fn">SetScale</span>(<span class="val">1.8f</span>);
+
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">2.0f</span>, -<span class="val">7.0f</span>);
+        cam_-&gt;<span class="fn">LookAt</span>(<span class="ty">Vector3</span>::ZERO);
+
+        <span class="cm">// ── Build the HUD ────────────────────────────────────────────────────
+        // A dark panel in the top-left corner groups the HUD elements so that
+        // a single SetVisible call shows or hides the whole block.</span>
+        <span class="fn">BuildHUD</span>();
+
+        <span class="cm">// ── Build the pause menu ─────────────────────────────────────────────
+        // A semi-transparent panel centred on screen; hidden until Escape is pressed.</span>
+        <span class="fn">BuildPauseMenu</span>();
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="kw">float</span> dt) <span class="kw">override</span> {
+        <span class="cm">// Spin the background box</span>
+        yaw_ += <span class="val">35.0f</span> * dt;
+        box_-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">0.0f</span>, yaw_, <span class="val">15.0f</span>));
+
+        <span class="cm">// Toggle pause on Escape (only when the menu is not blocking input)</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::Escape)) {
+            paused_ = !paused_;
+            pauseMenu_-&gt;<span class="fn">SetVisible</span>(paused_);
+            <span class="cm">// Dim the HUD while paused so the menu stands out</span>
+            hudPanel_-&gt;<span class="fn">SetVisible</span>(!paused_);
+        }
+
+        <span class="kw">if</span> (paused_) <span class="kw">return</span>;   <span class="cm">// freeze game logic while paused</span>
+
+        <span class="cm">// Accumulate score over time and update the label</span>
+        score_ += <span class="val">10</span> * dt;
+        scoreLbl_-&gt;<span class="fn">SetText</span>(<span class="st">"Score: "</span> + std::<span class="fn">to_string</span>(<span class="kw">static_cast</span>&lt;<span class="kw">int</span>&gt;(score_)));
+    }
+
+<span class="kw">private</span>:
+    <span class="cm">// ── 3D objects ────────────────────────────────────────────────────────</span>
+    <span class="ty">Entity</span>* box_ = <span class="kw">nullptr</span>;
+    <span class="ty">Camera</span>* cam_ = <span class="kw">nullptr</span>;
+    <span class="kw">float</span>   yaw_ = <span class="val">0.0f</span>;
+
+    <span class="cm">// ── UI state ──────────────────────────────────────────────────────────</span>
+    <span class="ty">UI::Panel</span>*  hudPanel_  = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*      scoreLbl_  = <span class="kw">nullptr</span>;
+    <span class="ty">UI::Panel</span>*  pauseMenu_ = <span class="kw">nullptr</span>;
+    <span class="kw">bool</span>        paused_    = <span class="kw">false</span>;
+    <span class="kw">float</span>       score_     = <span class="val">0.0f</span>;
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────────
+    // BuildHUD — top-left overlay: life icon, health bar, score counter
+    // ─────────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">BuildHUD</span>() {
+        <span class="cm">// Outer panel: anchored to TopLeft, 8 px margin from edge.
+        // SetAnchor(TopLeft) is the default, but we state it explicitly for clarity.</span>
+        hudPanel_ = <span class="fn">CreatePanel</span>();
+        hudPanel_-&gt;<span class="fn">SetSize</span>(<span class="val">230</span>, <span class="val">88</span>);
+        hudPanel_-&gt;<span class="fn">SetAnchor</span>(<span class="ty">UI::Anchor</span>::TopLeft);
+        hudPanel_-&gt;<span class="fn">SetPosition</span>(<span class="val">8</span>, <span class="val">8</span>);
+        hudPanel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.55f</span>));
+        hudPanel_-&gt;<span class="fn">SetZOrder</span>(<span class="val">1</span>);   <span class="cm">// HUD sits above the 3D scene</span>
+
+        <span class="cm">// ── Life icon — textured Image sampled from a 64×64 atlas ────────────
+        // SetImageRect(x, y, w, h) selects a sub-rectangle of the texture in pixels.
+        // Here we take the first 32×32 tile at the top-left of the atlas.</span>
+        <span class="ty">UI::Image</span>* lifeIcon = <span class="fn">CreateImage</span>(<span class="st">"Textures/hud_icons.png"</span>);
+        lifeIcon-&gt;<span class="fn">SetSize</span>(<span class="val">32</span>, <span class="val">32</span>);
+        lifeIcon-&gt;<span class="fn">SetPosition</span>(<span class="val">8</span>, <span class="val">8</span>);    <span class="cm">// relative to panel after AddChild</span>
+        lifeIcon-&gt;<span class="fn">SetImageRect</span>(<span class="val">0</span>, <span class="val">0</span>, <span class="val">32</span>, <span class="val">32</span>);          <span class="cm">// top-left tile</span>
+        lifeIcon-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.5f</span>, <span class="val">0.5f</span>, <span class="val">1.0f</span>));  <span class="cm">// warm tint</span>
+
+        <span class="cm">// ── Health bar background — untextured coloured rect ─────────────────</span>
+        <span class="ty">UI::Image</span>* hpBg = <span class="fn">CreateImage</span>();   <span class="cm">// no texture = solid colour</span>
+        hpBg-&gt;<span class="fn">SetSize</span>(<span class="val">172</span>, <span class="val">14</span>);
+        hpBg-&gt;<span class="fn">SetPosition</span>(<span class="val">48</span>, <span class="val">14</span>);
+        hpBg-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.15f</span>, <span class="val">0.05f</span>, <span class="val">0.05f</span>, <span class="val">1.0f</span>));  <span class="cm">// dark red trough</span>
+
+        <span class="cm">// ── Health bar fill ───────────────────────────────────────────────────</span>
+        <span class="ty">UI::Image</span>* hpFill = <span class="fn">CreateImage</span>();
+        hpFill-&gt;<span class="fn">SetSize</span>(<span class="val">138</span>, <span class="val">14</span>);         <span class="cm">// ~80% full</span>
+        hpFill-&gt;<span class="fn">SetPosition</span>(<span class="val">48</span>, <span class="val">14</span>);
+        hpFill-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.15f</span>, <span class="val">0.80f</span>, <span class="val">0.20f</span>, <span class="val">1.0f</span>));  <span class="cm">// green fill</span>
+        hpFill-&gt;<span class="fn">SetZOrder</span>(<span class="val">1</span>);             <span class="cm">// draw on top of trough</span>
+
+        <span class="cm">// ── Score label ───────────────────────────────────────────────────────</span>
+        scoreLbl_ = <span class="fn">CreateLabel</span>(<span class="st">"Score: 0"</span>);
+        scoreLbl_-&gt;<span class="fn">SetPosition</span>(<span class="val">8</span>, <span class="val">46</span>);
+        scoreLbl_-&gt;<span class="fn">SetFontSize</span>(<span class="val">16</span>);
+        scoreLbl_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.9f</span>, <span class="val">0.9f</span>, <span class="val">0.7f</span>, <span class="val">1.0f</span>));  <span class="cm">// warm white</span>
+
+        <span class="cm">// Reparent everything into hudPanel_.
+        // From this point positions are relative to hudPanel_'s top-left corner.
+        // Hiding hudPanel_ automatically hides all children.</span>
+        hudPanel_-&gt;<span class="fn">AddChild</span>(lifeIcon);
+        hudPanel_-&gt;<span class="fn">AddChild</span>(hpBg);
+        hudPanel_-&gt;<span class="fn">AddChild</span>(hpFill);
+        hudPanel_-&gt;<span class="fn">AddChild</span>(scoreLbl_);
+    }
+
+    <span class="cm">// ─────────────────────────────────────────────────────────────────────
+    // BuildPauseMenu — centred overlay: dark panel, title, two buttons
+    // ─────────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">BuildPauseMenu</span>() {
+        <span class="cm">// Root panel: SetAnchor(Center) makes SetPosition an offset from the middle
+        // of the screen.  (0, 0) centres the panel's top-left corner on screen.
+        // To truly centre the 300x180 panel we offset by half its size.</span>
+        pauseMenu_ = <span class="fn">CreatePanel</span>();
+        pauseMenu_-&gt;<span class="fn">SetSize</span>(<span class="val">300</span>, <span class="val">180</span>);
+        pauseMenu_-&gt;<span class="fn">SetAnchor</span>(<span class="ty">UI::Anchor</span>::Center);
+        pauseMenu_-&gt;<span class="fn">SetPosition</span>(-<span class="val">150</span>, -<span class="val">90</span>);   <span class="cm">// offset by half size to fully centre</span>
+        pauseMenu_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.80f</span>));
+        pauseMenu_-&gt;<span class="fn">SetZOrder</span>(<span class="val">10</span>);   <span class="cm">// well above the HUD</span>
+        pauseMenu_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);   <span class="cm">// start hidden</span>
+
+        <span class="cm">// ── Title label ───────────────────────────────────────────────────────</span>
+        <span class="ty">Label</span>* title = <span class="fn">CreateLabel</span>(<span class="st">"PAUSED"</span>);
+        title-&gt;<span class="fn">SetPosition</span>(<span class="val">85</span>, <span class="val">16</span>);
+        title-&gt;<span class="fn">SetFontSize</span>(<span class="val">26</span>);
+        title-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::WHITE);
+
+        <span class="cm">// ── Resume button ─────────────────────────────────────────────────────
+        // SetOnClick takes any callable that accepts no arguments and returns void.
+        // Lambda captures [this] so it can call ResumeGame().</span>
+        <span class="ty">UI::Button</span>* resumeBtn = <span class="fn">CreateButton</span>(<span class="st">"Resume"</span>);
+        resumeBtn-&gt;<span class="fn">SetSize</span>(<span class="val">200</span>, <span class="val">44</span>);
+        resumeBtn-&gt;<span class="fn">SetPosition</span>(<span class="val">50</span>, <span class="val">68</span>);
+        resumeBtn-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.10f</span>, <span class="val">0.40f</span>, <span class="val">0.12f</span>, <span class="val">0.95f</span>));
+        resumeBtn-&gt;<span class="fn">SetOnClick</span>([<span class="kw">this</span>] {
+            paused_ = <span class="kw">false</span>;
+            pauseMenu_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);
+            hudPanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+        });
+
+        <span class="cm">// ── Quit button ───────────────────────────────────────────────────────</span>
+        <span class="ty">UI::Button</span>* quitBtn = <span class="fn">CreateButton</span>(<span class="st">"Quit"</span>);
+        quitBtn-&gt;<span class="fn">SetSize</span>(<span class="val">200</span>, <span class="val">44</span>);
+        quitBtn-&gt;<span class="fn">SetPosition</span>(<span class="val">50</span>, <span class="val">122</span>);
+        quitBtn-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.40f</span>, <span class="val">0.10f</span>, <span class="val">0.10f</span>, <span class="val">0.95f</span>));
+        quitBtn-&gt;<span class="fn">SetOnClick</span>([<span class="kw">this</span>] { <span class="fn">Quit</span>(); });
+
+        <span class="cm">// Reparent into the menu panel (positions above are now panel-relative)</span>
+        pauseMenu_-&gt;<span class="fn">AddChild</span>(title);
+        pauseMenu_-&gt;<span class="fn">AddChild</span>(resumeBtn);
+        pauseMenu_-&gt;<span class="fn">AddChild</span>(quitBtn);
+    }
+};
+
+<span class="kw">int</span> <span class="fn">main</span>(<span class="kw">int</span>, <span class="kw">char</span>**) {
+    <span class="kw">auto</span> game = <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">UIDemo</span>&gt;();
+    game-&gt;<span class="fn">SetResourcePrefixPaths</span>(<span class="st">"/path/to/u3d/bin"</span>);
+    <span class="kw">return</span> game-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ──────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<!-- 1. NAMESPACE -->
+<h3>1. The <code>Simple3D::UI</code> namespace</h3>
+<p>
+  All UI widget types except <code>Label</code> live under <code>Simple3D::UI</code>. When you include
+  <code>&lt;Simple3D/Simple3D.h&gt;</code> (the single-header umbrella) all UI types are available without
+  any extra includes. With a <code>using namespace Simple3D;</code> directive at file scope you can write
+  <code>UI::Image</code>, <code>UI::Panel</code>, <code>UI::Button</code>, and <code>UI::Anchor</code>
+  directly.
+</p>
+<p>
+  <code>Label</code> is the oldest widget and lives directly in <code>Simple3D::</code>, so it is just
+  <code>Label*</code> after the using directive. For the rest of this tutorial, unqualified
+  <code>Image</code>, <code>Panel</code>, and <code>Button</code> always mean the
+  <code>Simple3D::UI::</code> variants, not anything from the standard library.
+</p>
+
+<!-- 2. ELEMENT BASE CLASS -->
+<h3>2. The shared <code>Element</code> base class</h3>
+<p>
+  <code>UI::Image</code>, <code>UI::Panel</code>, and <code>UI::Button</code> all inherit from
+  <code>UI::Element</code>. This base class supplies the five methods that every widget shares:
+</p>
+<table>
+  <tr><th>Method</th><th>Returns</th><th>Notes</th></tr>
+  <tr><td><code>SetPosition(int x, int y)</code></td><td>—</td><td>Pixel offset from the anchor point</td></tr>
+  <tr><td><code>SetSize(int w, int h)</code></td><td>—</td><td>Pixel dimensions of the widget</td></tr>
+  <tr><td><code>SetVisible(bool)</code></td><td>—</td><td>Hides the widget and all its children</td></tr>
+  <tr><td><code>SetZOrder(int z)</code></td><td>—</td><td>Higher = rendered on top; default 0</td></tr>
+  <tr><td><code>SetAnchor(UI::Anchor a)</code></td><td>—</td><td>Aligns the widget to a screen region</td></tr>
+  <tr><td><code>AddChild(Element* child)</code></td><td>—</td><td>Reparents a child widget</td></tr>
+  <tr><td><code>AddChild(Label* label)</code></td><td>—</td><td>Overload for Label (not an Element subclass)</td></tr>
+  <tr><td><code>GetPosition()</code></td><td><code>IntVector2</code></td><td>Current pixel position</td></tr>
+  <tr><td><code>GetSize()</code></td><td><code>IntVector2</code></td><td>Current pixel size</td></tr>
+  <tr><td><code>IsVisible()</code></td><td><code>bool</code></td><td>Current visibility state</td></tr>
+</table>
+<p>
+  Because all three widget types inherit these methods, you can store an array of
+  <code>UI::Element*</code> and operate on heterogeneous widget groups with a single loop — useful for
+  enabling or disabling an entire UI screen.
+</p>
+
+<!-- 3. CREATEPANEL -->
+<h3>3. <code>CreatePanel()</code></h3>
+<pre><span class="ty">UI::Panel</span>* hudPanel_ = <span class="fn">CreatePanel</span>();
+hudPanel_-&gt;<span class="fn">SetSize</span>(<span class="val">230</span>, <span class="val">88</span>);
+hudPanel_-&gt;<span class="fn">SetAnchor</span>(<span class="ty">UI::Anchor</span>::TopLeft);
+hudPanel_-&gt;<span class="fn">SetPosition</span>(<span class="val">8</span>, <span class="val">8</span>);
+hudPanel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.55f</span>));</pre>
+<p>
+  <code>CreatePanel()</code> creates a plain filled rectangle. Its only widget-specific method is
+  <code>SetColor(Color)</code> which sets the background fill colour, and <code>SetOpacity(float)</code>
+  which multiplies the overall alpha of the element and all its children. A <code>Panel</code> with
+  alpha less than 1 in its colour produces a semi-transparent overlay that lets the 3D scene show
+  through.
+</p>
+<p>
+  A panel with no size or no colour is invisible, so always call both <code>SetSize</code> and
+  <code>SetColor</code> during setup.
+</p>
+
+<!-- 4. CREATEIMAGE -->
+<h3>4. <code>CreateImage()</code> — textures and coloured rectangles</h3>
+<pre><span class="cm">// Textured image auto-sized from the PNG:</span>
+<span class="ty">UI::Image</span>* icon = <span class="fn">CreateImage</span>(<span class="st">"Textures/hud_icons.png"</span>);
+icon-&gt;<span class="fn">SetSize</span>(<span class="val">32</span>, <span class="val">32</span>);
+icon-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.5f</span>, <span class="val">0.5f</span>, <span class="val">1.0f</span>));   <span class="cm">// tint: warm pink</span>
+icon-&gt;<span class="fn">SetImageRect</span>(<span class="val">0</span>, <span class="val">0</span>, <span class="val">32</span>, <span class="val">32</span>);                  <span class="cm">// top-left 32x32 tile</span>
+
+<span class="cm">// Untextured coloured rectangle:</span>
+<span class="ty">UI::Image</span>* bar = <span class="fn">CreateImage</span>();   <span class="cm">// no path = solid colour only</span>
+bar-&gt;<span class="fn">SetSize</span>(<span class="val">138</span>, <span class="val">14</span>);
+bar-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.15f</span>, <span class="val">0.80f</span>, <span class="val">0.20f</span>, <span class="val">1.0f</span>));  <span class="cm">// green</span></pre>
+<p>
+  <code>CreateImage(path)</code> loads a PNG, JPG, or other texture and creates a screen-space image
+  widget. Passing no argument (or an empty string) creates an untextured widget that renders as a
+  solid coloured rectangle — perfect for health bar fills, border decorations, or debug overlays.
+</p>
+<p>
+  <strong><code>SetColor(Color)</code> — tinting.</strong> When a texture is loaded,
+  <code>SetColor</code> modulates the texture colour per-vertex. Pure white
+  <code>Color(1,1,1,1)</code> leaves the texture unchanged. Any other colour multiplies the texture
+  RGB values by the tint RGB, allowing you to tint a greyscale icon sheet any colour you want at
+  zero texture cost.
+</p>
+<p>
+  <strong><code>SetImageRect(x, y, w, h)</code> — atlas sampling.</strong> Many games pack dozens of
+  icons into a single texture atlas to reduce draw calls. <code>SetImageRect</code> selects a
+  sub-rectangle of the bound texture measured in pixels. For example, if
+  <code>hud_icons.png</code> is a 128×64 sheet of 32×32 tiles arranged in a 4×2 grid, you can pick
+  the third tile in the first row with <code>SetImageRect(64, 0, 32, 32)</code>. The widget then
+  displays only that tile.
+</p>
+
+<!-- 5. SETANCHOR AND ANCHOR ENUM -->
+<h3>5. <code>SetAnchor()</code> and the <code>UI::Anchor</code> enum</h3>
+<p>
+  By default every widget is positioned with its top-left corner at <code>(0, 0)</code> — the
+  top-left of the window. <code>SetAnchor()</code> changes this reference point. After calling it,
+  <code>SetPosition(x, y)</code> specifies a <em>pixel offset from that anchor point</em>, not from
+  the absolute top-left of the screen.
+</p>
+<p>
+  The nine available anchor values cover every corner, edge midpoint, and the screen centre:
+</p>
+<table>
+  <tr><th>Anchor value</th><th>Reference point on screen</th><th>Typical use</th></tr>
+  <tr><td><code>UI::Anchor::TopLeft</code></td><td>Top-left corner (default)</td><td>HUD panels, score displays</td></tr>
+  <tr><td><code>UI::Anchor::TopCenter</code></td><td>Top edge, horizontally centred</td><td>Centered title bar, wave counter</td></tr>
+  <tr><td><code>UI::Anchor::TopRight</code></td><td>Top-right corner</td><td>Timer, ammo count</td></tr>
+  <tr><td><code>UI::Anchor::CenterLeft</code></td><td>Left edge, vertically centred</td><td>Vertical menu strip</td></tr>
+  <tr><td><code>UI::Anchor::Center</code></td><td>Exact screen centre</td><td>Pause menus, splash screens, crosshairs</td></tr>
+  <tr><td><code>UI::Anchor::CenterRight</code></td><td>Right edge, vertically centred</td><td>Skill bar, minimap</td></tr>
+  <tr><td><code>UI::Anchor::BottomLeft</code></td><td>Bottom-left corner</td><td>Subtitles, context hints</td></tr>
+  <tr><td><code>UI::Anchor::BottomCenter</code></td><td>Bottom edge, horizontally centred</td><td>Dialogue text, action prompts</td></tr>
+  <tr><td><code>UI::Anchor::BottomRight</code></td><td>Bottom-right corner</td><td>Minimap, inventory shortcut bar</td></tr>
+</table>
+<p>
+  Anchors are especially powerful for resolution independence. A button with
+  <code>SetAnchor(BottomRight)</code> and <code>SetPosition(-170, -60)</code> always sits 170 pixels
+  from the right edge and 60 pixels from the bottom, regardless of whether the window is 1280×720
+  or 3840×2160.
+</p>
+<pre><span class="cm">// Timer in the top-right corner — stays there at any resolution</span>
+<span class="ty">Label</span>* timerLbl = <span class="fn">CreateLabel</span>(<span class="st">"01:30"</span>);
+timerLbl-&gt;<span class="fn">SetPosition</span>(-<span class="val">80</span>, <span class="val">12</span>);
+timerLbl-&gt;<span class="fn">SetFontSize</span>(<span class="val">20</span>);
+timerLbl-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::WHITE);
+<span class="cm">// Note: Label itself uses SetPosition pixel-from-top-left, not SetAnchor.
+// To anchor a Label, add it as a child of an anchored Panel or Image.</span>
+
+<span class="cm">// Action prompt at screen bottom-centre</span>
+<span class="ty">UI::Panel</span>* promptPanel = <span class="fn">CreatePanel</span>();
+promptPanel-&gt;<span class="fn">SetSize</span>(<span class="val">280</span>, <span class="val">36</span>);
+promptPanel-&gt;<span class="fn">SetAnchor</span>(<span class="ty">UI::Anchor</span>::BottomCenter);
+promptPanel-&gt;<span class="fn">SetPosition</span>(-<span class="val">140</span>, -<span class="val">48</span>);   <span class="cm">// centred horizontally, 48 px up from bottom</span>
+promptPanel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.7f</span>));
+
+<span class="cm">// Minimap container anchored to bottom-right</span>
+<span class="ty">UI::Panel</span>* mapPanel = <span class="fn">CreatePanel</span>();
+mapPanel-&gt;<span class="fn">SetSize</span>(<span class="val">128</span>, <span class="val">128</span>);
+mapPanel-&gt;<span class="fn">SetAnchor</span>(<span class="ty">UI::Anchor</span>::BottomRight);
+mapPanel-&gt;<span class="fn">SetPosition</span>(-<span class="val">136</span>, -<span class="val">136</span>);   <span class="cm">// 8 px margin from each edge</span>
+mapPanel-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.1f</span>, <span class="val">0.1f</span>, <span class="val">0.2f</span>, <span class="val">0.8f</span>));</pre>
+<div class="callout info" style="margin-top:1rem;">
+  <h4>Tip — Label anchoring</h4>
+  <p>
+    <code>Label</code> does not have a <code>SetAnchor</code> method of its own. To anchor a label
+    (for example, to keep it glued to the bottom-centre of the screen), create an anchored
+    <code>Panel</code> and call <code>panel-&gt;AddChild(label)</code>. The label position then
+    becomes relative to the panel's top-left corner, and the panel handles the screen alignment.
+  </p>
+</div>
+
+<!-- 6. SETZORDER -->
+<h3>6. <code>SetZOrder()</code> — depth ordering</h3>
+<pre>hudPanel_-&gt;<span class="fn">SetZOrder</span>(<span class="val">1</span>);    <span class="cm">// HUD layer</span>
+pauseMenu_-&gt;<span class="fn">SetZOrder</span>(<span class="val">10</span>);  <span class="cm">// pause menu always above HUD</span>
+hpFill-&gt;<span class="fn">SetZOrder</span>(<span class="val">1</span>);       <span class="cm">// fill renders on top of trough background</span></pre>
+<p>
+  <code>SetZOrder(int z)</code> controls which widget renders in front when two widgets overlap.
+  Higher values appear on top. All widgets start at Z-order 0. The Z-order of a parent does
+  not automatically override its children — each element's absolute Z-order is evaluated
+  independently, so a child with Z-order 2 will appear above a sibling with Z-order 1 even when
+  both are reparented into the same panel.
+</p>
+<p>
+  A common layering strategy is: background panels at 0, HUD elements at 1–5, notifications at
+  6–8, and modal menus at 10+. This makes it easy to reason about depth without needing to adjust
+  values later.
+</p>
+
+<!-- 7. SETVISIBLE -->
+<h3>7. <code>SetVisible()</code> and parent-child visibility</h3>
+<pre>pauseMenu_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);   <span class="cm">// hides the panel AND all its children at once</span>
+pauseMenu_-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);    <span class="cm">// shows them all again</span></pre>
+<p>
+  Hiding a parent element via <code>SetVisible(false)</code> automatically hides the entire subtree
+  of children reparented into it. You do not need to iterate children and hide each one manually.
+  When you call <code>SetVisible(true)</code> on the parent, all children reappear in their
+  previous state.
+</p>
+<p>
+  This is the main reason to group related widgets under a panel: one boolean toggle controls
+  the whole UI screen. The pause menu example exploits this to hide the title label and both
+  buttons by calling <code>pauseMenu_-&gt;SetVisible(false)</code> on the root panel alone.
+</p>
+
+<!-- 8. LABEL METHODS -->
+<h3>8. <code>Label</code> methods: <code>SetText()</code>, <code>SetFontSize()</code>, <code>SetColor()</code></h3>
+<pre>scoreLbl_ = <span class="fn">CreateLabel</span>(<span class="st">"Score: 0"</span>);
+scoreLbl_-&gt;<span class="fn">SetPosition</span>(<span class="val">8</span>, <span class="val">46</span>);
+scoreLbl_-&gt;<span class="fn">SetFontSize</span>(<span class="val">16</span>);
+scoreLbl_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.9f</span>, <span class="val">0.9f</span>, <span class="val">0.7f</span>, <span class="val">1.0f</span>));
+
+<span class="cm">// In Update():</span>
+scoreLbl_-&gt;<span class="fn">SetText</span>(<span class="st">"Score: "</span> + std::<span class="fn">to_string</span>(<span class="kw">static_cast</span>&lt;<span class="kw">int</span>&gt;(score_)));</pre>
+<p>
+  Although <code>CreateLabel</code> was introduced back in Part 01, this part is the first to use
+  its methods in the context of a properly structured UI system, so it is worth reviewing them:
+</p>
+<ul>
+  <li>
+    <strong><code>SetText(string)</code></strong> replaces the displayed string. Call it from
+    <code>Update()</code> to create live readouts such as score counters, timers, or debug values.
+    The string is UTF-8, so accented characters and basic Unicode symbols work provided the loaded
+    font contains the required glyphs.
+  </li>
+  <li>
+    <strong><code>SetFontSize(int pts)</code></strong> sets the text point size using the current
+    font. The default font is <code>Fonts/Anonymous Pro.ttf</code> (a monospaced programmer font
+    that ships with Urho3D). Call <code>label-&gt;SetFont("Fonts/MyFont.ttf")</code> before
+    <code>SetFontSize</code> to switch fonts.
+  </li>
+  <li>
+    <strong><code>SetColor(Color)</code></strong> sets the text colour. The alpha component controls
+    transparency, which is useful for fade-in and fade-out effects. <code>Color::WHITE</code> is the
+    most common value for legible text on dark backgrounds.
+  </li>
+</ul>
+
+<!-- 9. CREATEBUTTON AND SETONCLICK -->
+<h3>9. <code>CreateButton()</code> and <code>SetOnClick()</code></h3>
+<pre><span class="ty">UI::Button</span>* resumeBtn = <span class="fn">CreateButton</span>(<span class="st">"Resume"</span>);
+resumeBtn-&gt;<span class="fn">SetSize</span>(<span class="val">200</span>, <span class="val">44</span>);
+resumeBtn-&gt;<span class="fn">SetPosition</span>(<span class="val">50</span>, <span class="val">68</span>);
+resumeBtn-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.10f</span>, <span class="val">0.40f</span>, <span class="val">0.12f</span>, <span class="val">0.95f</span>));
+resumeBtn-&gt;<span class="fn">SetOnClick</span>([<span class="kw">this</span>] {
+    paused_ = <span class="kw">false</span>;
+    pauseMenu_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);
+    hudPanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+});</pre>
+<p>
+  <code>CreateButton(text)</code> creates a labelled clickable button. The text argument initialises
+  the button label; you can change it later with <code>btn-&gt;SetText("New Label")</code>. Like
+  <code>Panel</code>, the button also has <code>SetColor</code> for its background fill and
+  <code>SetOpacity</code> for overall transparency.
+</p>
+<p>
+  <strong><code>SetOnClick(std::function&lt;void()&gt;)</code></strong> attaches a callback that fires
+  when the user releases the mouse button while the cursor is inside the button's rectangle. The
+  callback is a standard C++ callable — a free function pointer, a member function wrapped in
+  <code>std::bind</code>, or most commonly a lambda. Using a lambda with <code>[this]</code> capture
+  is the simplest pattern because it lets the callback access member variables directly.
+</p>
+<p>
+  Calling <code>SetOnClick</code> a second time completely replaces the previous callback. This is
+  useful for rebinding buttons dynamically (for example, assigning different actions to the same
+  button depending on the current game state).
+</p>
+<p>
+  Click is fired on mouse-button <em>release</em>, not on press. This matches platform HIG
+  conventions and lets the user drag out of the button area to cancel an accidental click.
+</p>
+
+<!-- 10. ADDCHILD -->
+<h3>10. <code>AddChild()</code> — building UI groups</h3>
+<pre><span class="ty">UI::Panel</span>* panel = <span class="fn">CreatePanel</span>();
+panel-&gt;<span class="fn">SetSize</span>(<span class="val">300</span>, <span class="val">180</span>);
+panel-&gt;<span class="fn">SetPosition</span>(<span class="val">100</span>, <span class="val">100</span>);
+
+<span class="ty">Label</span>*      title  = <span class="fn">CreateLabel</span>(<span class="st">"PAUSED"</span>);
+<span class="ty">UI::Button</span>* btn    = <span class="fn">CreateButton</span>(<span class="st">"Resume"</span>);
+
+title-&gt;<span class="fn">SetPosition</span>(<span class="val">85</span>, <span class="val">16</span>);   <span class="cm">// will be relative to panel after AddChild</span>
+btn-&gt;<span class="fn">SetPosition</span>(<span class="val">50</span>, <span class="val">68</span>);
+
+panel-&gt;<span class="fn">AddChild</span>(title);   <span class="cm">// overload for Label* (Label is not an Element subclass)</span>
+panel-&gt;<span class="fn">AddChild</span>(btn);
+
+panel-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);   <span class="cm">// hides panel + title + btn in one call</span></pre>
+<p>
+  Calling <code>parent-&gt;AddChild(child)</code> detaches <code>child</code> from the UI root and
+  makes its position relative to the parent's top-left corner. This is the fundamental way to
+  group widgets so they move together.
+</p>
+<p>
+  There are two <code>AddChild</code> overloads. The normal overload accepts
+  <code>UI::Element*</code>, which covers <code>Image*</code>, <code>Panel*</code>, and
+  <code>Button*</code>. A separate overload accepts <code>Label*</code> because
+  <code>Label</code> predates the <code>Element</code> hierarchy and does not inherit from it.
+  Both overloads behave identically from a visibility and layout perspective.
+</p>
+<p>
+  Set child positions <em>before</em> calling <code>AddChild</code>. The positions you supply
+  in <code>SetPosition</code> are always panel-relative once the child has been reparented.
+  If you call <code>SetPosition</code> after <code>AddChild</code> the result is the same — the
+  engine interprets the coordinates relative to the current parent either way.
+</p>
+
+<!-- 11. OWNERSHIP -->
+<h3>11. Ownership and lifetime</h3>
+<p>
+  All UI objects returned by <code>CreateLabel</code>, <code>CreateImage</code>,
+  <code>CreatePanel</code>, and <code>CreateButton</code> are owned by the <code>Game</code>
+  instance. You must never call <code>delete</code> on any of these pointers. They remain alive
+  for the entire application session — there is no <code>DestroyPanel</code> or
+  <code>DestroyButton</code> in the current API version. To make a widget disappear from the
+  screen, call <code>SetVisible(false)</code>.
+</p>
+
+<!-- ─── LUA EQUIVALENT ────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+<p>
+  The same HUD and pause menu can be written in Lua. The factory methods are called on the global
+  <code>game</code> object and all methods use the colon syntax. The lambda callback for
+  <code>SetOnClick</code> becomes a plain Lua function passed as an argument.
+</p>
+
+<pre><span class="lua-cm">-- game.lua — Part 17 UI System (Lua version)</span>
+
+<span class="lua-kw">local</span> box, cam, yaw
+<span class="lua-kw">local</span> hudPanel, scoreLbl, pauseMenu
+<span class="lua-kw">local</span> paused = <span class="lua-kw">false</span>
+<span class="lua-kw">local</span> score  = <span class="lua-num">0</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    game:<span class="lua-fn">SetWindowTitle</span>(<span class="lua-str">"Part 17 — UI System (Lua)"</span>)
+    game:<span class="lua-fn">SetClearColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.06</span>, <span class="lua-num">0.06</span>, <span class="lua-num">0.10</span>, <span class="lua-num">1.0</span>))
+
+    <span class="lua-cm">-- 3D scene</span>
+    <span class="lua-kw">local</span> sun = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Sun"</span>)
+    sun:<span class="lua-fn">AddDirectionalLight</span>(<span class="lua-fn">Color</span>(<span class="lua-num">1.0</span>, <span class="lua-num">0.9</span>, <span class="lua-num">0.8</span>), <span class="lua-num">1.2</span>)
+    sun:<span class="lua-fn">SetRotation</span>(<span class="lua-fn">Quaternion</span>(<span class="lua-num">45</span>, <span class="lua-num">45</span>, <span class="lua-num">0</span>))
+
+    box = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Box"</span>)
+    box:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+    box:<span class="lua-fn">SetScale</span>(<span class="lua-num">1.8</span>)
+
+    cam = game:<span class="lua-fn">CreateCamera</span>()
+    cam:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">2</span>, <span class="lua-num">-7</span>)
+    cam:<span class="lua-fn">LookAt</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>))
+    yaw = <span class="lua-num">0</span>
+
+    <span class="lua-cm">-- HUD panel</span>
+    hudPanel = game:<span class="lua-fn">CreatePanel</span>()
+    hudPanel:<span class="lua-fn">SetSize</span>(<span class="lua-num">230</span>, <span class="lua-num">88</span>)
+    hudPanel:<span class="lua-fn">SetAnchor</span>(<span class="lua-str">"TopLeft"</span>)          <span class="lua-cm">-- Lua uses string anchor names</span>
+    hudPanel:<span class="lua-fn">SetPosition</span>(<span class="lua-num">8</span>, <span class="lua-num">8</span>)
+    hudPanel:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0.55</span>))
+    hudPanel:<span class="lua-fn">SetZOrder</span>(<span class="lua-num">1</span>)
+
+    <span class="lua-kw">local</span> lifeIcon = game:<span class="lua-fn">CreateImage</span>(<span class="lua-str">"Textures/hud_icons.png"</span>)
+    lifeIcon:<span class="lua-fn">SetSize</span>(<span class="lua-num">32</span>, <span class="lua-num">32</span>)
+    lifeIcon:<span class="lua-fn">SetPosition</span>(<span class="lua-num">8</span>, <span class="lua-num">8</span>)
+    lifeIcon:<span class="lua-fn">SetImageRect</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">32</span>, <span class="lua-num">32</span>)
+    lifeIcon:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">1.0</span>, <span class="lua-num">0.5</span>, <span class="lua-num">0.5</span>, <span class="lua-num">1.0</span>))
+
+    <span class="lua-kw">local</span> hpBg = game:<span class="lua-fn">CreateImage</span>()
+    hpBg:<span class="lua-fn">SetSize</span>(<span class="lua-num">172</span>, <span class="lua-num">14</span>)
+    hpBg:<span class="lua-fn">SetPosition</span>(<span class="lua-num">48</span>, <span class="lua-num">14</span>)
+    hpBg:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.15</span>, <span class="lua-num">0.05</span>, <span class="lua-num">0.05</span>, <span class="lua-num">1.0</span>))
+
+    <span class="lua-kw">local</span> hpFill = game:<span class="lua-fn">CreateImage</span>()
+    hpFill:<span class="lua-fn">SetSize</span>(<span class="lua-num">138</span>, <span class="lua-num">14</span>)
+    hpFill:<span class="lua-fn">SetPosition</span>(<span class="lua-num">48</span>, <span class="lua-num">14</span>)
+    hpFill:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.15</span>, <span class="lua-num">0.80</span>, <span class="lua-num">0.20</span>, <span class="lua-num">1.0</span>))
+    hpFill:<span class="lua-fn">SetZOrder</span>(<span class="lua-num">1</span>)
+
+    scoreLbl = game:<span class="lua-fn">CreateLabel</span>(<span class="lua-str">"Score: 0"</span>)
+    scoreLbl:<span class="lua-fn">SetPosition</span>(<span class="lua-num">8</span>, <span class="lua-num">46</span>)
+    scoreLbl:<span class="lua-fn">SetFontSize</span>(<span class="lua-num">16</span>)
+    scoreLbl:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.9</span>, <span class="lua-num">0.9</span>, <span class="lua-num">0.7</span>, <span class="lua-num">1.0</span>))
+
+    hudPanel:<span class="lua-fn">AddChild</span>(lifeIcon)
+    hudPanel:<span class="lua-fn">AddChild</span>(hpBg)
+    hudPanel:<span class="lua-fn">AddChild</span>(hpFill)
+    hudPanel:<span class="lua-fn">AddChild</span>(scoreLbl)
+
+    <span class="lua-cm">-- Pause menu</span>
+    pauseMenu = game:<span class="lua-fn">CreatePanel</span>()
+    pauseMenu:<span class="lua-fn">SetSize</span>(<span class="lua-num">300</span>, <span class="lua-num">180</span>)
+    pauseMenu:<span class="lua-fn">SetAnchor</span>(<span class="lua-str">"Center"</span>)
+    pauseMenu:<span class="lua-fn">SetPosition</span>(-<span class="lua-num">150</span>, -<span class="lua-num">90</span>)
+    pauseMenu:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0.80</span>))
+    pauseMenu:<span class="lua-fn">SetZOrder</span>(<span class="lua-num">10</span>)
+    pauseMenu:<span class="lua-fn">SetVisible</span>(<span class="lua-kw">false</span>)
+
+    <span class="lua-kw">local</span> title = game:<span class="lua-fn">CreateLabel</span>(<span class="lua-str">"PAUSED"</span>)
+    title:<span class="lua-fn">SetPosition</span>(<span class="lua-num">85</span>, <span class="lua-num">16</span>)
+    title:<span class="lua-fn">SetFontSize</span>(<span class="lua-num">26</span>)
+    title:<span class="lua-fn">SetColor</span>(Color.WHITE)
+
+    <span class="lua-cm">-- In Lua, SetOnClick receives a plain function</span>
+    <span class="lua-kw">local</span> resumeBtn = game:<span class="lua-fn">CreateButton</span>(<span class="lua-str">"Resume"</span>)
+    resumeBtn:<span class="lua-fn">SetSize</span>(<span class="lua-num">200</span>, <span class="lua-num">44</span>)
+    resumeBtn:<span class="lua-fn">SetPosition</span>(<span class="lua-num">50</span>, <span class="lua-num">68</span>)
+    resumeBtn:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.10</span>, <span class="lua-num">0.40</span>, <span class="lua-num">0.12</span>, <span class="lua-num">0.95</span>))
+    resumeBtn:<span class="lua-fn">SetOnClick</span>(<span class="lua-kw">function</span>()
+        paused = <span class="lua-kw">false</span>
+        pauseMenu:<span class="lua-fn">SetVisible</span>(<span class="lua-kw">false</span>)
+        hudPanel:<span class="lua-fn">SetVisible</span>(<span class="lua-kw">true</span>)
+    <span class="lua-kw">end</span>)
+
+    <span class="lua-kw">local</span> quitBtn = game:<span class="lua-fn">CreateButton</span>(<span class="lua-str">"Quit"</span>)
+    quitBtn:<span class="lua-fn">SetSize</span>(<span class="lua-num">200</span>, <span class="lua-num">44</span>)
+    quitBtn:<span class="lua-fn">SetPosition</span>(<span class="lua-num">50</span>, <span class="lua-num">122</span>)
+    quitBtn:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.40</span>, <span class="lua-num">0.10</span>, <span class="lua-num">0.10</span>, <span class="lua-num">0.95</span>))
+    quitBtn:<span class="lua-fn">SetOnClick</span>(<span class="lua-kw">function</span>() game:<span class="lua-fn">Quit</span>() <span class="lua-kw">end</span>)
+
+    pauseMenu:<span class="lua-fn">AddChild</span>(title)
+    pauseMenu:<span class="lua-fn">AddChild</span>(resumeBtn)
+    pauseMenu:<span class="lua-fn">AddChild</span>(quitBtn)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    yaw = yaw + <span class="lua-num">35</span> * dt
+    box:<span class="lua-fn">SetRotation</span>(<span class="lua-fn">Quaternion</span>(<span class="lua-num">0</span>, yaw, <span class="lua-num">15</span>))
+
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyPressed</span>(<span class="lua-str">"Escape"</span>) <span class="lua-kw">then</span>
+        paused = <span class="lua-kw">not</span> paused
+        pauseMenu:<span class="lua-fn">SetVisible</span>(paused)
+        hudPanel:<span class="lua-fn">SetVisible</span>(<span class="lua-kw">not</span> paused)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-kw">if</span> paused <span class="lua-kw">then</span> <span class="lua-kw">return</span> <span class="lua-kw">end</span>
+
+    score = score + <span class="lua-num">10</span> * dt
+    scoreLbl:<span class="lua-fn">SetText</span>(<span class="lua-str">"Score: "</span> .. math.<span class="lua-fn">floor</span>(score))
+<span class="lua-kw">end</span></pre>
+<p>
+  The key Lua differences are: anchor names are passed as plain strings (<code>"TopLeft"</code>,
+  <code>"Center"</code>, etc.) rather than enum values, <code>SetOnClick</code> accepts an anonymous
+  <code>function() ... end</code> block, and string concatenation uses <code>..</code> instead of
+  <code>+</code>.
+</p>
+
+<!-- ─── COMPLETE ANCHOR DEMO SNIPPET ─────────────────────────────── -->
+<h2>Anchor demo — all nine positions</h2>
+<p>
+  The snippet below creates nine small coloured panels, one at each anchor position, to make the
+  alignment model completely visible. Drop this into a <code>Start()</code> method as a quick
+  visual test during development.
+</p>
+<pre><span class="kw">void</span> <span class="fn">PlaceAnchorMarkers</span>() {
+    <span class="cm">// Helper lambda so we don't repeat ourselves nine times.</span>
+    <span class="kw">auto</span> <span class="fn">place</span> = [<span class="kw">this</span>](<span class="ty">UI::Anchor</span> anchor, <span class="kw">int</span> ox, <span class="kw">int</span> oy, <span class="ty">Color</span> c) {
+        <span class="ty">UI::Panel</span>* p = <span class="fn">CreatePanel</span>();
+        p-&gt;<span class="fn">SetSize</span>(<span class="val">60</span>, <span class="val">24</span>);
+        p-&gt;<span class="fn">SetAnchor</span>(anchor);
+        p-&gt;<span class="fn">SetPosition</span>(ox, oy);
+        p-&gt;<span class="fn">SetColor</span>(c);
+    };
+
+    <span class="cm">// Corners and edges — offset inward by 4 px so they don't clip the window border</span>
+    <span class="fn">place</span>(<span class="ty">UI::Anchor</span>::TopLeft,      <span class="val">4</span>,   <span class="val">4</span>,    <span class="ty">Color</span>(<span class="val">1</span>,<span class="val">0</span>,<span class="val">0</span>,<span class="val">1</span>));    <span class="cm">// red</span>
+    <span class="fn">place</span>(<span class="ty">UI::Anchor</span>::TopCenter,    -<span class="val">30</span>, <span class="val">4</span>,    <span class="ty">Color</span>(<span class="val">1</span>,<span class="val">0.5</span>,<span class="val">0</span>,<span class="val">1</span>));  <span class="cm">// orange</span>
+    <span class="fn">place</span>(<span class="ty">UI::Anchor</span>::TopRight,     -<span class="val">64</span>, <span class="val">4</span>,    <span class="ty">Color</span>(<span class="val">1</span>,<span class="val">1</span>,<span class="val">0</span>,<span class="val">1</span>));    <span class="cm">// yellow</span>
+    <span class="fn">place</span>(<span class="ty">UI::Anchor</span>::CenterLeft,    <span class="val">4</span>,  -<span class="val">12</span>,   <span class="ty">Color</span>(<span class="val">0</span>,<span class="val">1</span>,<span class="val">0</span>,<span class="val">1</span>));    <span class="cm">// green</span>
+    <span class="fn">place</span>(<span class="ty">UI::Anchor</span>::Center,       -<span class="val">30</span>,-<span class="val">12</span>,   <span class="ty">Color</span>(<span class="val">0</span>,<span class="val">1</span>,<span class="val">1</span>,<span class="val">1</span>));    <span class="cm">// cyan</span>
+    <span class="fn">place</span>(<span class="ty">UI::Anchor</span>::CenterRight,  -<span class="val">64</span>,-<span class="val">12</span>,   <span class="ty">Color</span>(<span class="val">0</span>,<span class="val">0</span>,<span class="val">1</span>,<span class="val">1</span>));    <span class="cm">// blue</span>
+    <span class="fn">place</span>(<span class="ty">UI::Anchor</span>::BottomLeft,    <span class="val">4</span>,  -<span class="val">28</span>,   <span class="ty">Color</span>(<span class="val">0.5</span>,<span class="val">0</span>,<span class="val">1</span>,<span class="val">1</span>));  <span class="cm">// violet</span>
+    <span class="fn">place</span>(<span class="ty">UI::Anchor</span>::BottomCenter, -<span class="val">30</span>,-<span class="val">28</span>,   <span class="ty">Color</span>(<span class="val">1</span>,<span class="val">0</span>,<span class="val">1</span>,<span class="val">1</span>));    <span class="cm">// magenta</span>
+    <span class="fn">place</span>(<span class="ty">UI::Anchor</span>::BottomRight,  -<span class="val">64</span>,-<span class="val">28</span>,   <span class="ty">Color</span>(<span class="val">1</span>,<span class="val">1</span>,<span class="val">1</span>,<span class="val">1</span>));    <span class="cm">// white</span>
+}</pre>
+
+<!-- ─── API QUICK REFERENCE ──────────────────────────────────────── -->
+<h2>API quick reference — this part</h2>
+<table>
+  <tr><th>Method</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>CreateImage(path="")</code></td>
+    <td><code>UI::Image*</code></td>
+    <td>Creates a screen-space image widget; no path = untextured coloured rect</td>
+  </tr>
+  <tr>
+    <td><code>CreatePanel()</code></td>
+    <td><code>UI::Panel*</code></td>
+    <td>Creates a filled rectangle container for grouping other widgets</td>
+  </tr>
+  <tr>
+    <td><code>CreateButton(text="")</code></td>
+    <td><code>UI::Button*</code></td>
+    <td>Creates a labelled clickable button</td>
+  </tr>
+  <tr>
+    <td><code>elem-&gt;SetPosition(x,y)</code></td>
+    <td>—</td>
+    <td>Pixel offset from the anchor point (or from screen top-left if no anchor)</td>
+  </tr>
+  <tr>
+    <td><code>elem-&gt;SetSize(w,h)</code></td>
+    <td>—</td>
+    <td>Width and height in pixels</td>
+  </tr>
+  <tr>
+    <td><code>elem-&gt;SetVisible(bool)</code></td>
+    <td>—</td>
+    <td>Show/hide element and all its children</td>
+  </tr>
+  <tr>
+    <td><code>elem-&gt;SetZOrder(int)</code></td>
+    <td>—</td>
+    <td>Render depth; higher = in front; default 0</td>
+  </tr>
+  <tr>
+    <td><code>elem-&gt;SetAnchor(UI::Anchor)</code></td>
+    <td>—</td>
+    <td>Aligns the element to a screen region; SetPosition becomes an offset from that point</td>
+  </tr>
+  <tr>
+    <td><code>elem-&gt;AddChild(Element*)</code></td>
+    <td>—</td>
+    <td>Reparents a widget; its position becomes relative to this element's top-left</td>
+  </tr>
+  <tr>
+    <td><code>elem-&gt;AddChild(Label*)</code></td>
+    <td>—</td>
+    <td>Overload for Label (which is not an Element subclass)</td>
+  </tr>
+  <tr>
+    <td><code>image-&gt;SetColor(Color)</code></td>
+    <td>—</td>
+    <td>Vertex tint for textured images; fill colour for untextured rects</td>
+  </tr>
+  <tr>
+    <td><code>image-&gt;SetImageRect(x,y,w,h)</code></td>
+    <td>—</td>
+    <td>Samples a sub-rectangle of the bound texture atlas in pixels</td>
+  </tr>
+  <tr>
+    <td><code>panel-&gt;SetColor(Color)</code></td>
+    <td>—</td>
+    <td>Background fill colour; alpha &lt; 1 gives a semi-transparent overlay</td>
+  </tr>
+  <tr>
+    <td><code>panel-&gt;SetOpacity(float)</code></td>
+    <td>—</td>
+    <td>Multiplies overall alpha of the element and all its children; 0.0–1.0</td>
+  </tr>
+  <tr>
+    <td><code>btn-&gt;SetOnClick(function&lt;void()&gt;)</code></td>
+    <td>—</td>
+    <td>Attaches or replaces the click callback; fires on mouse-button release over the button</td>
+  </tr>
+  <tr>
+    <td><code>btn-&gt;SetText(string)</code></td>
+    <td>—</td>
+    <td>Updates the button label text at any time</td>
+  </tr>
+  <tr>
+    <td><code>lbl-&gt;SetText(string)</code></td>
+    <td>—</td>
+    <td>Replaces the displayed string; UTF-8; call from Update() for live readouts</td>
+  </tr>
+  <tr>
+    <td><code>lbl-&gt;SetFontSize(int)</code></td>
+    <td>—</td>
+    <td>Text point size using the current font</td>
+  </tr>
+  <tr>
+    <td><code>lbl-&gt;SetColor(Color)</code></td>
+    <td>—</td>
+    <td>Text colour; alpha controls transparency</td>
+  </tr>
+</table>
+
+<!-- ─── COMMON MISTAKES ──────────────────────────────────────────── -->
+<h2>Common mistakes</h2>
+<div class="callout warn">
+  <h4>Common mistakes — Part 17</h4>
+  <ul style="margin-left:1.3rem;margin-top:0.4rem;">
+    <li style="margin-bottom:0.6rem;">
+      <strong>Setting child positions after <code>AddChild</code> without understanding they are now parent-relative.</strong>
+      If you call <code>SetPosition(400, 300)</code> on a button and then add it to a panel at
+      <code>(100, 100)</code>, the button ends up at screen position <code>(500, 400)</code>, not
+      <code>(400, 300)</code>. Set all child positions with panel-relative coordinates in mind before or
+      after calling <code>AddChild</code> — the result is the same, but thinking in panel-local space from
+      the start avoids confusion.
+    </li>
+    <li style="margin-bottom:0.6rem;">
+      <strong>Forgetting that <code>SetAnchor(Center)</code> does not centre the widget's <em>origin</em> on screen.</strong>
+      <code>SetAnchor(Center)</code> aligns the widget's top-left corner to the screen centre.
+      <code>SetPosition(0, 0)</code> with <code>Anchor::Center</code> places the top-left corner exactly
+      at the centre, making the visible widget appear to the right of and below centre. To truly centre a
+      300×180 panel, use <code>SetPosition(-150, -90)</code> — negative half the width and half the height.
+    </li>
+    <li style="margin-bottom:0.6rem;">
+      <strong>Not calling <code>SetSize()</code> on <code>Panel</code> or <code>Image</code>.</strong>
+      Newly created panels and images have zero width and zero height by default. A zero-size element is
+      invisible even if its colour is fully opaque and visible is true. Always call <code>SetSize</code>
+      during setup. For <code>Image</code> with a texture, you still need to explicitly call
+      <code>SetSize</code> because auto-sizing to the texture is not the default behaviour.
+    </li>
+    <li style="margin-bottom:0.6rem;">
+      <strong>Calling <code>delete</code> on a widget pointer.</strong>
+      All UI objects are owned by the <code>Game</code> instance. Calling <code>delete pauseMenu_</code>
+      causes a double-free crash. Use <code>SetVisible(false)</code> to hide widgets you no longer need on
+      screen.
+    </li>
+    <li style="margin-bottom:0.6rem;">
+      <strong>Using <code>SetZOrder</code> to fix overlap without understanding parent scope.</strong>
+      Z-orders within a parent panel are evaluated relative to siblings. A child with <code>SetZOrder(5)</code>
+      inside a panel at <code>SetZOrder(1)</code> does not automatically render above a standalone element
+      at <code>SetZOrder(3)</code> — the root Z-order of the panel determines its position relative to the
+      standalone element, and child Z-orders only matter within the panel. If menus clip under HUD
+      elements, raise the root panel's Z-order, not the children's.
+    </li>
+    <li style="margin-bottom:0.6rem;">
+      <strong>Capturing widget pointers by value in lambdas before the widgets are created.</strong>
+      If you write a lambda that references <code>pauseMenu_</code> before <code>pauseMenu_</code> has
+      been assigned, the captured pointer is null. Capture <code>[this]</code> instead of the raw pointer
+      so the lambda dereferences the member variable at the time it executes, not at the time it is
+      created.
+    </li>
+    <li style="margin-bottom:0.6rem;">
+      <strong>Expecting <code>SetOnClick</code> to fire on mouse-down.</strong>
+      The callback fires on mouse-button <em>release</em> while the cursor is still inside the button
+      area. This is intentional — it matches platform conventions and lets users cancel by dragging out
+      of the button. Do not try to work around this by polling <code>IsMouseButtonDown</code> over the
+      button area; use the callback as designed.
+    </li>
+    <li style="margin-bottom:0.0rem;">
+      <strong>Using <code>SetImageRect</code> with incorrect pixel coordinates.</strong>
+      <code>SetImageRect(x, y, w, h)</code> takes pixel coordinates, not normalised UV coordinates.
+      If your atlas is 128×64 and you want the second 32×32 tile, the call is
+      <code>SetImageRect(32, 0, 32, 32)</code>, not <code>SetImageRect(0.25f, 0, 0.25f, 0.5f)</code>.
+      Using UV fractions produces no visible error at compile time but selects the wrong region at runtime.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── TRY IT YOURSELF ───────────────────────────────────────────── -->
+<h2>Try it yourself</h2>
+<p>Once the example is running, try these modifications to deepen your understanding:</p>
+<ol>
+  <li>
+    Add a third button to the pause menu labelled <strong>"Settings"</strong> at position
+    <code>(50, 168)</code> and have its <code>SetOnClick</code> print a debug message to the console
+    using <code>URHO3D_LOGINFO("Settings clicked")</code>. Increase the panel height to
+    <code>220</code> to make room.
+  </li>
+  <li>
+    Create a small <strong>crosshair</strong> using two <code>UI::Image</code> widgets (one horizontal,
+    one vertical, each 2 pixels thick) anchored to <code>UI::Anchor::Center</code> with offsets that
+    centre them at exactly the screen midpoint.
+  </li>
+  <li>
+    Make the health bar <strong>dynamically shrink</strong>. Store the <code>hpFill</code> pointer as a
+    member, then in <code>Update()</code> reduce its width by 4 pixels per second:
+    <code>hpFill_-&gt;SetSize(hpFill_-&gt;GetSize().x_ - 4*dt, 14)</code>. Clamp to zero using
+    <code>std::max</code>.
+  </li>
+  <li>
+    Replace the hard-coded pause key check with a named action. Call
+    <code>BindAction("Pause").Key(Key::Escape)</code> in <code>Start()</code> and use
+    <code>IsActionPressed("Pause")</code> in <code>Update()</code> (as covered in Part 16).
+  </li>
+  <li>
+    Add a <strong>transparent image</strong> as a background for the score — use
+    <code>CreateImage()</code> with no texture argument, <code>SetSize(120, 24)</code>, and
+    <code>SetColor(Color(0,0,0,0.4f))</code>, positioned just behind the score label inside
+    <code>hudPanel_</code>. Adjust the Z-orders so the panel renders before the label.
+  </li>
+</ol>
+
+<!-- ─── WHAT YOU LEARNED ──────────────────────────────────────────── -->
+<h2>What you learned</h2>
+<p>This part introduced the full <code>Simple3D::UI</code> widget toolkit:</p>
+<ul>
+  <li>
+    <strong><code>CreateImage(path)</code></strong> creates a screen-space image from a texture file.
+    Calling it without a path produces an untextured coloured rectangle.
+    <code>SetColor()</code> applies a vertex tint to textured images and sets the fill colour for
+    untextured ones. <code>SetImageRect(x, y, w, h)</code> samples a pixel-coordinate sub-rectangle
+    from a texture atlas.
+  </li>
+  <li>
+    <strong><code>CreatePanel()</code></strong> creates a plain filled rectangle ideal for grouping
+    widgets. <code>SetColor(Color)</code> with an alpha less than 1 makes it semi-transparent.
+    <code>SetOpacity(float)</code> multiplies the overall alpha of the panel and all its children.
+  </li>
+  <li>
+    <strong><code>CreateButton(text)</code></strong> creates a clickable labelled button.
+    <code>SetOnClick(callback)</code> attaches a <code>std::function&lt;void()&gt;</code> — typically a
+    C++ lambda — that fires when the mouse is released over the button area.
+  </li>
+  <li>
+    <strong>The shared <code>UI::Element</code> base class</strong> gives every widget five fundamental
+    methods: <code>SetPosition</code>, <code>SetSize</code>, <code>SetVisible</code>,
+    <code>SetZOrder</code>, and <code>SetAnchor</code>.
+  </li>
+  <li>
+    <strong><code>SetAnchor(UI::Anchor)</code></strong> aligns a widget to one of nine screen
+    regions. After calling it, <code>SetPosition</code> is a pixel offset from that region rather
+    than from the absolute top-left corner. The nine values are
+    <code>TopLeft</code>, <code>TopCenter</code>, <code>TopRight</code>,
+    <code>CenterLeft</code>, <code>Center</code>, <code>CenterRight</code>,
+    <code>BottomLeft</code>, <code>BottomCenter</code>, <code>BottomRight</code>.
+  </li>
+  <li>
+    <strong><code>SetZOrder(int)</code></strong> controls render depth. Widgets with higher Z-orders
+    appear in front of those with lower values. Set modal menus to a Z-order well above HUD elements.
+  </li>
+  <li>
+    <strong><code>SetVisible(false)</code></strong> on a parent element hides the entire subtree of
+    children simultaneously. This is the key reason to group related widgets under a panel.
+  </li>
+  <li>
+    <strong><code>AddChild(Element* / Label*)</code></strong> reparents a widget so that its position
+    becomes relative to the parent's top-left corner and its visibility is controlled by the parent.
+  </li>
+  <li>
+    <strong>Ownership</strong>: all UI objects are owned by the <code>Game</code> instance. Never
+    call <code>delete</code> on widget pointers. Use <code>SetVisible(false)</code> to hide widgets
+    you no longer need on screen.
+  </li>
+</ul>
+<p>
+  The next part (Part 18: UI Advanced) builds on this foundation to cover
+  <code>ProgressBar</code>, <code>Slider</code>, gamepad focus navigation with
+  <code>SetFocusGroup</code>, and dynamic font switching. It also shows how to use
+  <code>SetOpacity</code> together with tweens (from Part 28) to animate UI elements in and out of
+  the screen.
+</p>
+
+<nav class="tutorial-nav" style="display:flex;justify-content:space-between;margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--border);">
+  <a href="tutorial-16.html" style="font-size:0.9rem;">&#8592; Part 16: Input Actions</a>
+  <a href="tutorial-18.html" style="font-size:0.9rem;">Part 18: UI Advanced &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

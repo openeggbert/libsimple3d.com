@@ -12,11 +12,15 @@
   <nav>
     <a href="index.html">Home</a>
     <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html">Tutorial</a>
     <a href="architecture.html">Architecture</a>
     <a href="api.html">C++ API</a>
     <a href="lua-api.html" class="active">Lua API</a>
     <a href="examples.html">Examples</a>
     <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
   </nav>
 </header>
 
@@ -29,22 +33,43 @@
     <li><a href="#lifecycle">Lifecycle</a></li>
     <li><a href="#globals">Urho3D globals</a></li>
   </ul>
-  <h3>Entity (Node)</h3>
+  <h3>Entity Proxy</h3>
   <ul>
-    <li><a href="#node-simple3d">Simple3D extensions</a></li>
+    <li><a href="#entity-proxy">Proxy methods</a></li>
     <li><a href="#node-urho3d">Urho3D Node methods</a></li>
     <li><a href="#node-animation">AnimationController</a></li>
     <li><a href="#node-physics">Physics from Lua</a></li>
+    <li><a href="#entity-creation">Entity creation</a></li>
+  </ul>
+  <h3>Components</h3>
+  <ul>
+    <li><a href="#char-controller">CharacterController</a></li>
+    <li><a href="#anim-state-machine">AnimStateMachine</a></li>
+    <li><a href="#behavior-fsm">BehaviorFSM</a></li>
+    <li><a href="#audio-source">AudioSource</a></li>
+    <li><a href="#particle-emitter">ParticleEmitter</a></li>
   </ul>
   <h3>Input</h3>
   <ul>
     <li><a href="#input">Input API</a></li>
     <li><a href="#key-strings">Key strings</a></li>
+    <li><a href="#gamepad">Gamepad</a></li>
+    <li><a href="#input-actions">Input actions</a></li>
+    <li><a href="#touch">Touch input</a></li>
+  </ul>
+  <h3>UI</h3>
+  <ul>
+    <li><a href="#ui">UI factory functions</a></li>
   </ul>
   <h3>Global functions</h3>
   <ul>
     <li><a href="#audio">Audio</a></li>
-    <li><a href="#scene">Scene queries</a></li>
+    <li><a href="#scene">Scene management</a></li>
+    <li><a href="#savedata">SaveData</a></li>
+    <li><a href="#tweens">Tweens</a></li>
+    <li><a href="#debug-draw">Debug draw</a></li>
+    <li><a href="#ray-picking">Ray picking</a></li>
+    <li><a href="#cursor">Cursor</a></li>
   </ul>
   <h3>Math types</h3>
   <ul>
@@ -210,49 +235,218 @@ speed     = <span class="lua-num">5</span>          <span class="lua-cm">-- inte
   </tr>
 </table>
 
-<!-- ─── NODE SIMPLE3D EXTENSIONS ────────────────────────────────── -->
-<h2 id="node-simple3d">Simple3D Node Extensions</h2>
+<!-- ─── ENTITY PROXY METHODS ─────────────────────────────────────── -->
+<h2 id="entity-proxy">Entity Proxy Methods</h2>
 <p>
-  These methods are added to the <code>Node</code> metatable by the Simple3D Lua binding layer.
-  They are available on any <code>Node</code> — use them via <code>entity:MethodName()</code>.
+  These methods are added to the <code>Node</code> metatable by the Simple3D Lua binding layer
+  and are available on any entity via <code>entity:MethodName()</code>.
+  All proxies are <strong>liveness-guarded</strong> — stale proxies return safe defaults
+  (0 / false / nil) and never crash.
 </p>
+
+<h3>Position, Rotation &amp; Scale</h3>
 <table>
   <tr><th>Method</th><th>Parameters</th><th>Returns</th><th>Description</th></tr>
   <tr>
-    <td><code>entity:MoveRelative(delta)</code></td>
-    <td>delta: Vector3</td>
-    <td>—</td>
-    <td>Moves the entity by <code>delta</code> in world space. If a <code>RigidBody</code> is present, adjusts velocity for physics-based movement. Otherwise, translates the node directly. Preferred for character controllers.</td>
+    <td><code>entity:SetPosition(v)</code></td>
+    <td>v: Vector3</td><td>—</td>
+    <td>Set world-space position.</td>
   </tr>
   <tr>
+    <td><code>entity:GetPosition()</code></td>
+    <td>—</td><td>Vector3</td>
+    <td>Get world-space position.</td>
+  </tr>
+  <tr>
+    <td><code>entity:SetRotation(q)</code></td>
+    <td>q: Quaternion</td><td>—</td>
+    <td>Set world-space rotation.</td>
+  </tr>
+  <tr>
+    <td><code>entity:GetRotation()</code></td>
+    <td>—</td><td>Quaternion</td>
+    <td>Get world-space rotation.</td>
+  </tr>
+  <tr>
+    <td><code>entity:SetScale(v)</code></td>
+    <td>v: Vector3</td><td>—</td>
+    <td>Set world-space scale.</td>
+  </tr>
+  <tr>
+    <td><code>entity:SetLocalPosition(v)</code></td>
+    <td>v: Vector3 <em>or</em> x,y,z: numbers</td><td>—</td>
+    <td>Set position relative to parent. Accepts a Vector3 userdata or three separate numbers. Wrong type is a no-op.</td>
+  </tr>
+  <tr>
+    <td><code>entity:GetLocalPosition()</code></td>
+    <td>—</td><td>Vector3</td>
+    <td>Get position relative to parent.</td>
+  </tr>
+  <tr>
+    <td><code>entity:SetLocalRotation(q)</code></td>
+    <td>q: Quaternion</td><td>—</td>
+    <td>Set rotation relative to parent. Wrong type is a no-op.</td>
+  </tr>
+  <tr>
+    <td><code>entity:GetLocalRotation()</code></td>
+    <td>—</td><td>Quaternion</td>
+    <td>Get rotation relative to parent.</td>
+  </tr>
+  <tr>
+    <td><code>entity:SetLocalScale(v)</code></td>
+    <td>v: Vector3 <em>or</em> x,y,z: numbers</td><td>—</td>
+    <td>Set scale relative to parent.</td>
+  </tr>
+</table>
+
+<h3>Translation Helpers</h3>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>entity:TranslateLocal(delta)</code></td>
+    <td>delta: Vector3 <em>or</em> x,y,z</td><td>—</td>
+    <td>Translate in parent-relative (local) space.</td>
+  </tr>
+  <tr>
+    <td><code>entity:TranslateWorld(delta)</code></td>
+    <td>delta: Vector3 <em>or</em> x,y,z</td><td>—</td>
+    <td>Translate in world space. Also aliased as <code>MoveRelative</code>.</td>
+  </tr>
+  <tr>
+    <td><code>entity:MoveRelative(delta)</code></td>
+    <td>delta: Vector3</td><td>—</td>
+    <td>World-space translate. If a <code>RigidBody</code> is present, adjusts velocity for physics-based movement; otherwise translates the node directly.</td>
+  </tr>
+</table>
+
+<h3>Physics Helpers</h3>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Returns</th><th>Description</th></tr>
+  <tr>
     <td><code>entity:IsOnGround()</code></td>
-    <td>—</td>
-    <td>bool</td>
-    <td>Fires a downward raycast of 0.7 m from the entity's origin. Returns <code>true</code> if it hits another rigid body (not itself). Use for jump gating.</td>
+    <td>—</td><td>bool</td>
+    <td>Fires a downward raycast of 0.7 m from the entity origin. Returns <code>true</code> if it hits another rigid body (not itself). Use for jump gating.</td>
   </tr>
   <tr>
     <td><code>entity:ApplyImpulse(impulse)</code></td>
-    <td>impulse: Vector3</td>
-    <td>—</td>
+    <td>impulse: Vector3</td><td>—</td>
     <td>Calls <code>RigidBody:ApplyImpulse()</code>. Instantly changes velocity (mass-independent). Use for jump, knockback.</td>
   </tr>
   <tr>
     <td><code>entity:ApplyForce(force)</code></td>
-    <td>force: Vector3</td>
-    <td>—</td>
+    <td>force: Vector3</td><td>—</td>
     <td>Calls <code>RigidBody:ApplyForce()</code>. Accumulates each frame (mass-dependent). Use for thrust, wind.</td>
   </tr>
   <tr>
     <td><code>entity:SetLinearVelocity(v)</code></td>
-    <td>v: Vector3</td>
-    <td>—</td>
-    <td>Directly sets the rigid body's linear velocity. Use for precision control (e.g., set horizontal component without changing vertical).</td>
+    <td>v: Vector3</td><td>—</td>
+    <td>Directly sets the rigid body's linear velocity. Use for precision control.</td>
   </tr>
   <tr>
     <td><code>entity:GetLinearVelocity()</code></td>
-    <td>—</td>
-    <td>Vector3</td>
+    <td>—</td><td>Vector3</td>
     <td>Returns the current linear velocity in m/s.</td>
+  </tr>
+</table>
+
+<h3>Activation</h3>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>entity:SetActive(bool)</code></td>
+    <td>bool</td><td>—</td>
+    <td><code>false</code> hides the entity and suspends physics. <code>true</code> restores it.</td>
+  </tr>
+  <tr>
+    <td><code>entity:IsActive()</code></td>
+    <td>—</td><td>bool</td>
+    <td>Returns whether the entity is currently active.</td>
+  </tr>
+</table>
+
+<h3>Child Hierarchy</h3>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>entity:CreateChild(name)</code></td>
+    <td>name: string</td><td>entity</td>
+    <td>Create a child node. The child's transform is parent-relative.</td>
+  </tr>
+  <tr>
+    <td><code>entity:GetParent()</code></td>
+    <td>—</td><td>entity or nil</td>
+    <td>Returns the parent node, or <code>nil</code> for root entities.</td>
+  </tr>
+  <tr>
+    <td><code>entity:GetChildCount()</code></td>
+    <td>—</td><td>int</td>
+    <td>Returns the number of direct children.</td>
+  </tr>
+  <tr>
+    <td><code>entity:GetChild(index)</code></td>
+    <td>index: int (1-based) <em>or</em> name: string</td><td>entity or nil</td>
+    <td>Get a child by 1-based index or by name.</td>
+  </tr>
+  <tr>
+    <td><code>entity:GetChildren()</code></td>
+    <td>—</td><td>table</td>
+    <td>Returns a 1-based Lua table of all direct children.</td>
+  </tr>
+</table>
+
+<h3>Tags</h3>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>entity:AddTag(name)</code></td>
+    <td>name: string</td><td>—</td>
+    <td>Add a tag to this entity. Idempotent.</td>
+  </tr>
+  <tr>
+    <td><code>entity:HasTag(name)</code></td>
+    <td>name: string</td><td>bool</td>
+    <td>Returns <code>true</code> if the entity has this tag.</td>
+  </tr>
+  <tr>
+    <td><code>entity:RemoveTag(name)</code></td>
+    <td>name: string</td><td>—</td>
+    <td>Remove a tag. No-op if absent.</td>
+  </tr>
+</table>
+
+<h3>Component Accessors</h3>
+<p>These return lightweight Lua table proxies. They return <code>nil</code> if the component was not added in C++.</p>
+<table>
+  <tr><th>Method</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>entity:GetAnimationController()</code></td>
+    <td>AnimationController or nil</td>
+    <td>Urho3D AnimationController for direct clip playback.</td>
+  </tr>
+  <tr>
+    <td><code>entity:GetAnimStateMachine()</code></td>
+    <td>AnimStateMachine proxy or nil</td>
+    <td>Simple3D state-machine wrapper. See <a href="#anim-state-machine">AnimStateMachine</a>.</td>
+  </tr>
+  <tr>
+    <td><code>entity:GetBehaviorFSM()</code></td>
+    <td>BehaviorFSM proxy or nil</td>
+    <td>Simple3D behaviour FSM. See <a href="#behavior-fsm">BehaviorFSM</a>.</td>
+  </tr>
+  <tr>
+    <td><code>entity:GetCharacterController()</code></td>
+    <td>CharacterController proxy or nil</td>
+    <td>Physics-driven character controller. See <a href="#char-controller">CharacterController</a>.</td>
+  </tr>
+  <tr>
+    <td><code>entity:GetAudioSource()</code></td>
+    <td>AudioSource proxy or nil</td>
+    <td>Per-entity spatial audio source. See <a href="#audio-source">AudioSource</a>.</td>
+  </tr>
+  <tr>
+    <td><code>entity:GetParticleEmitter()</code></td>
+    <td>ParticleEmitter proxy or nil</td>
+    <td>Per-entity particle system. See <a href="#particle-emitter">ParticleEmitter</a>.</td>
   </tr>
 </table>
 
@@ -349,6 +543,351 @@ anim:SetTime(<span class="lua-str">"run"</span>, <span class="lua-num">0.5</span
     <span class="lua-kw">local</span> v2 = rb2:GetLinearVelocity()       <span class="lua-cm">-- → Vector2</span>
 <span class="lua-kw">end</span></pre>
 
+<!-- ─── ENTITY CREATION ───────────────────────────────────────────── -->
+<h2 id="entity-creation">Entity Creation from Lua</h2>
+<table>
+  <tr><th>Function</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>CreateEntity(name)</code></td>
+    <td>entity</td>
+    <td>Create a new root entity in the current scene and return it as a Node userdata.</td>
+  </tr>
+  <tr>
+    <td><code>DestroyEntity(entity)</code></td>
+    <td>—</td>
+    <td>Deferred-safe destruction. The entity is removed at the end of the current frame.</td>
+  </tr>
+  <tr>
+    <td><code>FindEntity(name)</code></td>
+    <td>entity or nil</td>
+    <td>Find a scene entity by name. Returns <code>nil</code> if not found. Cache the result in <code>Start()</code> — do not call every frame.</td>
+  </tr>
+  <tr>
+    <td><code>FindEntitiesByTag(name)</code></td>
+    <td>table</td>
+    <td>Returns a 1-based Lua table of all entities that have the given tag.</td>
+  </tr>
+</table>
+<pre><span class="lua-kw">local</span> bullet = CreateEntity(<span class="lua-str">"Bullet"</span>)
+bullet:SetPosition(entity:GetPosition() + Vector3(<span class="lua-num">0</span>, <span class="lua-num">1</span>, <span class="lua-num">0</span>))
+bullet:AddTag(<span class="lua-str">"projectile"</span>)
+
+<span class="lua-cm">-- Find all enemies and alert them</span>
+<span class="lua-kw">local</span> enemies = FindEntitiesByTag(<span class="lua-str">"enemy"</span>)
+<span class="lua-kw">for</span> i = <span class="lua-num">1</span>, #enemies <span class="lua-kw">do</span>
+    enemies[i]:AddTag(<span class="lua-str">"alerted"</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- Deferred destruction (safe to call inside Update)</span>
+DestroyEntity(bullet)</pre>
+
+<!-- ─── CHARACTERCONTROLLER ───────────────────────────────────────── -->
+<h2 id="char-controller">CharacterController from Lua</h2>
+<p>
+  The <code>CharacterController</code> proxy is returned by <code>entity:GetCharacterController()</code>.
+  It requires the component to have been added in C++ via <code>entity-&gt;AddCharacterController(radius, height)</code>.
+</p>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>cc:Move(v, dt)</code></td>
+    <td>v: Vector3, dt: float</td><td>—</td>
+    <td>Move the controller in world space. Call every frame with the desired velocity and the current delta time.</td>
+  </tr>
+  <tr>
+    <td><code>cc:TryJump(speed)</code></td>
+    <td>speed: float</td><td>bool</td>
+    <td>Jump only if the controller is grounded. Returns <code>true</code> if the jump was applied.</td>
+  </tr>
+  <tr>
+    <td><code>cc:Jump(speed)</code></td>
+    <td>speed: float (default 8.0)</td><td>—</td>
+    <td>Unconditional jump regardless of ground state.</td>
+  </tr>
+  <tr>
+    <td><code>cc:IsOnGround()</code></td>
+    <td>—</td><td>bool</td>
+    <td>Returns <code>true</code> when the controller is touching the ground.</td>
+  </tr>
+  <tr>
+    <td><code>cc:SetGravity(g)</code></td>
+    <td>g: float</td><td>—</td>
+    <td>Override gravity magnitude. Default is approximately 18.</td>
+  </tr>
+  <tr>
+    <td><code>cc:SetSlopeLimit(deg)</code></td>
+    <td>deg: float</td><td>—</td>
+    <td>Maximum walkable slope in degrees. Default 45.</td>
+  </tr>
+  <tr>
+    <td><code>cc:SetStepHeight(h)</code></td>
+    <td>h: float</td><td>—</td>
+    <td>Stair-step climb height in metres. Default 0.4.</td>
+  </tr>
+  <tr>
+    <td><code>cc:SetEnabled(bool)</code></td>
+    <td>bool</td><td>—</td>
+    <td>Freeze the controller (cutscene / death). Resumes on <code>true</code>.</td>
+  </tr>
+  <tr>
+    <td><code>cc:IsEnabled()</code></td>
+    <td>—</td><td>bool</td>
+    <td>Returns whether the controller is currently active.</td>
+  </tr>
+</table>
+<pre><span class="lua-kw">local</span> cc
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node
+    cc = entity:GetCharacterController()
+    <span class="lua-kw">if</span> cc <span class="lua-kw">then</span>
+        cc:SetGravity(<span class="lua-num">22</span>)
+        cc:SetSlopeLimit(<span class="lua-num">50</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> <span class="lua-kw">not</span> cc <span class="lua-kw">then</span> <span class="lua-kw">return</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">local</span> move = GetAxis2D(<span class="lua-str">"Move"</span>)
+    cc:Move(Vector3(move.x, <span class="lua-num">0</span>, move.y) * <span class="lua-num">5.0</span>, dt)
+    <span class="lua-kw">if</span> IsActionPressed(<span class="lua-str">"Jump"</span>) <span class="lua-kw">then</span>
+        cc:TryJump(<span class="lua-num">9.0</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── ANIMSTATEMACHINE ─────────────────────────────────────────── -->
+<h2 id="anim-state-machine">AnimStateMachine from Lua</h2>
+<p>
+  Returned by <code>entity:GetAnimStateMachine()</code>. The state machine transitions are defined
+  in C++ or data files; Lua sets parameters and reads the current state.
+</p>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>asm:Update(dt)</code></td>
+    <td>dt: float</td><td>—</td>
+    <td>Tick the state machine. Call every frame.</td>
+  </tr>
+  <tr>
+    <td><code>asm:SetBool(name, value)</code></td>
+    <td>name: string, value: bool</td><td>—</td>
+    <td>Set a boolean parameter.</td>
+  </tr>
+  <tr>
+    <td><code>asm:GetBool(name)</code></td>
+    <td>name: string</td><td>bool</td>
+    <td>Get the current value of a boolean parameter.</td>
+  </tr>
+  <tr>
+    <td><code>asm:SetFloat(name, value)</code></td>
+    <td>name: string, value: float</td><td>—</td>
+    <td>Set a float parameter (e.g., blend speed).</td>
+  </tr>
+  <tr>
+    <td><code>asm:GetFloat(name)</code></td>
+    <td>name: string</td><td>float</td>
+    <td>Get the current value of a float parameter.</td>
+  </tr>
+  <tr>
+    <td><code>asm:SetTrigger(name)</code></td>
+    <td>name: string</td><td>—</td>
+    <td>Fire a one-shot trigger. Consumed after one transition check.</td>
+  </tr>
+  <tr>
+    <td><code>asm:GetCurrentStateName()</code></td>
+    <td>—</td><td>string</td>
+    <td>Returns the name of the currently active state.</td>
+  </tr>
+  <tr>
+    <td><code>asm:IsInState(name)</code></td>
+    <td>name: string</td><td>bool</td>
+    <td>Returns <code>true</code> if the given state is currently active.</td>
+  </tr>
+</table>
+<pre><span class="lua-kw">local</span> asm
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node
+    asm = entity:GetAnimStateMachine()
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> <span class="lua-kw">not</span> asm <span class="lua-kw">then</span> <span class="lua-kw">return</span> <span class="lua-kw">end</span>
+    asm:Update(dt)
+    <span class="lua-kw">local</span> move = GetAxis2D(<span class="lua-str">"Move"</span>)
+    asm:SetBool(<span class="lua-str">"run"</span>, move:Length() &gt; <span class="lua-num">0.1</span>)
+    asm:SetFloat(<span class="lua-str">"speed"</span>, move:Length() * <span class="lua-num">5.0</span>)
+    <span class="lua-kw">if</span> IsActionPressed(<span class="lua-str">"Jump"</span>) <span class="lua-kw">then</span>
+        asm:SetTrigger(<span class="lua-str">"jump"</span>)
+    <span class="lua-kw">end</span>
+    print(asm:GetCurrentStateName())
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── BEHAVIORFSM ──────────────────────────────────────────────── -->
+<h2 id="behavior-fsm">BehaviorFSM from Lua</h2>
+<p>
+  Returned by <code>entity:GetBehaviorFSM()</code>. State enter/update/exit callbacks are set in C++.
+  From Lua you can read and override the active state.
+</p>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>fsm:Update(dt)</code></td>
+    <td>dt: float</td><td>—</td>
+    <td>Tick the FSM. Call every frame to evaluate transitions and run state callbacks.</td>
+  </tr>
+  <tr>
+    <td><code>fsm:GetCurrentState()</code></td>
+    <td>—</td><td>string</td>
+    <td>Returns the name of the currently active state.</td>
+  </tr>
+  <tr>
+    <td><code>fsm:ForceState(name)</code></td>
+    <td>name: string</td><td>—</td>
+    <td>Immediately override the current state (also aliased as <code>SetState</code>).</td>
+  </tr>
+  <tr>
+    <td><code>fsm:IsInState(name)</code></td>
+    <td>name: string</td><td>bool</td>
+    <td>Returns <code>true</code> if the given state is currently active.</td>
+  </tr>
+</table>
+<pre><span class="lua-kw">local</span> fsm
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node
+    fsm = entity:GetBehaviorFSM()
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> <span class="lua-kw">not</span> fsm <span class="lua-kw">then</span> <span class="lua-kw">return</span> <span class="lua-kw">end</span>
+    fsm:Update(dt)
+    <span class="lua-cm">-- externally trigger a stun</span>
+    <span class="lua-kw">if</span> hitPoints &lt;= <span class="lua-num">0</span> <span class="lua-kw">then</span>
+        fsm:ForceState(<span class="lua-str">"dead"</span>)
+    <span class="lua-kw">end</span>
+    <span class="lua-kw">local</span> state = fsm:GetCurrentState()
+    <span class="lua-cm">-- react to C++-driven state changes</span>
+    <span class="lua-kw">if</span> state == <span class="lua-str">"attack"</span> <span class="lua-kw">then</span>
+        PlaySound(<span class="lua-str">"Sounds/swing.wav"</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── AUDIOSOURCE ──────────────────────────────────────────────── -->
+<h2 id="audio-source">AudioSource from Lua</h2>
+<p>
+  Returned by <code>entity:GetAudioSource()</code>. Used for per-entity positional (3D) audio.
+  Requires the component to be added in C++ via <code>entity-&gt;AddAudioSource()</code>.
+</p>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>src:Play(path)</code></td>
+    <td>path: string</td><td>—</td>
+    <td>Play a sound file from the given path (relative to Data/).</td>
+  </tr>
+  <tr>
+    <td><code>src:Stop()</code></td>
+    <td>—</td><td>—</td>
+    <td>Stop playback immediately.</td>
+  </tr>
+  <tr>
+    <td><code>src:IsPlaying()</code></td>
+    <td>—</td><td>bool</td>
+    <td>Returns <code>true</code> if the source is currently playing.</td>
+  </tr>
+  <tr>
+    <td><code>src:SetGain(gain)</code></td>
+    <td>gain: float 0–1</td><td>—</td>
+    <td>Set the playback volume.</td>
+  </tr>
+  <tr>
+    <td><code>src:SetPitch(pitch)</code></td>
+    <td>pitch: float (1.0 = normal)</td><td>—</td>
+    <td>Set the playback pitch multiplier.</td>
+  </tr>
+  <tr>
+    <td><code>src:SetLooped(bool)</code></td>
+    <td>bool</td><td>—</td>
+    <td>Enable or disable looping.</td>
+  </tr>
+  <tr>
+    <td><code>src:SetRange(near, far)</code></td>
+    <td>near: float, far: float</td><td>—</td>
+    <td>Set spatial falloff distances in world units.</td>
+  </tr>
+  <tr>
+    <td><code>src:PlayAmbient(path)</code></td>
+    <td>path: string</td><td>—</td>
+    <td>Play a non-spatial (ambient/music-type) sound through this source.</td>
+  </tr>
+</table>
+<pre><span class="lua-kw">local</span> src
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node
+    src = entity:GetAudioSource()
+    <span class="lua-kw">if</span> src <span class="lua-kw">then</span>
+        src:SetRange(<span class="lua-num">2.0</span>, <span class="lua-num">14.0</span>)
+        src:SetLooped(<span class="lua-kw">true</span>)
+        src:Play(<span class="lua-str">"Sounds/enemy_idle.wav"</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<div class="callout info">
+  <h4>3D audio listener</h4>
+  <p>
+    Call <code>SetAudioListener(entity)</code> (global) once to designate the player entity as the
+    audio listener. All positional audio from <code>AudioSource</code> proxies is then attenuated
+    relative to that entity's world position.
+  </p>
+</div>
+
+<!-- ─── PARTICLEEMITTER ──────────────────────────────────────────── -->
+<h2 id="particle-emitter">ParticleEmitter from Lua</h2>
+<p>
+  Returned by <code>entity:GetParticleEmitter()</code>. Requires
+  <code>entity-&gt;AddParticleEmitter(xmlPath)</code> in C++.
+</p>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>em:Play()</code></td>
+    <td>—</td><td>—</td>
+    <td>Start continuous emission.</td>
+  </tr>
+  <tr>
+    <td><code>em:Stop()</code></td>
+    <td>—</td><td>—</td>
+    <td>Stop emission. Existing particles finish their lifetime.</td>
+  </tr>
+  <tr>
+    <td><code>em:Burst(n)</code></td>
+    <td>n: int (optional)</td><td>—</td>
+    <td>Emit <code>n</code> particles in a single burst (one-shot).</td>
+  </tr>
+  <tr>
+    <td><code>em:IsEmitting()</code></td>
+    <td>—</td><td>bool</td>
+    <td>Returns <code>true</code> if the emitter is currently running.</td>
+  </tr>
+  <tr>
+    <td><code>em:SetEmitting(bool)</code></td>
+    <td>bool</td><td>—</td>
+    <td>Directly toggle emission state.</td>
+  </tr>
+</table>
+<pre><span class="lua-kw">local</span> em
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node
+    em = entity:GetParticleEmitter()
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">OnHit</span>()
+    <span class="lua-kw">if</span> em <span class="lua-kw">then</span> em:Burst(<span class="lua-num">20</span>) <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
 <!-- ─── INPUT ────────────────────────────────────────────────────── -->
 <h2 id="input">Input</h2>
 <p>
@@ -365,9 +904,10 @@ Input:IsKeyPress(KEY_RETURN)
 
 <span class="lua-cm">── Mouse ────────────────────────────────────────────────────────</span>
 Input:GetMousePosition()       <span class="lua-cm">-- → IntVector2 (screen pixels; 0,0 = top-left)</span>
-Input:GetMouseButtonDown(MOUSEB_LEFT)    <span class="lua-cm">-- → bool</span>
+Input:GetMouseDelta()          <span class="lua-cm">-- → Vector2 per-frame mouse movement delta</span>
+Input:GetMouseButtonDown(MOUSEB_LEFT)    <span class="lua-cm">-- → bool held</span>
 Input:GetMouseButtonDown(MOUSEB_RIGHT)
-Input:GetMouseButtonPress(MOUSEB_LEFT)   <span class="lua-cm">-- first frame only</span>
+Input:GetMouseButtonPress(MOUSEB_LEFT)   <span class="lua-cm">-- → bool first frame only</span>
 Input:GetMouseMoveX()         <span class="lua-cm">-- → int pixel delta X this frame</span>
 Input:GetMouseMoveY()         <span class="lua-cm">-- → int pixel delta Y this frame</span></pre>
 
@@ -393,18 +933,256 @@ Input:GetMouseMoveY()         <span class="lua-cm">-- → int pixel delta Y this
   <tr><td><code>"Right"</code></td><td>Right arrow</td><td><code>"KPEnter"</code></td><td>Numpad Enter</td></tr>
 </table>
 
+<!-- ─── GAMEPAD ──────────────────────────────────────────────────── -->
+<h2 id="gamepad">Gamepad Input</h2>
+<p>
+  For device checks and low-level controller input. For gameplay logic prefer
+  <a href="#input-actions">Input Actions</a> (<code>IsActionPressed</code>, <code>GetAxis2D</code>).
+</p>
+<table>
+  <tr><th>Function</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>IsGamepadConnected(index)</code></td>
+    <td>bool</td>
+    <td>Returns <code>true</code> if a gamepad is connected at the given index (default 0).</td>
+  </tr>
+  <tr>
+    <td><code>GetGamepadAxis(axis, index)</code></td>
+    <td>float</td>
+    <td>Axis value in the range −1 to 1. <code>axis</code> is a string name or int enum. <code>index</code> defaults to 0.</td>
+  </tr>
+  <tr>
+    <td><code>IsGamepadButtonDown(button, index)</code></td>
+    <td>bool</td>
+    <td>Returns <code>true</code> while the button is held.</td>
+  </tr>
+  <tr>
+    <td><code>IsGamepadButtonPressed(button, index)</code></td>
+    <td>bool</td>
+    <td>Returns <code>true</code> on the first frame the button is pressed.</td>
+  </tr>
+</table>
+
+<p>Supported axis strings: <code>"LeftX"</code>, <code>"LeftY"</code>, <code>"RightX"</code>, <code>"RightY"</code>, <code>"LTrigger"</code>, <code>"RTrigger"</code></p>
+<p>Supported button strings: <code>"A"</code>, <code>"B"</code>, <code>"X"</code>, <code>"Y"</code>, <code>"LB"</code>, <code>"RB"</code>, <code>"Start"</code>, <code>"Select"</code>, <code>"DPadUp"</code>, <code>"DPadDown"</code>, <code>"DPadLeft"</code>, <code>"DPadRight"</code></p>
+
+<pre><span class="lua-kw">if</span> IsGamepadConnected(<span class="lua-num">0</span>) <span class="lua-kw">then</span>
+    <span class="lua-kw">local</span> x = GetGamepadAxis(<span class="lua-str">"LeftX"</span>, <span class="lua-num">0</span>)
+    <span class="lua-kw">local</span> y = GetGamepadAxis(<span class="lua-str">"LeftY"</span>, <span class="lua-num">0</span>)
+
+    <span class="lua-kw">if</span> IsGamepadButtonPressed(<span class="lua-str">"A"</span>, <span class="lua-num">0</span>) <span class="lua-kw">then</span>
+        entity:GetCharacterController():TryJump(<span class="lua-num">8.0</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── INPUT ACTIONS ────────────────────────────────────────────── -->
+<h2 id="input-actions">Input Actions &amp; Axis Binding</h2>
+<p>
+  Named actions and axes abstract keyboard, mouse, and gamepad into device-independent calls.
+  Bindings are registered in C++ via <code>BindAction</code> / <code>BindAxis2D</code> and
+  can be saved and reloaded at runtime.
+</p>
+<table>
+  <tr><th>Function</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>IsActionDown(name)</code></td>
+    <td>bool</td>
+    <td>Returns <code>true</code> while the action is held this frame.</td>
+  </tr>
+  <tr>
+    <td><code>IsActionPressed(name)</code></td>
+    <td>bool</td>
+    <td>Returns <code>true</code> on the first frame the action is activated.</td>
+  </tr>
+  <tr>
+    <td><code>GetAxis2D(name)</code></td>
+    <td>Vector2</td>
+    <td>Returns a 2D axis vector with magnitude &le; 1 (WASD or left stick).</td>
+  </tr>
+  <tr>
+    <td><code>BindAction(name)</code></td>
+    <td>binding</td>
+    <td>Return a binding object. Chain <code>:Key(keyStr)</code> or <code>:GamepadButton(btnStr)</code> to assign.</td>
+  </tr>
+  <tr>
+    <td><code>BindAxis2D(name)</code></td>
+    <td>binding</td>
+    <td>Return a 2D axis binding. Chain <code>:Keys(w,s,a,d)</code>, <code>:GamepadStick(name)</code>, or <code>:InvertY(bool)</code>.</td>
+  </tr>
+  <tr>
+    <td><code>SaveInputBindings()</code></td>
+    <td>—</td>
+    <td>Persist current bindings to disk (in the save-data directory).</td>
+  </tr>
+  <tr>
+    <td><code>LoadInputBindings()</code></td>
+    <td>bool</td>
+    <td>Load bindings from disk. Returns <code>false</code> if no saved bindings exist.</td>
+  </tr>
+</table>
+<pre><span class="lua-cm">-- Register bindings (typically in Start() of a global controller script)</span>
+BindAction(<span class="lua-str">"Jump"</span>):Key(<span class="lua-str">"Space"</span>):GamepadButton(<span class="lua-str">"A"</span>)
+BindAction(<span class="lua-str">"Attack"</span>):Key(<span class="lua-str">"E"</span>):GamepadButton(<span class="lua-str">"X"</span>)
+BindAxis2D(<span class="lua-str">"Move"</span>):Keys(<span class="lua-str">"W"</span>, <span class="lua-str">"S"</span>, <span class="lua-str">"A"</span>, <span class="lua-str">"D"</span>):GamepadStick(<span class="lua-str">"Left"</span>)
+
+<span class="lua-cm">-- Load saved remaps, fall back to defaults if missing</span>
+<span class="lua-kw">if</span> <span class="lua-kw">not</span> LoadInputBindings() <span class="lua-kw">then</span>
+    print(<span class="lua-str">"Using default bindings"</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- Per-frame usage</span>
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">local</span> move = GetAxis2D(<span class="lua-str">"Move"</span>)
+    <span class="lua-kw">if</span> IsActionPressed(<span class="lua-str">"Jump"</span>) <span class="lua-kw">then</span> ... <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> IsActionDown(<span class="lua-str">"Attack"</span>) <span class="lua-kw">then</span> ... <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── TOUCH ────────────────────────────────────────────────────── -->
+<h2 id="touch">Touch Input</h2>
+<table>
+  <tr><th>Function</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>GetTouchCount()</code></td>
+    <td>int</td>
+    <td>Number of active touch contacts this frame.</td>
+  </tr>
+  <tr>
+    <td><code>GetTouch(index)</code></td>
+    <td>table</td>
+    <td>Returns a table <code>{x, y, pressure}</code> for the touch at the given 0-based index. <code>x</code> and <code>y</code> are screen pixels from the top-left; <code>pressure</code> is 0–1 (0 on platforms without pressure support).</td>
+  </tr>
+</table>
+<pre><span class="lua-kw">local</span> n = GetTouchCount()
+<span class="lua-kw">for</span> i = <span class="lua-num">0</span>, n - <span class="lua-num">1</span> <span class="lua-kw">do</span>
+    <span class="lua-kw">local</span> t = GetTouch(i)
+    print(<span class="lua-str">"touch"</span>, i, t.x, t.y, t.pressure)
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── UI ───────────────────────────────────────────────────────── -->
+<h2 id="ui">UI from Lua</h2>
+<p>
+  Create UI widgets from Lua scripts. All factory functions return Lua table proxies.
+  All proxies share a common base of layout and visibility methods.
+</p>
+
+<h3>Factory Functions</h3>
+<table>
+  <tr><th>Function</th><th>Returns</th><th>Description</th></tr>
+  <tr><td><code>CreateLabel(text)</code></td><td>label proxy</td><td>Text HUD element.</td></tr>
+  <tr><td><code>CreateImage(path)</code></td><td>image proxy</td><td>Textured sprite / HUD icon. Path is optional.</td></tr>
+  <tr><td><code>CreatePanel()</code></td><td>panel proxy</td><td>Container / background rectangle.</td></tr>
+  <tr><td><code>CreateButton(text)</code></td><td>button proxy</td><td>Clickable button with a text label.</td></tr>
+  <tr><td><code>CreateProgressBar()</code></td><td>progressbar proxy</td><td>Horizontal (or vertical) fill bar.</td></tr>
+  <tr><td><code>CreateSlider(min, max)</code></td><td>slider proxy</td><td>Draggable range slider.</td></tr>
+</table>
+
+<h3>Common Methods (all elements)</h3>
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Returns</th><th>Description</th></tr>
+  <tr><td><code>elem:SetPosition(x, y)</code></td><td>x,y: int</td><td>—</td><td>Position in screen pixels.</td></tr>
+  <tr><td><code>elem:GetPosition()</code></td><td>—</td><td>x, y</td><td>Returns two values: x and y.</td></tr>
+  <tr><td><code>elem:SetSize(w, h)</code></td><td>w,h: int</td><td>—</td><td>Size in screen pixels.</td></tr>
+  <tr><td><code>elem:GetSize()</code></td><td>—</td><td>w, h</td><td>Returns two values: width and height.</td></tr>
+  <tr><td><code>elem:SetVisible(bool)</code></td><td>bool</td><td>—</td><td>Show or hide the element.</td></tr>
+  <tr><td><code>elem:IsVisible()</code></td><td>—</td><td>bool</td><td>Current visibility.</td></tr>
+  <tr><td><code>elem:SetZOrder(z)</code></td><td>z: int</td><td>—</td><td>Draw order. Higher values render on top.</td></tr>
+  <tr><td><code>elem:SetAnchor(name)</code></td><td>name: string</td><td>—</td><td>Position relative to the parent or screen. See anchor names below.</td></tr>
+  <tr><td><code>elem:AddChild(elem)</code></td><td>elem: proxy</td><td>—</td><td>Parent another element. Child position is relative to parent. Hiding the parent hides all children.</td></tr>
+  <tr><td><code>elem:SetColor(r,g,b,a)</code></td><td>floats 0–1</td><td>—</td><td>Colour tint / alpha.</td></tr>
+</table>
+
+<h3>Anchor Enum</h3>
+<p>Valid anchor name strings for <code>SetAnchor</code>:</p>
+<table>
+  <tr>
+    <td><code>"TopLeft"</code></td><td><code>"TopCenter"</code></td><td><code>"TopRight"</code></td>
+  </tr>
+  <tr>
+    <td><code>"CenterLeft"</code></td><td><code>"Center"</code></td><td><code>"CenterRight"</code></td>
+  </tr>
+  <tr>
+    <td><code>"BottomLeft"</code></td><td><code>"BottomCenter"</code></td><td><code>"BottomRight"</code></td>
+  </tr>
+</table>
+
+<h3>Label-specific</h3>
+<table>
+  <tr><th>Method</th><th>Description</th></tr>
+  <tr><td><code>lbl:SetText(s)</code></td><td>Change the displayed text.</td></tr>
+  <tr><td><code>lbl:SetFontSize(n)</code></td><td>Set font size in points.</td></tr>
+  <tr><td><code>lbl:SetFont(path)</code></td><td>Switch font resource (default: <code>Fonts/Anonymous Pro.ttf</code>).</td></tr>
+</table>
+
+<h3>Button-specific</h3>
+<table>
+  <tr><th>Method</th><th>Description</th></tr>
+  <tr><td><code>btn:SetOnClick(fn)</code></td><td>Register a callback function called when the button is clicked.</td></tr>
+  <tr><td><code>btn:GetText()</code></td><td>Returns the button label string.</td></tr>
+</table>
+
+<h3>ProgressBar-specific</h3>
+<table>
+  <tr><th>Method</th><th>Description</th></tr>
+  <tr><td><code>pb:SetValue(v)</code></td><td>Set fill level 0–1.</td></tr>
+  <tr><td><code>pb:GetValue()</code></td><td>Returns current fill level as float.</td></tr>
+  <tr><td><code>pb:SetVertical(bool)</code></td><td>Fill bottom-to-top when <code>true</code>.</td></tr>
+</table>
+
+<h3>Slider-specific</h3>
+<table>
+  <tr><th>Method</th><th>Description</th></tr>
+  <tr><td><code>sl:SetValue(v)</code></td><td>Set the current slider value.</td></tr>
+  <tr><td><code>sl:GetValue()</code></td><td>Returns the current value as float.</td></tr>
+  <tr><td><code>sl:SetRange(min, max)</code></td><td>Update the min/max range.</td></tr>
+  <tr><td><code>sl:SetOnChange(fn)</code></td><td>Callback <code>fn(value)</code> called whenever the slider value changes.</td></tr>
+</table>
+
+<pre><span class="lua-cm">-- Pause menu: panel containing label, button, and slider</span>
+<span class="lua-kw">local</span> menu = CreatePanel()
+menu:SetPosition(<span class="lua-num">300</span>, <span class="lua-num">200</span>)
+menu:SetSize(<span class="lua-num">400</span>, <span class="lua-num">300</span>)
+menu:SetColor(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0.85</span>)
+
+<span class="lua-kw">local</span> title = CreateLabel(<span class="lua-str">"Paused"</span>)
+title:SetPosition(<span class="lua-num">140</span>, <span class="lua-num">20</span>)
+title:SetFontSize(<span class="lua-num">22</span>)
+menu:AddChild(title)
+
+<span class="lua-kw">local</span> resumeBtn = CreateButton(<span class="lua-str">"Resume"</span>)
+resumeBtn:SetPosition(<span class="lua-num">130</span>, <span class="lua-num">80</span>)
+resumeBtn:SetSize(<span class="lua-num">140</span>, <span class="lua-num">36</span>)
+resumeBtn:SetOnClick(<span class="lua-kw">function</span>() menu:SetVisible(<span class="lua-kw">false</span>) <span class="lua-kw">end</span>)
+menu:AddChild(resumeBtn)
+
+<span class="lua-kw">local</span> volSlider = CreateSlider(<span class="lua-num">0.0</span>, <span class="lua-num">1.0</span>)
+volSlider:SetPosition(<span class="lua-num">50</span>, <span class="lua-num">160</span>)
+volSlider:SetSize(<span class="lua-num">300</span>, <span class="lua-num">24</span>)
+volSlider:SetValue(<span class="lua-num">0.8</span>)
+volSlider:SetOnChange(<span class="lua-kw">function</span>(v) SetMasterVolume(v) <span class="lua-kw">end</span>)
+menu:AddChild(volSlider)
+
+<span class="lua-cm">-- Anchor a score label to the top-right corner</span>
+<span class="lua-kw">local</span> scoreLabel = CreateLabel(<span class="lua-str">"Score: 0"</span>)
+scoreLabel:SetAnchor(<span class="lua-str">"TopRight"</span>)
+scoreLabel:SetPosition(-<span class="lua-num">110</span>, <span class="lua-num">10</span>)
+scoreLabel:SetFontSize(<span class="lua-num">18</span>)</pre>
+
 <!-- ─── AUDIO ─────────────────────────────────────────────────────── -->
 <h2 id="audio">Audio — Global Functions</h2>
 <div class="callout lua">
   <h4>Status</h4>
   <p>
-    These functions are part of the Simple3D custom Lua binding layer (Task #3).
-    They are available when the binding layer is fully initialised, which is the case
-    in all standard simple-3d builds.
+    These functions are part of the Simple3D custom Lua binding layer.
+    They are available in all standard simple-3d builds.
   </p>
 </div>
 <table>
   <tr><th>Function</th><th>Parameters</th><th>Description</th></tr>
+  <tr>
+    <td><code>SetAudioListener(entity)</code></td>
+    <td>entity: Node</td>
+    <td>Designate an entity as the 3D audio listener. Call once for the player entity. All positional AudioSource sounds are attenuated relative to this entity's world position.</td>
+  </tr>
   <tr>
     <td><code>PlaySound(path)</code></td>
     <td>path: string</td>
@@ -430,22 +1208,284 @@ Input:GetMouseMoveY()         <span class="lua-cm">-- → int pixel delta Y this
     <td>—</td>
     <td>Stop the currently playing music.</td>
   </tr>
+  <tr>
+    <td><code>SetMasterVolume(v)</code></td>
+    <td>v: float 0–1</td>
+    <td>Set the global master audio volume.</td>
+  </tr>
 </table>
 
-<!-- ─── SCENE QUERIES ────────────────────────────────────────────── -->
-<h2 id="scene">Scene Queries — Global Functions</h2>
+<!-- ─── SCENE MANAGEMENT ─────────────────────────────────────────── -->
+<h2 id="scene">Scene Management from Lua</h2>
+
+<h3>Loading &amp; Unloading</h3>
 <table>
   <tr><th>Function</th><th>Returns</th><th>Description</th></tr>
   <tr>
-    <td><code>FindEntity(name)</code></td>
-    <td>Node (or nil)</td>
-    <td>Find a scene entity by name. Returns the Urho3D Node; use its methods directly. Returns <code>nil</code> if not found.</td>
+    <td><code>LoadScene(path, fn)</code></td>
+    <td>—</td>
+    <td>Load a <code>.mc3.xml</code> scene file. Optional callback <code>fn</code> is called synchronously after load completes.</td>
+  </tr>
+  <tr>
+    <td><code>UnloadScene()</code></td>
+    <td>—</td>
+    <td>Destroy all non-persistent entities in the current scene.</td>
+  </tr>
+  <tr>
+    <td><code>SetPersistentEntity(entity)</code></td>
+    <td>—</td>
+    <td>Mark an entity (and its entire subtree) to survive <code>UnloadScene()</code>. Call before the first <code>LoadScene</code>.</td>
   </tr>
 </table>
-<pre><span class="lua-kw">local</span> playerNode = FindEntity(<span class="lua-str">"Player"</span>)
-<span class="lua-kw">if</span> playerNode <span class="lua-kw">then</span>
-    <span class="lua-kw">local</span> pos = playerNode:GetPosition()
-    <span class="lua-kw">local</span> dist = (entity:GetPosition() - pos):Length()
+
+<h3>Level List (Sequential Progression)</h3>
+<table>
+  <tr><th>Function</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>SetLevelList(table)</code></td>
+    <td>—</td>
+    <td>Register a 1-based Lua table of scene path strings as the level sequence.</td>
+  </tr>
+  <tr>
+    <td><code>LoadLevel(index)</code></td>
+    <td>—</td>
+    <td>Load the scene at the given 0-based index into the level list.</td>
+  </tr>
+  <tr>
+    <td><code>LoadNextLevel()</code></td>
+    <td>—</td>
+    <td>Advance to the next level. No-op at the last level.</td>
+  </tr>
+  <tr>
+    <td><code>GetCurrentLevelIndex()</code></td>
+    <td>int</td>
+    <td>Returns the 0-based index of the current level. Returns -1 before the first <code>LoadLevel</code>.</td>
+  </tr>
+  <tr>
+    <td><code>GetLevelCount()</code></td>
+    <td>int</td>
+    <td>Returns the total number of levels registered.</td>
+  </tr>
+</table>
+
+<h3>Fade Transitions</h3>
+<table>
+  <tr><th>Function</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>FadeOut(dur, fn)</code></td>
+    <td>—</td>
+    <td>Fade to black over <code>dur</code> seconds (default 0.5). Optional callback <code>fn</code> is called when the fade completes.</td>
+  </tr>
+  <tr>
+    <td><code>FadeIn(dur, fn)</code></td>
+    <td>—</td>
+    <td>Fade from black to clear over <code>dur</code> seconds.</td>
+  </tr>
+</table>
+
+<pre><span class="lua-cm">-- Set up level list on game start</span>
+SetLevelList({
+    <span class="lua-str">"levels/01.mc3.xml"</span>,
+    <span class="lua-str">"levels/02.mc3.xml"</span>,
+    <span class="lua-str">"levels/03.mc3.xml"</span>,
+})
+
+<span class="lua-cm">-- Transition to next level with fade</span>
+<span class="lua-kw">function</span> <span class="lua-fn">OnLevelComplete</span>()
+    FadeOut(<span class="lua-num">0.5</span>, <span class="lua-kw">function</span>()
+        LoadNextLevel()
+        FadeIn(<span class="lua-num">0.5</span>)
+    <span class="lua-kw">end</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- Mark the player as persistent before the first load</span>
+<span class="lua-kw">local</span> player = FindEntity(<span class="lua-str">"Player"</span>)
+SetPersistentEntity(player)
+LoadLevel(<span class="lua-num">0</span>)</pre>
+
+<!-- ─── SAVEDATA ──────────────────────────────────────────────────── -->
+<h2 id="savedata">SaveData from Lua</h2>
+<p>
+  <code>GetSaveData(slot)</code> returns a proxy table for the save-data at the given slot.
+  Call <code>SetAppName</code> before saving to set the storage directory prefix.
+</p>
+<table>
+  <tr><th>Method</th><th>Returns</th><th>Description</th></tr>
+  <tr><td><code>GetSaveData(slot)</code> <em>(global)</em></td><td>proxy</td><td>Return the save-data proxy for this slot (default slot 0).</td></tr>
+  <tr><td><code>data:SetInt(key, value)</code></td><td>—</td><td>Store an integer.</td></tr>
+  <tr><td><code>data:GetInt(key, default)</code></td><td>int</td><td>Read an integer; returns <code>default</code> (default 0) if key is absent.</td></tr>
+  <tr><td><code>data:SetFloat(key, value)</code></td><td>—</td><td>Store a float.</td></tr>
+  <tr><td><code>data:GetFloat(key, default)</code></td><td>float</td><td>Read a float.</td></tr>
+  <tr><td><code>data:SetBool(key, value)</code></td><td>—</td><td>Store a bool.</td></tr>
+  <tr><td><code>data:GetBool(key, default)</code></td><td>bool</td><td>Read a bool.</td></tr>
+  <tr><td><code>data:SetString(key, value)</code></td><td>—</td><td>Store a string.</td></tr>
+  <tr><td><code>data:GetString(key, default)</code></td><td>string</td><td>Read a string.</td></tr>
+  <tr><td><code>data:Save(slot)</code></td><td>bool</td><td>Write to disk. Returns <code>false</code> on I/O error.</td></tr>
+  <tr><td><code>data:Load(slot)</code></td><td>bool</td><td>Read from disk. Returns <code>false</code> if missing or parse error.</td></tr>
+</table>
+<pre><span class="lua-cm">-- Load on Start</span>
+<span class="lua-kw">local</span> save = GetSaveData(<span class="lua-num">0</span>)
+<span class="lua-kw">if</span> save:Load(<span class="lua-num">0</span>) <span class="lua-kw">then</span>
+    score = save:GetInt(<span class="lua-str">"score"</span>, <span class="lua-num">0</span>)
+    level = save:GetInt(<span class="lua-str">"level"</span>, <span class="lua-num">1</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- Save on level complete</span>
+<span class="lua-kw">function</span> <span class="lua-fn">OnWin</span>()
+    <span class="lua-kw">local</span> save = GetSaveData(<span class="lua-num">0</span>)
+    save:SetInt(<span class="lua-str">"score"</span>, score)
+    save:SetInt(<span class="lua-str">"level"</span>, level + <span class="lua-num">1</span>)
+    save:Save(<span class="lua-num">0</span>)
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── TWEENS ────────────────────────────────────────────────────── -->
+<h2 id="tweens">Tweens from Lua</h2>
+<p>
+  Tweens interpolate a float value over time and call an update function each frame.
+  They tick with the current time scale (<code>SetTimeScale</code>).
+</p>
+<p><code>local t = CreateTween(from, to, duration, onUpdate [, onComplete [, easing]])</code></p>
+<ul>
+  <li><code>onUpdate(value)</code> — called every frame with the current interpolated float.</li>
+  <li><code>onComplete()</code> — optional, called once when the tween finishes.</li>
+  <li><code>easing</code> — optional string: <code>"linear"</code> (default), <code>"easein"</code>, <code>"easeout"</code>, <code>"easeinout"</code>.</li>
+</ul>
+<table>
+  <tr><th>Method</th><th>Returns</th><th>Description</th></tr>
+  <tr><td><code>t:Cancel()</code></td><td>—</td><td>Stop the tween without firing <code>onComplete</code>.</td></tr>
+  <tr><td><code>t:IsComplete()</code></td><td>bool</td><td>Returns <code>true</code> once finished or cancelled.</td></tr>
+</table>
+<pre><span class="lua-cm">-- Slide a health bar from 1.0 to 0.2 over 0.4 s</span>
+CreateTween(<span class="lua-num">1.0</span>, <span class="lua-num">0.2</span>, <span class="lua-num">0.4</span>, <span class="lua-kw">function</span>(v) healthBar:SetValue(v) <span class="lua-kw">end</span>)
+
+<span class="lua-cm">-- Score pop-up with ease-out; keep handle to allow cancellation</span>
+<span class="lua-kw">local</span> popTween = CreateTween(<span class="lua-num">0.0</span>, <span class="lua-num">1.0</span>, <span class="lua-num">0.3</span>,
+    <span class="lua-kw">function</span>(v) scoreLabel:SetScale(v) <span class="lua-kw">end</span>,
+    <span class="lua-kw">function</span>() print(<span class="lua-str">"pop done"</span>) <span class="lua-kw">end</span>,
+    <span class="lua-str">"easeout"</span>)
+
+<span class="lua-cm">-- Cancel on scene change</span>
+<span class="lua-kw">if</span> <span class="lua-kw">not</span> popTween:IsComplete() <span class="lua-kw">then</span> popTween:Cancel() <span class="lua-kw">end</span></pre>
+
+<!-- ─── DEBUG DRAW ────────────────────────────────────────────────── -->
+<h2 id="debug-draw">Debug Draw from Lua</h2>
+<p>
+  One-frame geometry overlay rendered by Urho3D's <code>DebugRenderer</code>.
+  All geometry is auto-cleared each frame. No-ops when disabled (default off).
+</p>
+<table>
+  <tr><th>Function</th><th>Parameters</th><th>Description</th></tr>
+  <tr>
+    <td><code>SetDebugDrawEnabled(bool)</code></td>
+    <td>bool</td>
+    <td>Master toggle. Geometry calls are zero-cost when off.</td>
+  </tr>
+  <tr>
+    <td><code>DrawDebugLine(start, end, color)</code></td>
+    <td>start, end: Vector3; color: Color (optional)</td>
+    <td>Draw a line segment for one frame.</td>
+  </tr>
+  <tr>
+    <td><code>DrawDebugBox(center, halfSize, color)</code></td>
+    <td>center: Vector3; halfSize: Vector3; color: Color (optional)</td>
+    <td>Draw an axis-aligned box outline.</td>
+  </tr>
+  <tr>
+    <td><code>DrawDebugSphere(center, radius, color)</code></td>
+    <td>center: Vector3; radius: float; color: Color (optional)</td>
+    <td>Draw a sphere outline.</td>
+  </tr>
+  <tr>
+    <td><code>DrawDebugText(pos, text, color)</code></td>
+    <td>pos: Vector3; text: string; color: Color (optional)</td>
+    <td>Billboard text label in world space, visible for one frame.</td>
+  </tr>
+</table>
+<pre><span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node
+    SetDebugDrawEnabled(<span class="lua-kw">true</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">local</span> pos = entity:GetPosition()
+    DrawDebugLine(pos, pos + Vector3(<span class="lua-num">0</span>, <span class="lua-num">2</span>, <span class="lua-num">0</span>), Color(<span class="lua-num">0</span>, <span class="lua-num">1</span>, <span class="lua-num">0</span>, <span class="lua-num">1</span>))
+    DrawDebugSphere(pos, <span class="lua-num">0.5</span>, Color(<span class="lua-num">1</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">1</span>))
+    DrawDebugText(pos + Vector3(<span class="lua-num">0</span>, <span class="lua-num">2.2</span>, <span class="lua-num">0</span>), entity:GetName(), Color.WHITE)
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── RAY PICKING ───────────────────────────────────────────────── -->
+<h2 id="ray-picking">Ray Picking from Lua</h2>
+<p>
+  Cast a ray from screen coordinates into the scene. The optional <code>mask</code> argument
+  is a raw unsigned integer matching <code>CollisionLayer</code> values:
+  <code>All=0xFFFF</code>, <code>Actor=1</code>, <code>StaticGeometry=2</code>, <code>Trigger=4</code>.
+</p>
+<table>
+  <tr><th>Function</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>PickEntity(x, y, mask)</code></td>
+    <td>entity or nil</td>
+    <td>Returns the first entity hit by the ray from screen position (x, y). Returns <code>nil</code> on miss.</td>
+  </tr>
+  <tr>
+    <td><code>PickPosition(x, y, mask)</code></td>
+    <td>Vector3 or nil</td>
+    <td>Returns the world-space hit point. Returns <code>nil</code> on miss.</td>
+  </tr>
+</table>
+<pre><span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> Input:GetMouseButtonPress(MOUSEB_LEFT) <span class="lua-kw">then</span>
+        <span class="lua-kw">local</span> mp = Input:GetMousePosition()
+        <span class="lua-kw">local</span> hit = PickEntity(mp.x, mp.y)
+        <span class="lua-kw">if</span> hit <span class="lua-kw">then</span>
+            hit:AddTag(<span class="lua-str">"selected"</span>)
+            print(<span class="lua-str">"Picked:"</span>, hit:GetName())
+        <span class="lua-kw">end</span>
+
+        <span class="lua-cm">-- pick ground only (StaticGeometry layer = 2)</span>
+        <span class="lua-kw">local</span> groundPos = PickPosition(mp.x, mp.y, <span class="lua-num">2</span>)
+        <span class="lua-kw">if</span> groundPos <span class="lua-kw">then</span>
+            marker:SetPosition(groundPos)
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── CURSOR ───────────────────────────────────────────────────── -->
+<h2 id="cursor">Cursor from Lua</h2>
+<table>
+  <tr><th>Function</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>SetCursorVisible(bool)</code></td>
+    <td>—</td>
+    <td>Show or hide the OS cursor (e.g., hide during gameplay, show in menus).</td>
+  </tr>
+  <tr>
+    <td><code>IsCursorVisible()</code></td>
+    <td>bool</td>
+    <td>Returns whether the OS cursor is currently visible.</td>
+  </tr>
+  <tr>
+    <td><code>SetCursorLocked(bool)</code></td>
+    <td>—</td>
+    <td>FPS lock: hides and confines the cursor to the window. <code>Input:GetMouseDelta()</code> still returns movement. Pass <code>false</code> to unlock and restore the cursor.</td>
+  </tr>
+  <tr>
+    <td><code>IsCursorLocked()</code></td>
+    <td>bool</td>
+    <td>Returns whether the cursor is currently locked.</td>
+  </tr>
+</table>
+<pre><span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    entity = self.node
+    SetCursorLocked(<span class="lua-kw">true</span>)   <span class="lua-cm">-- FPS camera mode</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> Input:IsKeyPress(<span class="lua-str">"Escape"</span>) <span class="lua-kw">then</span>
+        SetCursorLocked(<span class="lua-kw">false</span>)
+        SetCursorVisible(<span class="lua-kw">true</span>)
+        menu:SetVisible(<span class="lua-kw">true</span>)
+    <span class="lua-kw">end</span>
 <span class="lua-kw">end</span></pre>
 
 <!-- ─── VECTOR3 ───────────────────────────────────────────────────── -->
@@ -749,8 +1789,12 @@ print(<span class="lua-str">"velocity:"</span>, entity:GetLinearVelocity():Lengt
     <td>FindEntity walks the entity registry. Call it once in <code>Start()</code> and cache the result.</td>
   </tr>
   <tr>
+    <td>Using a stale proxy</td>
+    <td>All Simple3D proxies (entity, CharacterController, AudioSource, UI elements, etc.) are liveness-guarded. Accessing a proxy whose underlying object has been destroyed returns safe defaults (0/false/nil) and will not crash — but the operation is silently ignored.</td>
+  </tr>
+  <tr>
     <td>Destroying entities from Lua</td>
-    <td>Do not destroy entities directly from Lua scripts — call <code>DestroyEntity()</code> only from C++. Instead, set a flag in Lua and have C++ check it in <code>Update()</code>.</td>
+    <td>Use <code>DestroyEntity()</code> which is deferred-safe. Do not call Urho3D's <code>node:Remove()</code> directly during a physics or script callback — it can corrupt the update loop.</td>
   </tr>
   <tr>
     <td>Vector3 mutation</td>

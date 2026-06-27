@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 11: Spatial Audio — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list" style="list-style:none;padding:0;margin:0;">
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-01.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">01. Hello World</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-02.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">02. Lights and Colors</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-03.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">03. Keyboard Input</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-04.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">04. 3D Physics</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-05.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">05. Third-Person Camera</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-06.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">06. Lua Scripting Basics</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-07.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">07. Character Controller</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-08.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">08. Skeletal Animation</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-09.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">09. Animation State Machine</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-10.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">10. Audio</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-11.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;background:var(--surface2);color:var(--accent);text-decoration:none;">11. Spatial Audio</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-12.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">12. 2D Mode</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-13.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">13. 2D Physics</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-14.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">14. Navigation and Pathfinding</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-15.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">15. Gamepad Input</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-16.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">16. Input Actions</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-17.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">17. UI System</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-18.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">18. UI Advanced</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-19.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">19. Save and Load</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-20.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">20. Scene Management</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-21.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">21. Particle Systems</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-22.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">22. Entity Hierarchy</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-23.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">23. Physics Constraints</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-24.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">24. Collision Triggers</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-25.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">25. AI Behavior FSM</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-26.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">26. Ray Picking</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-27.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">27. Debug Draw</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-28.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">28. Tweens</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-29.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">29. Sky and Atmosphere</a></li>
+    <li style="margin-bottom:0.1rem;"><a href="tutorial-30.html" style="display:block;padding:0.28rem 0.6rem;border-radius:4px;font-size:0.855rem;color:var(--muted);text-decoration:none;">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb" style="font-size:0.85rem;color:var(--muted);margin-bottom:1.2rem;">
+  <a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 11
+</div>
+
+<h1><span class="tutorial-part" style="display:block;font-size:0.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.09em;margin-bottom:0.3rem;">Part 11 of 30</span>Spatial Audio</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>SetAudioListener(entity)</code> &nbsp;&bull;&nbsp;
+    <code>entity-&gt;AddAudioSource()</code> &nbsp;&bull;&nbsp;
+    <code>entity-&gt;GetAudioSource()</code> &nbsp;&bull;&nbsp;
+    <code>src-&gt;SetRange(near, far)</code> &nbsp;&bull;&nbsp;
+    <code>src-&gt;SetGain(float)</code> &nbsp;&bull;&nbsp;
+    <code>src-&gt;SetLooped(bool)</code> &nbsp;&bull;&nbsp;
+    <code>src-&gt;Play(path)</code> &nbsp;&bull;&nbsp;
+    <code>src-&gt;Stop()</code> &nbsp;&bull;&nbsp;
+    <code>src-&gt;IsPlaying()</code> &nbsp;&bull;&nbsp;
+    <code>src-&gt;SetPitch(float)</code> &nbsp;&bull;&nbsp;
+    <code>src-&gt;PlayAmbient(path)</code>
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ────────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>The difference between the flat audio API from Part 10 (<code>PlaySound</code>, <code>PlayMusic</code>) and the spatial audio API that attenuates sounds with distance</li>
+  <li>How to designate a scene entity as the audio listener with <code>SetAudioListener()</code> so the engine knows where the "ears" are</li>
+  <li>How to attach a positional <code>AudioSource</code> to any entity using <code>AddAudioSource()</code>, making its sound travel through 3D space</li>
+  <li>How to control distance falloff with <code>SetRange(near, far)</code> — the region where sound is loudest and the radius beyond which it becomes inaudible</li>
+  <li>How to set the peak volume of a source with <code>SetGain()</code> and how it combines with master volume and distance attenuation</li>
+  <li>How to loop a continuous sound (enemy hum, fire crackle) with <code>SetLooped(true)</code> and play it with <code>Play(path)</code></li>
+  <li>How to play a one-shot sound effect (a bell ring) that does not repeat, using <code>SetLooped(false)</code></li>
+  <li>How to stop an active sound with <code>Stop()</code> and query whether it is still playing with <code>IsPlaying()</code></li>
+  <li>How to alter the perceived pitch of a sound with <code>SetPitch()</code>, using it to create natural variation between repeated sound events</li>
+  <li>How to play a non-positional ambient background sound at constant volume with <code>PlayAmbient()</code>, which routes through the Music gain channel</li>
+  <li>How to safely retrieve an existing <code>AudioSource</code> from an entity without creating a duplicate using <code>GetAudioSource()</code></li>
+</ul>
+
+<!-- ─── OVERVIEW ────────────────────────────────────────────────────── -->
+<h2>Overview</h2>
+<p>
+  Part 10 introduced flat, non-positional audio: <code>PlaySound()</code> plays a fire-and-forget effect
+  at constant volume everywhere in the scene, and <code>PlayMusic()</code> streams a background track.
+  These calls are fine for UI sounds and background music, but they cannot represent the sound of a
+  fire pit that grows louder as you walk toward it or an enemy whose growl fades as you sneak away.
+</p>
+<p>
+  That is what <em>spatial audio</em> solves. In simple-3d, every <code>Entity</code> can carry an
+  <code>AudioSource</code> component. The source's position tracks its parent entity in world space. The
+  engine compares that position against the <em>listener</em> — a designated entity whose position
+  represents the player's ears — and attenuates the volume according to the distance between the two.
+  Stereo panning is applied automatically as well: sounds to the left of the listener appear in the
+  left speaker and vice versa.
+</p>
+<p>
+  This tutorial builds a small interactive scene with four audio sources, each demonstrating a different
+  aspect of the system: a continuously looping enemy hum, a crackling fire with a shorter audible range,
+  a bell that can be silenced and re-struck at different pitches, and a constant ambient wind that uses
+  the non-positional <code>PlayAmbient()</code> path. Walk the player toward and away from each source
+  to hear the attenuation change in real time.
+</p>
+
+<!-- ─── COMPLETE SOURCE ──────────────────────────────────────────────── -->
+<h2>Complete source</h2>
+<p>
+  The listing below is the complete, self-contained program. Place all required OGG/WAV files under
+  your project's <code>Data/Sounds/</code> directory. The step-by-step explanation that follows covers
+  every new API call in detail.
+</p>
+
+<pre><span class="cm">// main.cpp — Part 11: Spatial Audio</span>
+<span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">SpatialAudioDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"Part 11 — Spatial Audio"</span>);
+        <span class="fn">SetClearColor</span>(<span class="ty">Color</span>(<span class="val">0.05f</span>, <span class="val">0.05f</span>, <span class="val">0.10f</span>, <span class="val">1.0f</span>));
+
+        <span class="cm">// ── Directional light ─────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.92f</span>, <span class="val">0.78f</span>), <span class="val">1.1f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50.0f</span>, <span class="val">35.0f</span>, <span class="val">0.0f</span>));
+
+        <span class="cm">// ── Ground ────────────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground-&gt;<span class="fn">SetScale</span>(<span class="val">30.0f</span>);
+        ground-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, -<span class="val">1.0f</span>, <span class="val">0.0f</span>);
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">60.0f</span>, <span class="val">0.4f</span>, <span class="val">60.0f</span>));
+        ground-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::StaticGeometry);
+
+        <span class="cm">// ── Player ────────────────────────────────────────────────────</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        player_-&gt;<span class="fn">SetScale</span>(<span class="val">0.8f</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);
+        cc_ = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+        cc_-&gt;<span class="fn">SetGravity</span>(<span class="val">20.0f</span>);
+        player_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::Actor);
+        player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::StaticGeometry
+        }));
+
+        <span class="cm">// ════════════════════════════════════════════════════════════
+        // STEP 1 — SetAudioListener
+        // Designate the player as the 3D audio listener.  All AudioSources
+        // will attenuate in volume relative to this entity's world position.
+        // Call this once in Start() before any AudioSource begins playing.
+        // ════════════════════════════════════════════════════════════</span>
+        <span class="fn">SetAudioListener</span>(player_);
+
+        <span class="cm">// ── Enemy — continuous positional hum ─────────────────────────</span>
+        enemy_ = <span class="fn">CreateEntity</span>(<span class="st">"Enemy"</span>);
+        enemy_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        enemy_-&gt;<span class="fn">SetScale</span>(<span class="val">1.3f</span>);
+        enemy_-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.75f</span>, <span class="val">0.12f</span>, <span class="val">0.12f</span>));
+        enemy_-&gt;<span class="fn">SetPosition</span>(<span class="val">10.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);
+
+        <span class="cm">// ════════════════════════════════════════════════════════════
+        // STEP 2 — AddAudioSource + SetRange + SetGain + SetLooped + Play
+        // Attach a positional audio source to the enemy entity.
+        // The source position tracks the entity automatically.
+        // ════════════════════════════════════════════════════════════</span>
+        <span class="ty">AudioSource</span>* enemySrc = enemy_-&gt;<span class="fn">AddAudioSource</span>();
+        enemySrc-&gt;<span class="fn">SetRange</span>(<span class="val">2.0f</span>, <span class="val">20.0f</span>);  <span class="cm">// full vol ≤ 2 m, silent ≥ 20 m</span>
+        enemySrc-&gt;<span class="fn">SetGain</span>(<span class="val">0.75f</span>);           <span class="cm">// 75 % volume ceiling</span>
+        enemySrc-&gt;<span class="fn">SetLooped</span>(<span class="kw">true</span>);          <span class="cm">// repeat indefinitely</span>
+        enemySrc-&gt;<span class="fn">Play</span>(<span class="st">"Sounds/enemy_hum.ogg"</span>);
+
+        <span class="cm">// ── Fire pit — crackling sound with a shorter range ────────────</span>
+        fire_ = <span class="fn">CreateEntity</span>(<span class="st">"Fire"</span>);
+        fire_-&gt;<span class="fn">SetPosition</span>(-<span class="val">5.0f</span>, <span class="val">0.0f</span>, <span class="val">6.0f</span>);
+
+        <span class="ty">AudioSource</span>* fireSrc = fire_-&gt;<span class="fn">AddAudioSource</span>();
+        fireSrc-&gt;<span class="fn">SetRange</span>(<span class="val">1.5f</span>, <span class="val">12.0f</span>);   <span class="cm">// smaller audible radius than enemy</span>
+        fireSrc-&gt;<span class="fn">SetGain</span>(<span class="val">0.85f</span>);
+        fireSrc-&gt;<span class="fn">SetLooped</span>(<span class="kw">true</span>);
+        fireSrc-&gt;<span class="fn">Play</span>(<span class="st">"Sounds/fire_crackle.ogg"</span>);
+
+        <span class="cm">// ── Bell — one-shot with Stop/restart and pitch variation ──────
+        // The AudioSource is created lazily inside RingBell() the first
+        // time E is pressed, using GetAudioSource() + AddAudioSource().</span>
+        bell_ = <span class="fn">CreateEntity</span>(<span class="st">"Bell"</span>);
+        bell_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Sphere.mdl"</span>);
+        bell_-&gt;<span class="fn">SetScale</span>(<span class="val">0.5f</span>);
+        bell_-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.9f</span>, <span class="val">0.78f</span>, <span class="val">0.2f</span>));
+        bell_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">2.0f</span>, -<span class="val">4.0f</span>);
+
+        <span class="cm">// ════════════════════════════════════════════════════════════
+        // STEP 3 — PlayAmbient (non-positional background loop)
+        // PlayAmbient() routes through the Music gain channel and plays
+        // at constant volume regardless of the listener's position.
+        // Perfect for wind, rain, and wide-area atmospheric sounds.
+        // ════════════════════════════════════════════════════════════</span>
+        <span class="ty">Entity</span>* sky = <span class="fn">CreateEntity</span>(<span class="st">"Sky"</span>);
+        <span class="ty">AudioSource</span>* windSrc = sky-&gt;<span class="fn">AddAudioSource</span>();
+        windSrc-&gt;<span class="fn">PlayAmbient</span>(<span class="st">"Sounds/wind.ogg"</span>);
+
+        <span class="cm">// ── Camera ────────────────────────────────────────────────────</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">Follow</span>(player_, <span class="val">7.0f</span>, <span class="val">3.0f</span>);
+        cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">6.0f</span>);
+
+        <span class="cm">// ── HUD ───────────────────────────────────────────────────────</span>
+        hud_ = <span class="fn">CreateLabel</span>(<span class="st">"WASD - Move   E - Ring bell   Esc - Quit"</span>);
+        hud_-&gt;<span class="fn">SetPosition</span>(<span class="val">14</span>, <span class="val">12</span>);
+        hud_-&gt;<span class="fn">SetFontSize</span>(<span class="val">13</span>);
+        hud_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.6f</span>, <span class="val">0.6f</span>, <span class="val">0.6f</span>, <span class="val">1.0f</span>));
+
+        bellLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Bell rings: 0"</span>);
+        bellLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">14</span>, <span class="val">32</span>);
+        bellLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">15</span>);
+        bellLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.9f</span>, <span class="val">0.78f</span>, <span class="val">0.2f</span>, <span class="val">1.0f</span>));
+
+        rings_        = <span class="val">0</span>;
+        bellCooldown_ = <span class="val">0.0f</span>;
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="kw">float</span> dt) <span class="kw">override</span> {
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::Escape)) <span class="fn">Quit</span>();
+
+        <span class="cm">// ── Player movement — listener moves with the player ───────────</span>
+        <span class="kw">float</span> mx = <span class="val">0.0f</span>, mz = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::W)) mz =  <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::S)) mz = -<span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::A)) mx = -<span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::D)) mx =  <span class="val">1.0f</span>;
+        cc_-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(mx, <span class="val">0.0f</span>, mz) * <span class="val">5.0f</span>, dt);
+
+        <span class="cm">// ── Bell: Stop old ring, vary pitch, replay ────────────────────</span>
+        bellCooldown_ -= dt;
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::E) &amp;&amp; bellCooldown_ &lt;= <span class="val">0.0f</span>) {
+            <span class="fn">RingBell</span>();
+            bellCooldown_ = <span class="val">0.8f</span>;
+        }
+    }
+
+<span class="kw">private</span>:
+    <span class="kw">void</span> <span class="fn">RingBell</span>() {
+        <span class="cm">// ════════════════════════════════════════════════════════════
+        // STEP 4 — GetAudioSource + Stop + SetPitch + SetLooped + Play
+        // Retrieve the existing AudioSource or create one on the first call.
+        // Stop any ring that is still decaying before launching the new one.
+        // ════════════════════════════════════════════════════════════</span>
+        <span class="ty">AudioSource</span>* src = bell_-&gt;<span class="fn">GetAudioSource</span>();   <span class="cm">// nullptr on first call</span>
+        <span class="kw">if</span> (!src) src = bell_-&gt;<span class="fn">AddAudioSource</span>();
+
+        <span class="cm">// Interrupt any ongoing ring before starting the next one</span>
+        <span class="kw">if</span> (src-&gt;<span class="fn">IsPlaying</span>()) src-&gt;<span class="fn">Stop</span>();
+
+        <span class="cm">// Cycle through five pitches: 0.80, 0.90, 1.00, 1.10, 1.20</span>
+        <span class="kw">float</span> pitch = <span class="val">0.80f</span> + (rings_ % <span class="val">5</span>) * <span class="val">0.10f</span>;
+        src-&gt;<span class="fn">SetPitch</span>(pitch);          <span class="cm">// 1.0 = normal; 0.5 = octave down; 2.0 = octave up</span>
+
+        src-&gt;<span class="fn">SetRange</span>(<span class="val">3.0f</span>, <span class="val">30.0f</span>);
+        src-&gt;<span class="fn">SetGain</span>(<span class="val">0.90f</span>);
+        src-&gt;<span class="fn">SetLooped</span>(<span class="kw">false</span>);        <span class="cm">// ring exactly once — do not repeat</span>
+        src-&gt;<span class="fn">Play</span>(<span class="st">"Sounds/bell.wav"</span>);
+
+        ++rings_;
+        bellLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Bell rings: "</span> + std::<span class="fn">to_string</span>(rings_));
+    }
+
+    <span class="ty">Entity</span>*              player_       = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*              enemy_        = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*              fire_         = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*              bell_         = <span class="kw">nullptr</span>;
+    <span class="ty">Camera</span>*              cam_          = <span class="kw">nullptr</span>;
+    <span class="ty">CharacterController</span>* cc_           = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*               hud_          = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*               bellLabel_    = <span class="kw">nullptr</span>;
+
+    <span class="kw">int</span>   rings_        = <span class="val">0</span>;
+    <span class="kw">float</span> bellCooldown_ = <span class="val">0.0f</span>;
+};
+
+<span class="kw">int</span> <span class="fn">main</span>(<span class="kw">int</span>, <span class="kw">char</span>**) {
+    <span class="kw">auto</span> game = <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">SpatialAudioDemo</span>&gt;();
+    game-&gt;<span class="fn">SetResourcePrefixPaths</span>(<span class="st">"/path/to/u3d/bin"</span>);
+    <span class="kw">return</span> game-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ────────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<!-- 1. SetAudioListener -->
+<h3>1. <code>SetAudioListener(Entity*)</code> — designating the ears</h3>
+<pre><span class="fn">SetAudioListener</span>(player_);</pre>
+<p>
+  Every 3D audio system needs two participants: a <em>source</em> (where the sound comes from) and a
+  <em>listener</em> (where the ears are). In real life the listener is always the player's head. In
+  simple-3d you tell the engine which entity plays that role by calling <code>SetAudioListener()</code>
+  once in <code>Start()</code>.
+</p>
+<p>
+  The engine reads the listener's world position and orientation every frame. When an
+  <code>AudioSource</code> is far from the listener its volume is reduced; when it is close the volume
+  is louder, up to the ceiling set by <code>SetGain()</code>. Stereo panning is computed automatically:
+  a source to the listener's left appears predominantly in the left speaker.
+</p>
+<p>
+  The entity does not need any special component — it just needs to exist and move. In most games you
+  pass the player entity. For first-person games you might pass the camera anchor. If
+  <code>SetAudioListener()</code> is never called, the listener defaults to the scene origin; all
+  positional sounds still attenuate, but they attenuate relative to <code>(0, 0, 0)</code> rather than
+  the player.
+</p>
+
+<!-- 2. AddAudioSource -->
+<h3>2. <code>entity-&gt;AddAudioSource()</code> — attaching a positional source</h3>
+<pre><span class="ty">AudioSource</span>* enemySrc = enemy_-&gt;<span class="fn">AddAudioSource</span>();</pre>
+<p>
+  <code>AddAudioSource()</code> attaches a <code>SoundSource3D</code> component to the entity and returns
+  a pointer to the <code>AudioSource</code> wrapper. The source's world position is synchronized with the
+  entity's world position automatically every frame — if the entity moves, the sound moves with it.
+  You do not need to update it manually.
+</p>
+<p>
+  The call is <em>idempotent</em>: if you call it more than once on the same entity it returns the
+  existing source rather than creating a second one. This makes it safe to call from trigger callbacks
+  or other code paths where you are not sure whether a source has been added yet. That said, the
+  preferred pattern when you only need to <em>retrieve</em> an existing source — without potentially
+  creating one — is <code>GetAudioSource()</code> (see step 7 below).
+</p>
+<p>
+  After calling <code>AddAudioSource()</code> you should configure the source's parameters
+  (<code>SetRange</code>, <code>SetGain</code>, <code>SetLooped</code>, <code>SetPitch</code>) before
+  calling <code>Play()</code>. Parameters set after <code>Play()</code> take effect immediately except
+  for <code>SetPitch()</code>, which takes effect on the next <code>Play()</code> call.
+</p>
+
+<!-- 3. SetRange -->
+<h3>3. <code>src-&gt;SetRange(near, far)</code> — distance attenuation</h3>
+<pre>enemySrc-&gt;<span class="fn">SetRange</span>(<span class="val">2.0f</span>, <span class="val">20.0f</span>);   <span class="cm">// full vol ≤ 2 m, silent ≥ 20 m</span>
+fireSrc-&gt;<span class="fn">SetRange</span>(<span class="val">1.5f</span>, <span class="val">12.0f</span>);    <span class="cm">// smaller audible radius for fire</span></pre>
+<p>
+  <code>SetRange(near, far)</code> defines the distance attenuation envelope. Both parameters are in
+  world units (metres in the default simple-3d scale):
+</p>
+<ul>
+  <li><strong>near</strong> — at distances equal to or less than this value the source plays at its
+      full <code>SetGain</code> volume. Think of it as the "loud zone" immediately around the source.</li>
+  <li><strong>far</strong> — at distances equal to or greater than this value the source is completely
+      inaudible. Think of it as the outer radius of perception.</li>
+  <li>Between <code>near</code> and <code>far</code> the volume falls off linearly — halfway between the
+      two values the sound plays at roughly 50 % of its SetGain ceiling.</li>
+</ul>
+<p>
+  Choosing good range values requires knowing the physical scale of your scene. In this demo the
+  enemy is 10 m from the player's start position, so a far distance of 20 m means the hum is audible
+  from the start. The fire sits 7.8 m away and has a far distance of 12 m, so the player must walk a
+  little closer before hearing the crackling.
+</p>
+<p>
+  For sounds that should be heard throughout a large level — a distant waterfall, a clue sound — set a
+  large <code>far</code> value such as 80 m or more. For intimate sounds — a whisper, a ticking clock —
+  keep <code>far</code> at 5 m or less to ensure they are only audible up close.
+</p>
+
+<!-- 4. SetGain -->
+<h3>4. <code>src-&gt;SetGain(float)</code> — volume ceiling</h3>
+<pre>enemySrc-&gt;<span class="fn">SetGain</span>(<span class="val">0.75f</span>);   <span class="cm">// 75 % max volume for the enemy hum</span>
+fireSrc-&gt;<span class="fn">SetGain</span>(<span class="val">0.85f</span>);   <span class="cm">// fire is slightly louder</span></pre>
+<p>
+  <code>SetGain()</code> sets the maximum volume for this source. The value ranges from <code>0.0</code>
+  (completely silent) to <code>1.0</code> (full volume). When the listener is within the
+  <code>near</code> distance, the source plays at exactly this gain. Beyond <code>near</code> the
+  effective volume is <code>SetGain * attenuation_factor</code>, where the factor falls from 1.0 to 0.0
+  between the near and far distances.
+</p>
+<p>
+  <code>SetGain()</code> does <em>not</em> override the master volume. The final output level is:
+</p>
+<pre><span class="cm">// Effective volume = SetGain × attenuation × SetMasterVolume × channel gain</span></pre>
+<p>
+  Use <code>SetGain()</code> to balance relative loudness between different sources in the scene.
+  A howling wind at gain 0.3 and a gunshot at gain 1.0 will produce a realistic mix where the
+  environmental sound sits clearly behind the action sound.
+</p>
+
+<!-- 5. SetLooped -->
+<h3>5. <code>src-&gt;SetLooped(bool)</code> — looping vs. one-shot</h3>
+<pre>enemySrc-&gt;<span class="fn">SetLooped</span>(<span class="kw">true</span>);    <span class="cm">// enemy hum: repeat forever</span>
+src-&gt;<span class="fn">SetLooped</span>(<span class="kw">false</span>);        <span class="cm">// bell ring: play exactly once</span></pre>
+<p>
+  <code>SetLooped(true)</code> makes the sound restart automatically from the beginning as soon as it
+  reaches the end of the audio file. Use this for continuous sounds: engine hums, footstep loops,
+  ambient fire, running water. The sound plays uninterrupted until <code>Stop()</code> is called.
+</p>
+<p>
+  <code>SetLooped(false)</code> (the default) plays the sound exactly once. When the last sample plays,
+  the source becomes idle and <code>IsPlaying()</code> returns <code>false</code>. Call
+  <code>Play(path)</code> again to replay from the beginning.
+</p>
+<p>
+  <code>SetLooped()</code> must be called <em>before</em> <code>Play()</code> to take effect on the
+  next playback. Changing it while a sound is already playing will apply from the next loop point or
+  next <code>Play()</code> call, not immediately.
+</p>
+
+<!-- 6. Play -->
+<h3>6. <code>src-&gt;Play(path)</code> — loading and starting playback</h3>
+<pre>enemySrc-&gt;<span class="fn">Play</span>(<span class="st">"Sounds/enemy_hum.ogg"</span>);
+fireSrc-&gt;<span class="fn">Play</span>(<span class="st">"Sounds/fire_crackle.ogg"</span>);
+src-&gt;<span class="fn">Play</span>(<span class="st">"Sounds/bell.wav"</span>);</pre>
+<p>
+  <code>Play(path)</code> loads the audio file from the resource cache and starts playback immediately.
+  The path is relative to a <code>Data/</code> directory, the same as model and texture paths. Supported
+  formats are OGG Vorbis (<code>.ogg</code>) and uncompressed PCM WAV (<code>.wav</code>). OGG is
+  recommended for longer looped sounds because it compresses significantly; WAV is preferred for very
+  short one-shot effects where the decode overhead would add latency.
+</p>
+<p>
+  The call applies all parameters that were set before it: <code>SetLooped</code>, <code>SetGain</code>,
+  <code>SetPitch</code>, and <code>SetRange</code> all take effect on this <code>Play()</code> call. If
+  you call <code>Play()</code> on a source that is already playing, it restarts from the beginning.
+</p>
+<p>
+  In <code>Start()</code> you can call <code>Play()</code> on continuous looped sources
+  straight away — the engine will start the audio subsystem before <code>Start()</code> returns, so
+  there is no risk of calling <code>Play()</code> too early.
+</p>
+
+<!-- 7. Stop and IsPlaying -->
+<h3>7. <code>src-&gt;Stop()</code> and <code>src-&gt;IsPlaying()</code></h3>
+<pre><span class="kw">if</span> (src-&gt;<span class="fn">IsPlaying</span>()) src-&gt;<span class="fn">Stop</span>();</pre>
+<p>
+  <code>Stop()</code> halts playback immediately. The playback cursor resets to the beginning of the
+  file. Once stopped, <code>IsPlaying()</code> returns <code>false</code> and the source is idle until
+  <code>Play()</code> is called again.
+</p>
+<p>
+  <code>IsPlaying()</code> returns <code>true</code> from the moment <code>Play()</code> is called until
+  either the file ends (for non-looped sounds) or <code>Stop()</code> is called. For looped sounds it
+  remains <code>true</code> until explicitly stopped. A typical pattern in the bell code above is to
+  check <code>IsPlaying()</code> before calling <code>Stop()</code> — although <code>Stop()</code> on
+  an already-idle source is a safe no-op, the guard makes intent explicit.
+</p>
+<p>
+  Common uses for <code>Stop()</code>:
+</p>
+<ul>
+  <li>Interrupting a looped sound when an enemy is destroyed</li>
+  <li>Cutting off a previous ring or explosion sound before starting a new one</li>
+  <li>Muting all sounds when pausing the game</li>
+</ul>
+<div class="callout info">
+  <h4>Retrieving an existing AudioSource</h4>
+  <p>
+    The complementary retrieval method <code>entity-&gt;GetAudioSource()</code> returns the attached
+    <code>AudioSource*</code> if one exists, or <code>nullptr</code> if <code>AddAudioSource()</code>
+    has not been called yet. Use it when you need to control a source that was set up in
+    <code>Start()</code> from a callback or helper function, without risking the creation of a duplicate
+    source:
+  </p>
+<pre><span class="ty">AudioSource</span>* src = bell_-&gt;<span class="fn">GetAudioSource</span>();
+<span class="kw">if</span> (!src) src = bell_-&gt;<span class="fn">AddAudioSource</span>();</pre>
+</div>
+
+<!-- 8. SetPitch -->
+<h3>8. <code>src-&gt;SetPitch(float)</code> — frequency scaling</h3>
+<pre><span class="kw">float</span> pitch = <span class="val">0.80f</span> + (rings_ % <span class="val">5</span>) * <span class="val">0.10f</span>;
+src-&gt;<span class="fn">SetPitch</span>(pitch);   <span class="cm">// cycles: 0.80, 0.90, 1.00, 1.10, 1.20</span></pre>
+<p>
+  <code>SetPitch()</code> scales the playback frequency of the sound. The relationship to perceived
+  pitch is logarithmic and musically defined:
+</p>
+<table>
+  <tr><th>SetPitch value</th><th>Perceived effect</th></tr>
+  <tr><td><code>1.0</code></td><td>Normal pitch — exactly as the audio file was recorded</td></tr>
+  <tr><td><code>0.5</code></td><td>One octave lower — half the frequency</td></tr>
+  <tr><td><code>2.0</code></td><td>One octave higher — double the frequency</td></tr>
+  <tr><td><code>0.9</code></td><td>Slightly lower — subtle downward shift, natural for slower/heavier actions</td></tr>
+  <tr><td><code>1.2</code></td><td>Slightly higher — subtle upward shift, natural for smaller/faster actions</td></tr>
+</table>
+<p>
+  Pitch scaling is implemented internally as a sample rate adjustment. It also changes the perceived
+  speed of the sound: a sound at pitch <code>2.0</code> plays twice as fast and finishes in half the
+  time. For looped sounds this shortens each loop cycle; for one-shot sounds it shortens the total
+  playback duration.
+</p>
+<p>
+  In the bell example above, <code>SetPitch()</code> is called before each <code>Play()</code> call so
+  successive presses produce a rising and falling sequence of bell tones from the same audio file. This
+  technique — pitch-shifting a single recorded sample — is widely used in games to add variety to
+  footsteps, impacts, and pickups without recording many separate files.
+</p>
+
+<!-- 9. PlayAmbient -->
+<h3>9. <code>src-&gt;PlayAmbient(path)</code> — non-positional background loops</h3>
+<pre><span class="ty">AudioSource</span>* windSrc = sky-&gt;<span class="fn">AddAudioSource</span>();
+windSrc-&gt;<span class="fn">PlayAmbient</span>(<span class="st">"Sounds/wind.ogg"</span>);</pre>
+<p>
+  <code>PlayAmbient()</code> is a special-purpose play call that bypasses distance attenuation entirely.
+  The sound plays at constant volume everywhere in the scene, looped automatically, on the
+  <em>Music</em> gain channel. Walking toward or away from the entity that owns the source makes no
+  difference to the perceived volume.
+</p>
+<p>
+  Use <code>PlayAmbient()</code> for sounds that are conceptually everywhere at once: wind, rain, ocean
+  waves, cave dripping, the hum of a spaceship interior. These sounds set the mood of the level as a
+  whole rather than pointing the player toward a specific location. Using a regular looped
+  <code>Play()</code> for these would make their volume fluctuate as the player moves, which would feel
+  wrong for a wind that is supposed to blow everywhere equally.
+</p>
+<p>
+  The Music channel is separate from the Sound channel used by <code>Play()</code>. You can control
+  the Music channel gain independently (in a future API version) and it is kept separate from the
+  master volume's effects on sound effects. For background music that should play non-spatially, you
+  can also use <code>PlayMusic()</code> from the flat API covered in Part 10 — the difference is that
+  <code>PlayAmbient()</code> is entity-bound (and could be extended with spatial behaviour in future
+  releases) while <code>PlayMusic()</code> is always a pure stream with no entity association.
+</p>
+
+<!-- ─── LUA EQUIVALENT ────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+<p>
+  The same spatial audio setup in Lua mirrors the C++ API almost one-to-one. Methods on
+  <code>AudioSource</code> objects are called with the Lua colon syntax. <code>SetAudioListener</code>
+  is called on the <code>game</code> global. Key names are passed as strings to
+  <code>Input:IsKeyDown()</code> and <code>Input:IsKeyPressed()</code>.
+</p>
+
+<pre><span class="lua-cm">-- Part 11: Spatial Audio — Lua equivalent</span>
+
+<span class="lua-kw">local</span> player, cc, enemy, bell
+<span class="lua-kw">local</span> rings        = <span class="lua-num">0</span>
+<span class="lua-kw">local</span> bellCooldown = <span class="lua-num">0</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    game:<span class="lua-fn">SetWindowTitle</span>(<span class="lua-str">"Part 11 — Spatial Audio (Lua)"</span>)
+    game:<span class="lua-fn">SetClearColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.05</span>, <span class="lua-num">0.05</span>, <span class="lua-num">0.10</span>, <span class="lua-num">1.0</span>))
+
+    <span class="lua-cm">-- Directional light</span>
+    <span class="lua-kw">local</span> sun = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Sun"</span>)
+    sun:<span class="lua-fn">AddDirectionalLight</span>(<span class="lua-fn">Color</span>(<span class="lua-num">1.0</span>, <span class="lua-num">0.92</span>, <span class="lua-num">0.78</span>), <span class="lua-num">1.1</span>)
+    sun:<span class="lua-fn">SetRotation</span>(<span class="lua-fn">Quaternion</span>(<span class="lua-num">50</span>, <span class="lua-num">35</span>, <span class="lua-num">0</span>))
+
+    <span class="lua-cm">-- Ground</span>
+    <span class="lua-kw">local</span> ground = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Ground"</span>)
+    ground:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Plane.mdl"</span>)
+    ground:<span class="lua-fn">SetScale</span>(<span class="lua-num">30</span>)
+    ground:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">-1</span>, <span class="lua-num">0</span>)
+    ground:<span class="lua-fn">AddBoxCollider</span>(<span class="lua-fn">Vector3</span>(<span class="lua-num">60</span>, <span class="lua-num">0.4</span>, <span class="lua-num">60</span>))
+    ground:<span class="lua-fn">SetCollisionLayer</span>(CollisionLayer.StaticGeometry)
+
+    <span class="lua-cm">-- Player entity (will be the audio listener)</span>
+    player = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Player"</span>)
+    player:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+    player:<span class="lua-fn">SetScale</span>(<span class="lua-num">0.8</span>)
+    player:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+    cc = player:<span class="lua-fn">AddCharacterController</span>(<span class="lua-num">0.35</span>, <span class="lua-num">1.8</span>)
+    cc:<span class="lua-fn">SetGravity</span>(<span class="lua-num">20</span>)
+    player:<span class="lua-fn">SetCollisionLayer</span>(CollisionLayer.Actor)
+    player:<span class="lua-fn">SetCollisionMask</span>(CollisionLayer.StaticGeometry)
+
+    <span class="lua-cm">-- Register the audio listener (equivalent of SetAudioListener in C++)</span>
+    game:<span class="lua-fn">SetAudioListener</span>(player)
+
+    <span class="lua-cm">-- Enemy with looping positional hum</span>
+    enemy = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Enemy"</span>)
+    enemy:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Box.mdl"</span>)
+    enemy:<span class="lua-fn">SetScale</span>(<span class="lua-num">1.3</span>)
+    enemy:<span class="lua-fn">SetMaterialColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.75</span>, <span class="lua-num">0.12</span>, <span class="lua-num">0.12</span>))
+    enemy:<span class="lua-fn">SetPosition</span>(<span class="lua-num">10</span>, <span class="lua-num">0</span>, <span class="lua-num">0</span>)
+
+    <span class="lua-kw">local</span> enemySrc = enemy:<span class="lua-fn">AddAudioSource</span>()
+    enemySrc:<span class="lua-fn">SetRange</span>(<span class="lua-num">2.0</span>, <span class="lua-num">20.0</span>)
+    enemySrc:<span class="lua-fn">SetGain</span>(<span class="lua-num">0.75</span>)
+    enemySrc:<span class="lua-fn">SetLooped</span>(<span class="lua-kw">true</span>)
+    enemySrc:<span class="lua-fn">Play</span>(<span class="lua-str">"Sounds/enemy_hum.ogg"</span>)
+
+    <span class="lua-cm">-- Fire pit with shorter audible radius</span>
+    <span class="lua-kw">local</span> fire = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Fire"</span>)
+    fire:<span class="lua-fn">SetPosition</span>(-<span class="lua-num">5</span>, <span class="lua-num">0</span>, <span class="lua-num">6</span>)
+    <span class="lua-kw">local</span> fireSrc = fire:<span class="lua-fn">AddAudioSource</span>()
+    fireSrc:<span class="lua-fn">SetRange</span>(<span class="lua-num">1.5</span>, <span class="lua-num">12.0</span>)
+    fireSrc:<span class="lua-fn">SetGain</span>(<span class="lua-num">0.85</span>)
+    fireSrc:<span class="lua-fn">SetLooped</span>(<span class="lua-kw">true</span>)
+    fireSrc:<span class="lua-fn">Play</span>(<span class="lua-str">"Sounds/fire_crackle.ogg"</span>)
+
+    <span class="lua-cm">-- Bell entity (AudioSource created lazily in Update)</span>
+    bell = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Bell"</span>)
+    bell:<span class="lua-fn">AddModel</span>(<span class="lua-str">"Models/Sphere.mdl"</span>)
+    bell:<span class="lua-fn">SetScale</span>(<span class="lua-num">0.5</span>)
+    bell:<span class="lua-fn">SetPosition</span>(<span class="lua-num">0</span>, <span class="lua-num">2</span>, -<span class="lua-num">4</span>)
+
+    <span class="lua-cm">-- Ambient wind — non-positional, constant volume</span>
+    <span class="lua-kw">local</span> sky = game:<span class="lua-fn">CreateEntity</span>(<span class="lua-str">"Sky"</span>)
+    <span class="lua-kw">local</span> windSrc = sky:<span class="lua-fn">AddAudioSource</span>()
+    windSrc:<span class="lua-fn">PlayAmbient</span>(<span class="lua-str">"Sounds/wind.ogg"</span>)
+
+    <span class="lua-cm">-- Camera</span>
+    <span class="lua-kw">local</span> cam = game:<span class="lua-fn">CreateCamera</span>()
+    cam:<span class="lua-fn">Follow</span>(player, <span class="lua-num">7.0</span>, <span class="lua-num">3.0</span>)
+    cam:<span class="lua-fn">SetSmoothFollow</span>(<span class="lua-kw">true</span>, <span class="lua-num">6.0</span>)
+
+    <span class="lua-cm">-- HUD</span>
+    <span class="lua-kw">local</span> hud = game:<span class="lua-fn">CreateLabel</span>(<span class="lua-str">"WASD - Move   E - Ring bell   Esc - Quit"</span>)
+    hud:<span class="lua-fn">SetPosition</span>(<span class="lua-num">14</span>, <span class="lua-num">12</span>)
+    hud:<span class="lua-fn">SetFontSize</span>(<span class="lua-num">13</span>)
+    hud:<span class="lua-fn">SetColor</span>(<span class="lua-fn">Color</span>(<span class="lua-num">0.6</span>, <span class="lua-num">0.6</span>, <span class="lua-num">0.6</span>, <span class="lua-num">1.0</span>))
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyPressed</span>(<span class="lua-str">"Escape"</span>) <span class="lua-kw">then</span> game:<span class="lua-fn">Quit</span>() <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Player movement (listener moves automatically with the entity)</span>
+    <span class="lua-kw">local</span> mx, mz = <span class="lua-num">0</span>, <span class="lua-num">0</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"W"</span>) <span class="lua-kw">then</span> mz =  <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"S"</span>) <span class="lua-kw">then</span> mz = -<span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"A"</span>) <span class="lua-kw">then</span> mx = -<span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"D"</span>) <span class="lua-kw">then</span> mx =  <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    cc:<span class="lua-fn">Move</span>(<span class="lua-fn">Vector3</span>(mx, <span class="lua-num">0</span>, mz) * <span class="lua-num">5</span>, dt)
+
+    <span class="lua-cm">-- Bell: lazy-create source, stop old ring, vary pitch, play</span>
+    bellCooldown = bellCooldown - dt
+    <span class="lua-kw">if</span> Input:<span class="lua-fn">IsKeyPressed</span>(<span class="lua-str">"E"</span>) <span class="lua-kw">and</span> bellCooldown &lt;= <span class="lua-num">0</span> <span class="lua-kw">then</span>
+        <span class="lua-kw">local</span> src = bell:<span class="lua-fn">GetAudioSource</span>()
+        <span class="lua-kw">if</span> <span class="lua-kw">not</span> src <span class="lua-kw">then</span> src = bell:<span class="lua-fn">AddAudioSource</span>() <span class="lua-kw">end</span>
+
+        <span class="lua-kw">if</span> src:<span class="lua-fn">IsPlaying</span>() <span class="lua-kw">then</span> src:<span class="lua-fn">Stop</span>() <span class="lua-kw">end</span>
+
+        <span class="lua-kw">local</span> pitch = <span class="lua-num">0.80</span> + (rings % <span class="lua-num">5</span>) * <span class="lua-num">0.10</span>
+        src:<span class="lua-fn">SetPitch</span>(pitch)
+        src:<span class="lua-fn">SetRange</span>(<span class="lua-num">3.0</span>, <span class="lua-num">30.0</span>)
+        src:<span class="lua-fn">SetGain</span>(<span class="lua-num">0.90</span>)
+        src:<span class="lua-fn">SetLooped</span>(<span class="lua-kw">false</span>)
+        src:<span class="lua-fn">Play</span>(<span class="lua-str">"Sounds/bell.wav"</span>)
+
+        rings = rings + <span class="lua-num">1</span>
+        bellCooldown = <span class="lua-num">0.8</span>
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── API QUICK REFERENCE ─────────────────────────────────────────── -->
+<h2>API quick reference — this part</h2>
+<table>
+  <tr><th>Method</th><th>Returns</th><th>Description</th></tr>
+  <tr>
+    <td><code>SetAudioListener(Entity*)</code></td>
+    <td>—</td>
+    <td>Designates the listener entity; all AudioSources attenuate relative to its world position. Call once in <code>Start()</code>.</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;AddAudioSource()</code></td>
+    <td><code>AudioSource*</code></td>
+    <td>Attaches a <code>SoundSource3D</code> to the entity; idempotent — returns the existing source if already added.</td>
+  </tr>
+  <tr>
+    <td><code>entity-&gt;GetAudioSource()</code></td>
+    <td><code>AudioSource*</code></td>
+    <td>Returns the attached AudioSource, or <code>nullptr</code> if one has not been added yet.</td>
+  </tr>
+  <tr>
+    <td><code>src-&gt;SetRange(near, far)</code></td>
+    <td>—</td>
+    <td>Full volume at distance ≤ near; silent at distance ≥ far; linear falloff between. Values in world units.</td>
+  </tr>
+  <tr>
+    <td><code>src-&gt;SetGain(float)</code></td>
+    <td>—</td>
+    <td>Volume ceiling 0.0–1.0; applied at the near distance. Multiplied by distance attenuation and master volume.</td>
+  </tr>
+  <tr>
+    <td><code>src-&gt;SetLooped(bool)</code></td>
+    <td>—</td>
+    <td><code>true</code> = restart automatically at end of file; <code>false</code> (default) = play once. Set before <code>Play()</code>.</td>
+  </tr>
+  <tr>
+    <td><code>src-&gt;Play(path)</code></td>
+    <td>—</td>
+    <td>Loads the audio file from the resource cache and starts playback. Respects current SetLooped, SetGain, SetPitch, SetRange.</td>
+  </tr>
+  <tr>
+    <td><code>src-&gt;Stop()</code></td>
+    <td>—</td>
+    <td>Stops playback immediately and resets the cursor. No-op on an idle source.</td>
+  </tr>
+  <tr>
+    <td><code>src-&gt;IsPlaying()</code></td>
+    <td><code>bool</code></td>
+    <td>True from the moment <code>Play()</code> starts until the file ends (non-looped) or <code>Stop()</code> is called.</td>
+  </tr>
+  <tr>
+    <td><code>src-&gt;SetPitch(float)</code></td>
+    <td>—</td>
+    <td>Frequency multiplier: 1.0 = normal, 0.5 = octave down, 2.0 = octave up. Takes effect on the next <code>Play()</code> call.</td>
+  </tr>
+  <tr>
+    <td><code>src-&gt;PlayAmbient(path)</code></td>
+    <td>—</td>
+    <td>Looped playback on the Music gain channel at constant volume; ignores distance from listener. Use for global atmospheric sounds.</td>
+  </tr>
+</table>
+
+<!-- ─── COMMON MISTAKES ──────────────────────────────────────────────── -->
+<h2>Common mistakes</h2>
+<div class="callout warn">
+  <h4>Common mistakes — Part 11</h4>
+  <ul style="margin-left:1.3rem;margin-top:0.4rem;">
+    <li style="margin-bottom:0.7rem;">
+      <strong>Forgetting to call <code>SetAudioListener()</code>.</strong>
+      Without it the listener stays at the world origin <code>(0, 0, 0)</code>. Sounds attenuate
+      relative to that fixed point rather than the player. The result is that all sounds seem to vary
+      in volume when you stand still, and volume does not change as you walk toward or away from a
+      source. Always call <code>SetAudioListener(player_)</code> in <code>Start()</code>.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Calling <code>Play()</code> before <code>SetLooped()</code>.</strong>
+      <code>SetLooped()</code> must be configured before <code>Play()</code> is called. If you call
+      <code>Play()</code> first and <code>SetLooped(true)</code> second, the sound will play once and
+      stop — the loop flag is read at the moment playback begins. Always set all parameters first,
+      then call <code>Play()</code> last.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Swapping <code>near</code> and <code>far</code> in <code>SetRange()</code>.</strong>
+      <code>SetRange(20.0f, 2.0f)</code> (near &gt; far) produces undefined or silent output.
+      <code>near</code> must always be smaller than <code>far</code>. A common mistake is passing
+      the values in the wrong order when reading documentation that lists parameters as
+      "min distance, max distance". Double-check: first argument = close distance (loud), second
+      argument = far distance (silent).
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Calling <code>AddAudioSource()</code> repeatedly to get the source in callbacks.</strong>
+      Although <code>AddAudioSource()</code> is idempotent, the intent is clearer and slightly more
+      efficient when you use <code>GetAudioSource()</code> to retrieve an existing source and only call
+      <code>AddAudioSource()</code> as a fallback when the result is <code>nullptr</code>. The
+      pattern <code>auto* s = e-&gt;GetAudioSource(); if (!s) s = e-&gt;AddAudioSource();</code>
+      makes it obvious that you do not want duplicate sources.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Not calling <code>Stop()</code> before re-playing a one-shot sound.</strong>
+      If a non-looped sound is still playing and you call <code>Play()</code> again, it restarts from
+      the beginning abruptly. For sounds where overlap sounds bad (a bell, a single gun click), call
+      <code>Stop()</code> first. For sounds where rapid re-triggering with overlap is acceptable (rapid
+      footsteps, gunfire), you can skip the stop.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Using <code>PlayAmbient()</code> for sounds that should attenuate with distance.</strong>
+      <code>PlayAmbient()</code> permanently bypasses distance attenuation. If you want a sound to
+      be loud near its source and quiet far away, use <code>Play()</code> with <code>SetLooped(true)</code>
+      and an appropriate <code>SetRange()</code> instead. Reserve <code>PlayAmbient()</code>
+      for truly global atmospheric sounds that should be equally loud everywhere.
+    </li>
+    <li style="margin-bottom:0.7rem;">
+      <strong>Setting <code>SetPitch()</code> after <code>Play()</code> and expecting it to apply
+      immediately.</strong>
+      Pitch takes effect at the start of the next playback. If you call
+      <code>src-&gt;SetPitch(1.5f)</code> while a sound is already playing, the change will be heard
+      on the next <code>Play()</code> call, not mid-stream. To hear an immediate pitch change, call
+      <code>Stop()</code> first, then <code>SetPitch()</code>, then <code>Play()</code> again.
+    </li>
+    <li style="margin-bottom:0.0rem;">
+      <strong>Passing the near distance as the total audible radius.</strong>
+      Beginners sometimes write <code>SetRange(0.0f, 10.0f)</code> thinking the sound is full volume
+      at the source and fades to nothing at 10 m — which is actually correct. But then they write
+      <code>SetRange(10.0f, 10.0f)</code> thinking "full at 10 m, fade after 10 m" — which makes the
+      sound inaudible everywhere because near equals far. Remember: near is the <em>loudest zone</em>
+      (0 m to near distance = full volume), not the fade-out start. If you want the sound to start
+      fading immediately from the source, set near to 0 or a very small value like 0.5.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── TRY IT YOURSELF ──────────────────────────────────────────────── -->
+<h2>Try it yourself</h2>
+<p>
+  Run the example and experiment with these changes to deepen your understanding of the spatial audio system:
+</p>
+<ol>
+  <li>
+    Change the enemy's <code>SetRange(2.0f, 20.0f)</code> to <code>SetRange(0.5f, 5.0f)</code>.
+    Now the enemy hum only reaches 5 metres. Start the game, walk toward the enemy and listen to the
+    abrupt cutoff at 5 m. Then restore the range to something more natural.
+  </li>
+  <li>
+    Mute the enemy hum when its health reaches zero. After the enemy is "destroyed" (just
+    <code>enemy_-&gt;SetActive(false)</code> for the demo), call
+    <code>enemy_-&gt;GetAudioSource()-&gt;Stop()</code> to silence it. Verify that the source stays
+    silent after reactivation until you call <code>Play()</code> again.
+  </li>
+  <li>
+    Add a second fire entity at a different position with <code>SetRange(1.0f, 8.0f)</code> and the
+    same sound file. Walk between the two fires and listen to how each contributes independently to
+    the soundscape — the engine mixes both sources simultaneously.
+  </li>
+  <li>
+    Swap the bell's cycling pitch for a random pitch each press: pick a random value between 0.7 and
+    1.3 using <code>0.7f + (rand() % 60) / 100.0f</code>. Compare the natural randomness against the
+    deterministic cycling. For footsteps, random pitch variation is usually preferred.
+  </li>
+  <li>
+    Replace the ambient <code>windSrc-&gt;PlayAmbient("Sounds/wind.ogg")</code> with a regular
+    <code>windSrc-&gt;SetLooped(true); windSrc-&gt;Play("Sounds/wind.ogg")</code> and set a range of
+    <code>SetRange(0.0f, 8.0f)</code>. Walk toward and away from the sky entity's position. Observe
+    how the wind now gets louder and quieter — often undesirable for atmospheric sounds, which is
+    exactly why <code>PlayAmbient()</code> exists.
+  </li>
+  <li>
+    Integrate with the trigger system. Place a trigger box in the scene. When the player enters,
+    call <code>fire_-&gt;GetAudioSource()-&gt;SetGain(0.0f)</code> to silence the fire source
+    without stopping it (the fire keeps playing internally; it is just muted). When the player exits,
+    restore <code>SetGain(0.85f)</code>. This pattern is useful for room-based audio transitions.
+  </li>
+</ol>
+
+<!-- ─── WHAT YOU LEARNED ─────────────────────────────────────────────── -->
+<h2>What you learned</h2>
+<p>
+  This part covered the entire spatial audio API that simple-3d wraps around Urho3D's
+  <code>SoundSource3D</code> system:
+</p>
+<ul>
+  <li>
+    <strong><code>SetAudioListener(entity)</code></strong> designates the scene entity that acts as
+    the player's ears. Every <code>AudioSource</code> in the scene attenuates relative to this
+    entity's world position, updated automatically each frame. Call it once in <code>Start()</code>.
+  </li>
+  <li>
+    <strong><code>entity-&gt;AddAudioSource()</code></strong> attaches a positional audio component.
+    The component tracks the entity's world position. Use <strong><code>GetAudioSource()</code></strong>
+    to retrieve it later without risk of creating a duplicate.
+  </li>
+  <li>
+    <strong><code>SetRange(near, far)</code></strong> defines the distance attenuation envelope. The
+    sound is at full <code>SetGain</code> within <code>near</code> metres, linearly falls off between
+    <code>near</code> and <code>far</code>, and is completely silent beyond <code>far</code>.
+  </li>
+  <li>
+    <strong><code>SetGain(float)</code></strong> sets the volume ceiling (0–1) at the near distance.
+    It combines with distance attenuation and the master volume slider.
+  </li>
+  <li>
+    <strong><code>SetLooped(bool)</code></strong> controls whether the sound repeats
+    automatically. Set it before <code>Play()</code>. Use <code>true</code> for ambient continuous
+    sounds and <code>false</code> for one-shot effects.
+  </li>
+  <li>
+    <strong><code>Play(path)</code></strong> loads and starts the sound. Respects all previously
+    configured parameters. Restarting a playing source calls it again.
+    <strong><code>Stop()</code></strong> halts playback immediately.
+    <strong><code>IsPlaying()</code></strong> lets you query the current state before deciding
+    whether to stop or restart.
+  </li>
+  <li>
+    <strong><code>SetPitch(float)</code></strong> scales the playback frequency. Values above 1.0
+    produce higher pitch and shorter duration; values below 1.0 produce lower pitch and longer
+    duration. Use it to add natural variety to repeated sounds from a single audio file.
+  </li>
+  <li>
+    <strong><code>PlayAmbient(path)</code></strong> plays a looped, non-positional sound on the
+    Music gain channel. Distance from the listener has no effect. Use this for global atmospheric
+    sounds that should be equally audible everywhere in the scene.
+  </li>
+</ul>
+<p>
+  With spatial audio in place your game world will feel significantly more alive. As the player
+  explores, the soundscape changes dynamically — distant enemies become audible before they are
+  visible, fire sounds grow louder as the player approaches, and a subtle constant wind ties the
+  whole scene together without demanding the player's attention.
+</p>
+<p>
+  The next part moves on to 2D rendering mode, showing how to switch the engine from its default
+  perspective projection to an orthographic 2D camera setup.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-10.html">&#8592; Part 10: Audio</a>
+  <a href="tutorial-12.html">Part 12: 2D Mode &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

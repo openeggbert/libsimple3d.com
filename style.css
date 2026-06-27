@@ -441,3 +441,26 @@ kbd {
   .site-header nav { display: none; }
   .content { padding: 1rem; }
 }
+
+/* ─── Tutorial series ─────────────────────────────────────────────── */
+.tutorial-breadcrumb { font-size: 0.85rem; color: #888; margin-bottom: 1.5rem; }
+.tutorial-breadcrumb a { color: #5ba4cf; text-decoration: none; }
+.tutorial-part { display: block; font-size: 0.9rem; color: #5ba4cf; font-weight: 400; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.3rem; }
+.tutorial-sidebar-list { padding-left: 1.4rem; margin: 0; list-style: decimal; }
+.tutorial-sidebar-list li { margin-bottom: 0.22rem; font-size: 0.84rem; }
+.tutorial-sidebar-list li.active > a { color: #e8e8e8; font-weight: bold; }
+.tutorial-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid #2a2d3a; gap: 1rem; flex-wrap: wrap; }
+.tutorial-nav a { display: inline-block; padding: 0.55rem 1.1rem; background: #1e2230; border: 1px solid #2a2d3a; border-radius: 6px; color: #5ba4cf; text-decoration: none; font-size: 0.9rem; transition: background 0.18s, border-color 0.18s; }
+.tutorial-nav a:hover { background: #252a40; border-color: #5ba4cf; }
+.tutorial-nav .placeholder { visibility: hidden; }
+.callout.new { border-left-color: #9b59b6; background: #1a1525; }
+.callout.new h4 { color: #c39bd3; }
+/* ─── Mobile responsive ───────────────────────────────────────────── */
+@media (max-width: 800px) {
+  .site-header { flex-direction: column; align-items: flex-start; gap: 0.6rem; padding: 0.8rem 1rem; }
+  .site-header nav { flex-wrap: wrap; gap: 0.3rem 0.7rem; }
+  .layout { flex-direction: column; }
+  .sidebar { width: 100%; min-width: unset; border-right: none; border-bottom: 1px solid #2a2d3a; padding-bottom: 1rem; max-height: none; }
+  main.content { padding: 1rem; }
+}
+table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }

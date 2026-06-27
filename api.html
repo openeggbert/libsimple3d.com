@@ -12,11 +12,15 @@
   <nav>
     <a href="index.html">Home</a>
     <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html">Tutorial</a>
     <a href="architecture.html">Architecture</a>
     <a href="api.html" class="active">C++ API</a>
     <a href="lua-api.html">Lua API</a>
     <a href="examples.html">Examples</a>
     <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
   </nav>
 </header>
 
@@ -65,6 +69,24 @@
     <li><a href="#camera-2d">2D / ortho</a></li>
     <li><a href="#camera-split">Split-screen</a></li>
     <li><a href="#camera-projection">Projection</a></li>
+  </ul>
+  <h3>Components</h3>
+  <ul>
+    <li><a href="#charcontroller">CharacterController</a></li>
+    <li><a href="#animstatemachine">AnimStateMachine</a></li>
+    <li><a href="#behaviorfSM">BehaviorFSM</a></li>
+    <li><a href="#particles">ParticleEmitter</a></li>
+    <li><a href="#audiosource">AudioSource 3D</a></li>
+    <li><a href="#tagging">Entity Tagging</a></li>
+    <li><a href="#constraints">Physics Constraints</a></li>
+  </ul>
+  <h3>Game Systems</h3>
+  <ul>
+    <li><a href="#tween">Tween</a></li>
+    <li><a href="#debugdraw">Debug Draw</a></li>
+    <li><a href="#sky">Sky &amp; Atmosphere</a></li>
+    <li><a href="#entityvisual">Materials &amp; Visual</a></li>
+    <li><a href="#diagnostics">Resource Diagnostics</a></li>
   </ul>
 </aside>
 
@@ -887,6 +909,520 @@ cam2-&gt;<span class="fn">SetViewport</span>(<span class="val">1</span>, <span c
     <td>Integer 3D point (voxel position)</td>
   </tr>
 </table>
+
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="charcontroller">CharacterController</h2>
+<p>
+  A kinematic character controller built on Bullet physics. Attach to a root entity
+  that acts as the physics body; use a child entity for the visual model.
+</p>
+<pre><span class="cm">// Setup in Start()</span>
+<span class="ty">CharacterController</span>* cc = player-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);  <span class="cm">// radius, height</span>
+cc-&gt;<span class="fn">SetGravity</span>(<span class="val">25.0f</span>);
+player-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+player-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+    <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>,
+    <span class="ty">CollisionLayer</span>::<span class="val">Trigger</span>
+}));
+
+<span class="cm">// In Update(dt)</span>
+cc-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(mx, <span class="val">0</span>, mz) * speed, dt);   <span class="cm">// XZ movement; Y managed by gravity</span>
+cc-&gt;<span class="fn">TryJump</span>(<span class="val">12.0f</span>);                          <span class="cm">// checks IsOnGround() internally</span>
+
+<span class="cm">// Retrieve existing controller</span>
+<span class="ty">CharacterController</span>* cc = player-&gt;<span class="fn">GetCharacterController</span>();  <span class="cm">// nullptr if not added</span></pre>
+
+<table>
+  <tr><th>Method</th><th>Parameters</th><th>Description</th></tr>
+  <tr><td><code>AddCharacterController(radius, height)</code></td><td>float, float</td><td>Attach controller; idempotent — returns existing CC if called again</td></tr>
+  <tr><td><code>GetCharacterController()</code></td><td>—</td><td>Returns <code>CharacterController*</code> or <code>nullptr</code></td></tr>
+  <tr><td><code>Move(vel, dt)</code></td><td>Vector3, float</td><td>Sets XZ velocity; gravity manages Y automatically</td></tr>
+  <tr><td><code>TryJump(speed)</code></td><td>float m/s</td><td>Jump if currently on ground; safe to call unconditionally each frame</td></tr>
+  <tr><td><code>Jump(speed)</code></td><td>float m/s</td><td>Unconditional jump — guard manually with <code>IsOnGround()</code> if needed</td></tr>
+  <tr><td><code>IsOnGround()</code></td><td>—</td><td>Returns <code>bool</code> — slope-filtered grounding check</td></tr>
+  <tr><td><code>SetGravity(g)</code></td><td>float m/s²</td><td>Per-body gravity override (default 9.81)</td></tr>
+  <tr><td><code>SetMaxSlope(deg)</code></td><td>float°</td><td>Maximum walkable slope in degrees (default 45°)</td></tr>
+  <tr><td><code>SetStepHeight(h)</code></td><td>float m</td><td>Auto step-up height in metres (default 0.4 m)</td></tr>
+  <tr><td><code>SetEnabled(bool)</code></td><td>bool</td><td>Freeze or unfreeze the controller and its rigid body</td></tr>
+</table>
+
+<div class="callout info">
+  <h4>Root / visual entity pattern</h4>
+  <p>
+    Set the root entity on <code>CollisionLayer::Actor</code> and attach the
+    <code>CharacterController</code> to it. Create a child entity for the mesh
+    (<code>AddModel</code>) so the visual can be offset or rotated without
+    affecting the physics capsule.
+  </p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="animstatemachine">AnimStateMachine</h2>
+<p>
+  A data-driven animation graph that wraps <code>AnimationController</code>.
+  Transitions fire automatically each frame when conditions are met.
+  Call <code>Update(dt)</code> once per frame after setting conditions.
+</p>
+<pre><span class="cm">// Setup in Start()</span>
+<span class="ty">AnimStateMachine</span>* sm = e-&gt;<span class="fn">AddAnimStateMachine</span>();   <span class="cm">// also creates AnimationController</span>
+sm-&gt;<span class="fn">AddState</span>(<span class="st">"idle"</span>,   <span class="st">"Anims/Idle.ani"</span>,   <span class="kw">true</span>);   <span class="cm">// first = default</span>
+sm-&gt;<span class="fn">AddState</span>(<span class="st">"walk"</span>,   <span class="st">"Anims/Walk.ani"</span>,   <span class="kw">true</span>);
+sm-&gt;<span class="fn">AddState</span>(<span class="st">"jump"</span>,   <span class="st">"Anims/Jump.ani"</span>,   <span class="kw">false</span>);  <span class="cm">// non-looped</span>
+
+sm-&gt;<span class="fn">AddTransition</span>(<span class="st">"idle"</span>, <span class="st">"walk"</span>, <span class="st">"moving"</span>);
+sm-&gt;<span class="fn">AddTransitionBool</span>(<span class="st">"walk"</span>, <span class="st">"idle"</span>, <span class="st">"moving"</span>, <span class="kw">false</span>);
+sm-&gt;<span class="fn">AddTransitionFloat</span>(<span class="st">"walk"</span>, <span class="st">"run"</span>, <span class="st">"speed"</span>, <span class="val">4.0f</span>);
+sm-&gt;<span class="fn">AddTransition</span>(<span class="st">"idle"</span>, <span class="st">"jump"</span>, <span class="st">"jump"</span>);
+sm-&gt;<span class="fn">AddAutoTransition</span>(<span class="st">"jump"</span>, <span class="st">"idle"</span>);   <span class="cm">// fires when non-looped anim ends</span>
+
+<span class="cm">// In Update(dt)</span>
+sm-&gt;<span class="fn">SetBool</span>(<span class="st">"moving"</span>, speed &gt; <span class="val">0.1f</span>);
+sm-&gt;<span class="fn">SetFloat</span>(<span class="st">"speed"</span>, speed);
+sm-&gt;<span class="fn">SetTrigger</span>(<span class="st">"jump"</span>);   <span class="cm">// consumed after transition fires</span>
+sm-&gt;<span class="fn">Update</span>(dt);
+
+std::<span class="ty">string</span> state = sm-&gt;<span class="fn">GetCurrentState</span>();
+<span class="ty">bool</span> inIdle = sm-&gt;<span class="fn">IsInState</span>(<span class="st">"idle"</span>);
+
+<span class="cm">// Retrieve after creation</span>
+<span class="ty">AnimStateMachine</span>* sm = e-&gt;<span class="fn">GetAnimStateMachine</span>();  <span class="cm">// nullptr if not added</span></pre>
+
+<table>
+  <tr><th>Method</th><th>Description</th></tr>
+  <tr><td><code>AddState(name, animPath, loop)</code></td><td>Register a state; first registered is the default</td></tr>
+  <tr><td><code>SetDefaultState(name)</code></td><td>Override the starting state</td></tr>
+  <tr><td><code>AddTransition(from, to, key, blendTime=0.2)</code></td><td>Fires when bool key is true or a trigger with that name is pending</td></tr>
+  <tr><td><code>AddTransitionBool(from, to, key, expect, blendTime)</code></td><td>Fires when bool key equals <code>expect</code></td></tr>
+  <tr><td><code>AddTransitionFloat(from, to, key, threshold, gt, blendTime)</code></td><td>Fires on float comparison (greater-than by default)</td></tr>
+  <tr><td><code>AddAutoTransition(from, to, blendTime=0.1)</code></td><td>Fires automatically when a non-looped animation ends</td></tr>
+  <tr><td><code>SetBool(key, value)</code> / <code>GetBool(key)</code></td><td>Persistent bool condition</td></tr>
+  <tr><td><code>SetFloat(key, value)</code> / <code>GetFloat(key)</code></td><td>Continuous float condition</td></tr>
+  <tr><td><code>SetTrigger(key)</code></td><td>One-shot event; consumed after the transition fires</td></tr>
+  <tr><td><code>Update(dt)</code></td><td>Evaluate and fire transitions — call once per frame</td></tr>
+  <tr><td><code>GetCurrentState()</code></td><td>Returns <code>string</code> — name of the active state</td></tr>
+  <tr><td><code>IsInState(name)</code></td><td>Returns <code>bool</code></td></tr>
+  <tr><td><code>ForceState(name)</code></td><td>Immediate state override; calls onExit / onEnter</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="behaviorfSM">BehaviorFSM</h2>
+<p>
+  A lightweight finite-state machine for AI behaviour. States carry
+  <code>onEnter</code>, <code>onUpdate(dt)</code>, and <code>onExit</code> callbacks.
+  Transition conditions are polled every <code>Update</code>; the first matching
+  condition fires.
+</p>
+<pre><span class="ty">BehaviorFSM</span>* fsm = enemy_-&gt;<span class="fn">AddBehaviorFSM</span>();
+
+<span class="cm">// Custom state</span>
+fsm-&gt;<span class="fn">AddState</span>(<span class="st">"idle"</span>,
+    [&amp;]{ enemy_-&gt;<span class="fn">StopMoving</span>(); },   <span class="cm">// onEnter</span>
+    [&amp;](<span class="ty">float</span> dt){ },                <span class="cm">// onUpdate(dt)</span>
+    {});                               <span class="cm">// onExit</span>
+
+<span class="cm">// Built-in patrol — loops waypoints via NavMesh</span>
+fsm-&gt;<span class="fn">AddPatrolState</span>(<span class="st">"patrol"</span>, {
+    <span class="ty">Vector3</span>(<span class="val">-5</span>, <span class="val">0</span>, <span class="val">0</span>),
+    <span class="ty">Vector3</span>( <span class="val">5</span>, <span class="val">0</span>, <span class="val">0</span>),
+}, <span class="val">2.0f</span>);   <span class="cm">// speed m/s</span>
+
+<span class="cm">// Built-in chase — follows target via NavMesh</span>
+fsm-&gt;<span class="fn">AddChaseState</span>(<span class="st">"chase"</span>, player_, <span class="val">4.0f</span>, <span class="val">1.5f</span>);  <span class="cm">// target, speed, stopDist</span>
+
+<span class="cm">// Condition transitions (first match wins each frame)</span>
+fsm-&gt;<span class="fn">AddTransition</span>(<span class="st">"patrol"</span>, <span class="st">"chase"</span>,
+    [&amp;]{ <span class="kw">return</span> (enemy_-&gt;<span class="fn">GetPosition</span>() - player_-&gt;<span class="fn">GetPosition</span>()).<span class="fn">Length</span>() &lt; <span class="val">8.0f</span>; });
+fsm-&gt;<span class="fn">AddTransition</span>(<span class="st">"chase"</span>, <span class="st">"patrol"</span>,
+    [&amp;]{ <span class="kw">return</span> (enemy_-&gt;<span class="fn">GetPosition</span>() - player_-&gt;<span class="fn">GetPosition</span>()).<span class="fn">Length</span>() &gt; <span class="val">12.0f</span>; });
+
+<span class="cm">// Manual override (stun, death, etc.)</span>
+fsm-&gt;<span class="fn">ForceState</span>(<span class="st">"stunned"</span>);
+
+<span class="cm">// In Update(dt):</span>
+fsm-&gt;<span class="fn">Update</span>(dt);
+
+std::<span class="ty">string</span> state = fsm-&gt;<span class="fn">GetCurrentState</span>();
+
+<span class="cm">// Retrieve after creation</span>
+<span class="ty">BehaviorFSM</span>* fsm = enemy_-&gt;<span class="fn">GetBehaviorFSM</span>();  <span class="cm">// nullptr if not added</span></pre>
+
+<table>
+  <tr><th>Method</th><th>Description</th></tr>
+  <tr><td><code>AddState(name, onEnter, onUpdate, onExit)</code></td><td>Custom state; first registered is the default</td></tr>
+  <tr><td><code>AddPatrolState(name, waypoints, speed=3)</code></td><td>Built-in NavMesh waypoint loop</td></tr>
+  <tr><td><code>AddChaseState(name, target, speed=4, stopDist=1.5)</code></td><td>Built-in NavMesh target follow</td></tr>
+  <tr><td><code>AddTransition(from, to, conditionFn)</code></td><td><code>std::function&lt;bool()&gt;</code> — first matching condition fires</td></tr>
+  <tr><td><code>Update(dt)</code></td><td>Poll transitions and tick active state — call once per frame</td></tr>
+  <tr><td><code>GetCurrentState()</code></td><td>Returns <code>string</code> — name of the active state</td></tr>
+  <tr><td><code>IsInState(name)</code></td><td>Returns <code>bool</code></td></tr>
+  <tr><td><code>ForceState(name)</code></td><td>Immediate override; calls <code>onExit</code> then <code>onEnter</code></td></tr>
+</table>
+
+<div class="callout info">
+  <h4>NavMesh required for patrol and chase</h4>
+  <p>
+    <code>AddPatrolState</code> and <code>AddChaseState</code> use <code>Entity::MoveToward</code>
+    internally. Call <code>BuildNavMesh()</code> in <code>Start()</code> before the first
+    <code>fsm-&gt;Update(dt)</code>.
+  </p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="particles">ParticleEmitter</h2>
+<p>
+  Attaches a Urho3D <code>ParticleEffect</code> XML to an entity. The emitter follows
+  the entity's world position. Multiple emitters per entity are not supported — call
+  <code>AddParticleEmitter</code> once and use <code>GetParticleEmitter</code> to retrieve it.
+</p>
+<pre><span class="ty">ParticleEmitter</span>* fx = e-&gt;<span class="fn">AddParticleEmitter</span>(<span class="st">"Particles/Sparkle.xml"</span>);
+fx-&gt;<span class="fn">Play</span>();          <span class="cm">// start continuous emission</span>
+fx-&gt;<span class="fn">Stop</span>();          <span class="cm">// stop; live particles linger until they expire</span>
+fx-&gt;<span class="fn">Burst</span>();         <span class="cm">// one-shot: reset + one activetime cycle</span>
+fx-&gt;<span class="fn">SetEmitting</span>(<span class="kw">false</span>);
+<span class="ty">bool</span> on = fx-&gt;<span class="fn">IsEmitting</span>();
+
+<span class="cm">// Retrieve existing emitter</span>
+<span class="ty">ParticleEmitter</span>* fx = e-&gt;<span class="fn">GetParticleEmitter</span>();  <span class="cm">// nullptr if none added</span></pre>
+
+<table>
+  <tr><th>Method</th><th>Description</th></tr>
+  <tr><td><code>AddParticleEmitter(xmlPath)</code></td><td>Load <code>ParticleEffect</code> XML and attach emitter</td></tr>
+  <tr><td><code>GetParticleEmitter()</code></td><td>Returns existing emitter or <code>nullptr</code></td></tr>
+  <tr><td><code>Play()</code></td><td>Start continuous emission</td></tr>
+  <tr><td><code>Stop()</code></td><td>Stop emitting; existing particles finish naturally</td></tr>
+  <tr><td><code>Burst(int count = -1)</code></td><td>One-shot burst; <code>count</code> overrides the XML particle count</td></tr>
+  <tr><td><code>SetEmitting(bool)</code></td><td>Toggle emission on / off</td></tr>
+  <tr><td><code>IsEmitting()</code></td><td>Returns <code>bool</code></td></tr>
+</table>
+
+<h4>Built-in preset paths</h4>
+<table>
+  <tr><th>Path</th><th>Effect</th></tr>
+  <tr><td><code>"Particles/Fire.xml"</code></td><td>Continuous fire column</td></tr>
+  <tr><td><code>"Particles/Smoke.xml"</code></td><td>Grey smoke cloud</td></tr>
+  <tr><td><code>"Particles/Explosion.xml"</code></td><td>One-shot fiery blast — use with <code>Burst()</code></td></tr>
+  <tr><td><code>"Particles/Sparks.xml"</code></td><td>Short-lived spark shower</td></tr>
+  <tr><td><code>"Particles/Snow.xml"</code></td><td>Drifting snow (place emitter at high altitude)</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="audiosource">AudioSource (3D Positional)</h2>
+<p>
+  Attaches a <code>SoundSource3D</code> to an entity. Volume falls off with distance
+  between the emitter and the listener. Call <code>SetAudioListener(entity)</code>
+  (a <code>Game</code> method) to designate the listener; the default is the camera entity.
+</p>
+<pre><span class="cm">// Set listener once in Start()</span>
+<span class="fn">SetAudioListener</span>(player_);
+
+<span class="cm">// Attach a positional source</span>
+<span class="ty">AudioSource</span>* src = e-&gt;<span class="fn">AddAudioSource</span>();
+src-&gt;<span class="fn">SetRange</span>(<span class="val">2.0f</span>, <span class="val">30.0f</span>);   <span class="cm">// near (full vol) / far (silence) in world units</span>
+src-&gt;<span class="fn">SetGain</span>(<span class="val">0.8f</span>);
+src-&gt;<span class="fn">SetLooped</span>(<span class="kw">true</span>);
+src-&gt;<span class="fn">Play</span>(<span class="st">"Sounds/hum.ogg"</span>);
+
+src-&gt;<span class="fn">SetPitch</span>(<span class="val">1.5f</span>);                       <span class="cm">// 1.0 = normal; 2.0 = octave up</span>
+src-&gt;<span class="fn">Stop</span>();
+<span class="ty">bool</span> playing = src-&gt;<span class="fn">IsPlaying</span>();
+
+src-&gt;<span class="fn">PlayAmbient</span>(<span class="st">"Sounds/wind.ogg"</span>);       <span class="cm">// looped on music gain channel</span>
+
+<span class="cm">// Retrieve existing source</span>
+<span class="ty">AudioSource</span>* src = e-&gt;<span class="fn">GetAudioSource</span>();     <span class="cm">// nullptr if not added</span></pre>
+
+<table>
+  <tr><th>Method</th><th>Description</th></tr>
+  <tr><td><code>AddAudioSource()</code></td><td>Attach <code>SoundSource3D</code>; idempotent</td></tr>
+  <tr><td><code>GetAudioSource()</code></td><td>Returns existing source or <code>nullptr</code></td></tr>
+  <tr><td><code>Play(path)</code></td><td>Load and play; respects the current <code>SetLooped</code> flag</td></tr>
+  <tr><td><code>Stop()</code></td><td>Stop playback immediately</td></tr>
+  <tr><td><code>IsPlaying()</code></td><td>Returns <code>bool</code></td></tr>
+  <tr><td><code>SetLooped(bool)</code></td><td>Loop flag applied to the next <code>Play()</code> call</td></tr>
+  <tr><td><code>SetGain(float)</code></td><td>Volume 0–1</td></tr>
+  <tr><td><code>SetPitch(float)</code></td><td>Frequency multiplier; 1.0 = normal pitch</td></tr>
+  <tr><td><code>SetRange(near, far)</code></td><td>Distance attenuation in world units</td></tr>
+  <tr><td><code>PlayAmbient(path)</code></td><td>Looped playback on the music gain channel</td></tr>
+  <tr><td><code>SetAudioListener(Entity*)</code> <em>(Game)</em></td><td>Set 3D listener position; default is the camera entity</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="tagging">Entity Tagging</h2>
+<p>
+  Tags are lightweight string labels for categorising entities. An entity can hold
+  multiple tags. <code>AddTag</code> is idempotent. Use <code>Game::FindEntitiesByTag</code>
+  to retrieve all live entities with a given tag (DFS order, excludes pending-destroy).
+</p>
+<pre>e-&gt;<span class="fn">AddTag</span>(<span class="st">"enemy"</span>);                         <span class="cm">// idempotent</span>
+e-&gt;<span class="fn">AddTag</span>(<span class="st">"boss"</span>);
+e-&gt;<span class="fn">HasTag</span>(<span class="st">"enemy"</span>);                         <span class="cm">// → true</span>
+e-&gt;<span class="fn">RemoveTag</span>(<span class="st">"boss"</span>);                        <span class="cm">// no-op if absent</span>
+std::<span class="ty">vector</span>&lt;<span class="ty">string</span>&gt; tags = e-&gt;<span class="fn">GetTags</span>();
+
+<span class="cm">// Query all entities with a tag</span>
+std::<span class="ty">vector</span>&lt;<span class="ty">Entity</span>*&gt; enemies = <span class="fn">FindEntitiesByTag</span>(<span class="st">"enemy"</span>);
+<span class="kw">for</span> (<span class="ty">Entity</span>* e : enemies)
+    e-&gt;<span class="fn">AddTag</span>(<span class="st">"alerted"</span>);</pre>
+
+<table>
+  <tr><th>Method</th><th>Returns</th><th>Description</th></tr>
+  <tr><td><code>AddTag(string)</code></td><td>—</td><td>Add a tag; idempotent</td></tr>
+  <tr><td><code>HasTag(string)</code></td><td><code>bool</code></td><td>True if the tag is present</td></tr>
+  <tr><td><code>RemoveTag(string)</code></td><td>—</td><td>Remove a tag; no-op if absent</td></tr>
+  <tr><td><code>GetTags()</code></td><td><code>vector&lt;string&gt;</code></td><td>All current tags; order unspecified</td></tr>
+  <tr><td><code>Game::FindEntitiesByTag(string)</code></td><td><code>vector&lt;Entity*&gt;</code></td><td>All tagged live entities; excludes pending-destroy</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="constraints">Physics Constraints</h2>
+<p>
+  Joints between two rigid bodies. Create with <code>CreateConstraint(type, bodyA, bodyB)</code>.
+  Collision between the two joined bodies is disabled by default.
+  Use <code>DestroyConstraint(joint)</code> for permanent removal; the pointer is invalid afterwards.
+</p>
+<pre><span class="cm">// Hinged door — rotates around Y, limited 0–90°</span>
+<span class="ty">Constraint</span>* door = <span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">Hinge</span>, doorEntity, anchorEntity);
+door-&gt;<span class="fn">SetHingeAxis</span>(<span class="ty">Vector3</span>::UP);
+door-&gt;<span class="fn">SetHingeLimits</span>(<span class="val">0.0f</span>, <span class="val">90.0f</span>);
+
+<span class="cm">// Motor-driven rotating platform</span>
+door-&gt;<span class="fn">SetMotorEnabled</span>(<span class="kw">true</span>);
+door-&gt;<span class="fn">SetMotorSpeed</span>(<span class="val">1.5f</span>);        <span class="cm">// rad/s</span>
+door-&gt;<span class="fn">SetMotorMaxForce</span>(<span class="val">500.0f</span>);
+
+<span class="cm">// Moving platform on a rail</span>
+<span class="ty">Constraint</span>* rail = <span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">Slider</span>, platform, anchor);
+rail-&gt;<span class="fn">SetSliderAxis</span>(<span class="ty">Vector3</span>(<span class="val">1</span>, <span class="val">0</span>, <span class="val">0</span>));
+rail-&gt;<span class="fn">SetSliderLimits</span>(<span class="val">-5.0f</span>, <span class="val">5.0f</span>);
+rail-&gt;<span class="fn">SetMotorEnabled</span>(<span class="kw">true</span>);
+rail-&gt;<span class="fn">SetMotorSpeed</span>(<span class="val">2.0f</span>);          <span class="cm">// m/s</span>
+
+<span class="cm">// Chain link / pendulum</span>
+<span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">BallSocket</span>, linkA, linkB);
+
+<span class="cm">// Rigid attachment (approximate)</span>
+<span class="fn">CreateConstraint</span>(<span class="ty">ConstraintType</span>::<span class="val">Fixed</span>, objA, objB);
+
+<span class="cm">// Temporary disable / permanent removal</span>
+joint-&gt;<span class="fn">SetEnabled</span>(<span class="kw">false</span>);
+joint-&gt;<span class="fn">SetEnabled</span>(<span class="kw">true</span>);
+<span class="fn">DestroyConstraint</span>(joint);  joint = <span class="kw">nullptr</span>;</pre>
+
+<h4>Constraint types</h4>
+<table>
+  <tr><th>Type</th><th>Motion allowed</th></tr>
+  <tr><td><code>ConstraintType::BallSocket</code></td><td>All rotational — chains, pendulums</td></tr>
+  <tr><td><code>ConstraintType::Hinge</code></td><td>One rotational axis — doors, levers</td></tr>
+  <tr><td><code>ConstraintType::Slider</code></td><td>One translational axis — platforms, lifts</td></tr>
+  <tr><td><code>ConstraintType::Fixed</code></td><td>None (rigid, approximate)</td></tr>
+</table>
+
+<h4>Method reference</h4>
+<table>
+  <tr><th>Method</th><th>Description</th></tr>
+  <tr><td><code>SetHingeAxis(Vector3)</code></td><td>Rotation axis in body-A local space</td></tr>
+  <tr><td><code>SetHingeLimits(min°, max°)</code></td><td>Angular limits in degrees</td></tr>
+  <tr><td><code>SetSliderAxis(Vector3)</code></td><td>Slide direction in body-A local space</td></tr>
+  <tr><td><code>SetSliderLimits(min, max)</code></td><td>Linear limits in world units</td></tr>
+  <tr><td><code>SetMotorEnabled(bool)</code></td><td>Enable / disable motor drive</td></tr>
+  <tr><td><code>SetMotorSpeed(float)</code></td><td>rad/s (Hinge) or m/s (Slider)</td></tr>
+  <tr><td><code>SetMotorMaxForce(float)</code></td><td>Maximum impulse per step</td></tr>
+  <tr><td><code>SetEnabled(bool)</code></td><td>Temporarily disable / re-enable the joint</td></tr>
+  <tr><td><code>IsEnabled()</code></td><td>Returns <code>bool</code></td></tr>
+  <tr><td><code>DestroyConstraint(joint)</code></td><td>Permanent removal; pointer is invalid after this call</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="tween">Tween</h2>
+<p>
+  One-shot float interpolators ticked automatically by the Game each frame.
+  They are affected by <code>SetTimeScale</code>. No manual update call is needed.
+  The pointer is valid until the tween completes or is cancelled.
+</p>
+<pre><span class="cm">// Slide a health bar from 1.0 to 0.2 over 0.4 s</span>
+<span class="fn">CreateTween</span>(<span class="val">1.0f</span>, <span class="val">0.2f</span>, <span class="val">0.4f</span>,
+    [&amp;](<span class="ty">float</span> v){ bar_-&gt;<span class="fn">SetValue</span>(v); });
+
+<span class="cm">// Pop a score label with ease-out and a completion callback</span>
+<span class="ty">Tween</span>* t = <span class="fn">CreateTween</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.3f</span>,
+    [&amp;](<span class="ty">float</span> v){ scoreLabel_-&gt;<span class="fn">SetScale</span>(v); },
+    [&amp;]{ <span class="cm">/* animation finished */</span> },
+    <span class="ty">TweenEase</span>::<span class="val">EaseOut</span>);
+
+t-&gt;<span class="fn">Cancel</span>();                  <span class="cm">// stop without firing onComplete</span>
+<span class="ty">bool</span> done = t-&gt;<span class="fn">IsComplete</span>();</pre>
+
+<table>
+  <tr><th>Method</th><th>Signature</th><th>Description</th></tr>
+  <tr>
+    <td><code>CreateTween</code></td>
+    <td><code>(from, to, dur, onUpdate, onComplete={}, ease=Linear)</code> → <code>Tween*</code></td>
+    <td>Create and start a tween. Pointer valid until complete or cancelled.</td>
+  </tr>
+  <tr><td><code>Tween::Cancel()</code></td><td>—</td><td>Stop without firing <code>onComplete</code></td></tr>
+  <tr><td><code>Tween::IsComplete()</code></td><td>→ <code>bool</code></td><td>True once done or cancelled</td></tr>
+</table>
+
+<h4>Easing modes</h4>
+<table>
+  <tr><th>Value</th><th>Curve</th></tr>
+  <tr><td><code>TweenEase::Linear</code></td><td>Constant rate (default)</td></tr>
+  <tr><td><code>TweenEase::EaseIn</code></td><td>Slow start, fast end (t²)</td></tr>
+  <tr><td><code>TweenEase::EaseOut</code></td><td>Fast start, slow end (t(2−t))</td></tr>
+  <tr><td><code>TweenEase::EaseInOut</code></td><td>Smooth start and end (smoothstep)</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="debugdraw">Debug Draw</h2>
+<p>
+  Submits geometry to Urho3D's <code>DebugRenderer</code> for one frame.
+  All calls are <strong>zero-cost no-ops</strong> when debug draw is disabled (the default).
+  Text is rendered as temporary <code>Text3D</code> scene objects removed at the start of the next frame.
+</p>
+<pre><span class="fn">SetDebugDrawEnabled</span>(<span class="kw">true</span>);   <span class="cm">// call once in Start() or toggle at runtime</span>
+
+<span class="fn">DrawDebugLine</span>(from, to);
+<span class="fn">DrawDebugLine</span>(from, to, <span class="ty">Color</span>::RED);
+<span class="fn">DrawDebugBox</span>(center, <span class="ty">Vector3</span>(<span class="val">0.5f</span>, <span class="val">0.5f</span>, <span class="val">0.5f</span>));
+<span class="fn">DrawDebugBox</span>(center, halfExtents, <span class="ty">Color</span>::GREEN);
+<span class="fn">DrawDebugSphere</span>(center, <span class="val">1.0f</span>);
+<span class="fn">DrawDebugSphere</span>(center, radius, <span class="ty">Color</span>::YELLOW);
+<span class="fn">DrawDebugText</span>(e-&gt;<span class="fn">GetPosition</span>() + <span class="ty">Vector3</span>(<span class="val">0</span>, <span class="val">2</span>, <span class="val">0</span>), e-&gt;<span class="fn">GetName</span>());
+<span class="fn">DrawDebugText</span>(pos, <span class="st">"HP: 100"</span>, <span class="ty">Color</span>(<span class="val">1</span>, <span class="val">0.5f</span>, <span class="val">0</span>, <span class="val">1</span>));</pre>
+
+<table>
+  <tr><th>Method</th><th>Description</th></tr>
+  <tr><td><code>SetDebugDrawEnabled(bool)</code></td><td>Enable / disable; disabling also removes any pending text nodes</td></tr>
+  <tr><td><code>IsDebugDrawEnabled()</code></td><td>Returns <code>bool</code></td></tr>
+  <tr><td><code>DrawDebugLine(from, to, color=WHITE)</code></td><td>One-frame line segment</td></tr>
+  <tr><td><code>DrawDebugBox(center, halfExtents, color=WHITE)</code></td><td>Axis-aligned wireframe box</td></tr>
+  <tr><td><code>DrawDebugSphere(center, radius, color=WHITE)</code></td><td>Wireframe sphere</td></tr>
+  <tr><td><code>DrawDebugText(worldPos, text, color=WHITE)</code></td><td>Billboard <code>Text3D</code>; lasts one frame</td></tr>
+</table>
+
+<div class="callout ok">
+  <h4>Zero cost in release builds</h4>
+  <p>
+    All draw calls are guarded by an enabled flag. If you never call
+    <code>SetDebugDrawEnabled(true)</code> in your release configuration, there is no
+    overhead — no geometry is submitted to the renderer.
+  </p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="sky">Sky and Atmosphere</h2>
+<p>
+  The sky dome is a large sphere (radius 450) rendered from the inside that follows
+  the camera so it never clips against the far plane. Atmosphere controls fog and
+  ambient light via the Urho3D Zone component.
+</p>
+<pre><span class="cm">// Texture-based sky</span>
+<span class="fn">SetSkyDome</span>(<span class="st">"Textures/sky_day.png"</span>);
+
+<span class="cm">// Procedural gradient — blue sky fading to warm horizon</span>
+<span class="fn">SetSkyGradient</span>(<span class="ty">Color</span>(<span class="val">0.1f</span>, <span class="val">0.3f</span>, <span class="val">0.8f</span>), <span class="ty">Color</span>(<span class="val">0.8f</span>, <span class="val">0.5f</span>, <span class="val">0.2f</span>));
+
+<span class="fn">SetSkyDomeEnabled</span>(<span class="kw">false</span>);   <span class="cm">// hide without destroying</span>
+<span class="fn">SetSkyDomeEnabled</span>(<span class="kw">true</span>);    <span class="cm">// show again</span>
+
+<span class="cm">// Atmosphere</span>
+<span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.15f</span>, <span class="val">0.2f</span>, <span class="val">0.1f</span>));    <span class="cm">// dark green ambient</span>
+<span class="fn">SetFogColor</span>(<span class="ty">Color</span>(<span class="val">0.6f</span>, <span class="val">0.8f</span>, <span class="val">0.6f</span>));          <span class="cm">// greenish haze</span>
+<span class="fn">SetFogRange</span>(<span class="val">40.0f</span>, <span class="val">120.0f</span>);                    <span class="cm">// starts 40 m, opaque at 120 m</span>
+<span class="fn">SetFogEnabled</span>(<span class="kw">true</span>);</pre>
+
+<table>
+  <tr><th>Method</th><th>Description</th></tr>
+  <tr><td><code>SetSkyDome(string texPath)</code></td><td>Creates dome on first call; empty path = untextured white dome</td></tr>
+  <tr><td><code>SetSkyDomeEnabled(bool)</code></td><td>Show / hide without destroying the dome node; default enabled</td></tr>
+  <tr><td><code>SetSkyGradient(Color zenith, Color horizon)</code></td><td>Generates a 1×16 gradient texture applied to the dome</td></tr>
+  <tr><td><code>SetAmbientColor(Color)</code></td><td>Scene ambient light; default <code>Color(0.3, 0.3, 0.3)</code></td></tr>
+  <tr><td><code>SetFogEnabled(bool)</code></td><td>Default false; enable after setting range and colour</td></tr>
+  <tr><td><code>SetFogColor(Color)</code></td><td>What geometry fades into; defaults to clear colour</td></tr>
+  <tr><td><code>SetFogRange(float start, float end)</code></td><td>Linear fog distances in world units</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="entityvisual">Entity Materials and Visual</h2>
+<p>
+  Apply programmatic materials to <code>StaticModel</code> entities without XML material files.
+  Material calls are no-ops if no <code>StaticModel</code> is attached.
+  <code>SetActive</code> suspends rendering, physics, and script callbacks without
+  destroying the entity.
+</p>
+<pre><span class="cm">// Flat unlit solid colour</span>
+e-&gt;<span class="fn">SetMaterialColor</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.8f</span>, <span class="val">0.3f</span>));
+
+<span class="cm">// UV-tiled atlas — sample tile (column 2, row 1) from an 8×8 grid</span>
+<span class="ty">float</span> tileSize = <span class="val">1.0f</span> / <span class="val">8.0f</span>;
+e-&gt;<span class="fn">SetTileTexture</span>(<span class="st">"Textures/object-m.png"</span>,
+                  <span class="val">2</span> * tileSize, <span class="val">1</span> * tileSize,   <span class="cm">// uOff, vOff</span>
+                  tileSize, tileSize);            <span class="cm">// uScale, vScale</span>
+
+<span class="cm">// Activation — suspend / resume without destroying</span>
+e-&gt;<span class="fn">SetActive</span>(<span class="kw">false</span>);
+e-&gt;<span class="fn">SetActive</span>(<span class="kw">true</span>);
+<span class="ty">bool</span> on = e-&gt;<span class="fn">IsActive</span>();
+
+<span class="cm">// Time scale — affects physics, animation, and Update dt</span>
+<span class="fn">SetTimeScale</span>(<span class="val">0.5f</span>);   <span class="cm">// half speed</span>
+<span class="fn">SetTimeScale</span>(<span class="val">0.0f</span>);   <span class="cm">// freeze everything</span>
+<span class="fn">SetTimeScale</span>(<span class="val">1.0f</span>);   <span class="cm">// normal</span>
+<span class="ty">float</span> s = <span class="fn">GetTimeScale</span>();</pre>
+
+<table>
+  <tr><th>Method</th><th>Description</th></tr>
+  <tr><td><code>SetMaterialColor(Color)</code></td><td>Flat unlit colour; no-op without <code>StaticModel</code></td></tr>
+  <tr><td><code>SetTileTexture(texPath, uOff, vOff, uScale, vScale)</code></td><td>Lit diffuse with UV crop; no-op without <code>StaticModel</code></td></tr>
+  <tr><td><code>SetActive(bool)</code></td><td><code>false</code> suspends rendering, physics, and script callbacks</td></tr>
+  <tr><td><code>IsActive()</code></td><td>Returns <code>bool</code>; reflects the node's own enabled flag</td></tr>
+  <tr><td><code>SetCastShadows(bool)</code></td><td>Disable shadow casting on <code>StaticModel</code> and / or <code>Light</code></td></tr>
+  <tr><td><code>SetTimeScale(float)</code> <em>(Game)</em></td><td>1.0 = normal; 0.0 = freeze; 0.5 = slow-motion</td></tr>
+  <tr><td><code>GetTimeScale()</code> <em>(Game)</em></td><td>Returns <code>float</code>; default 1.0</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<h2 id="diagnostics">Resource Diagnostics</h2>
+<p>
+  Track missing assets during development. All tracking is guarded by an enabled flag
+  — zero overhead when disabled. Enable in <code>Start()</code> for debug builds only.
+</p>
+<pre><span class="cm">// Enable in Start() for development builds</span>
+<span class="fn">SetResourceDiagnosticsEnabled</span>(<span class="kw">true</span>);
+<span class="fn">SetFallbackSound</span>(<span class="st">"Sounds/silence.ogg"</span>);
+<span class="fn">SetFallbackModel</span>(<span class="st">"Models/error.mdl"</span>);
+<span class="fn">SetFallbackTexture</span>(<span class="st">"Textures/missing.png"</span>);
+
+<span class="cm">// Register an additional resource directory at runtime</span>
+<span class="fn">AddResourceDir</span>(<span class="st">"/home/user/mods/mypack"</span>);
+
+<span class="cm">// Inspect what's missing after loading a level</span>
+<span class="kw">for</span> (<span class="kw">const</span> <span class="kw">auto</span>&amp; path : <span class="fn">GetMissingResources</span>())
+    URHO3D_LOGINFO((<span class="st">"Missing: "</span> + path).c_str());
+
+<span class="fn">ClearMissingResources</span>();   <span class="cm">// reset for the next level load</span></pre>
+
+<table>
+  <tr><th>Method</th><th>Description</th></tr>
+  <tr><td><code>SetResourceDiagnosticsEnabled(bool)</code></td><td>Enable / disable missing-resource tracking (default off)</td></tr>
+  <tr><td><code>IsResourceDiagnosticsEnabled()</code></td><td>Query current state</td></tr>
+  <tr><td><code>SetFallbackModel(path)</code></td><td>Substitute <code>.mdl</code> used when <code>AddModel</code> fails</td></tr>
+  <tr><td><code>SetFallbackTexture(path)</code></td><td>Substitute texture path when loading fails</td></tr>
+  <tr><td><code>SetFallbackSound(path)</code></td><td>Substitute sound used by <code>PlaySound</code> / <code>PlayMusic</code> when source is missing</td></tr>
+  <tr><td><code>GetMissingResources()</code></td><td>Returns <code>vector&lt;string&gt;</code> of all recorded missing paths</td></tr>
+  <tr><td><code>ClearMissingResources()</code></td><td>Reset the missing-resource set</td></tr>
+  <tr><td><code>AddResourceDir(string path)</code></td><td>Register an additional resource directory at runtime</td></tr>
+</table>
+
+<div class="callout info">
+  <h4>Zero cost when disabled</h4>
+  <p>
+    The missing-resource insert is guarded by <code>if (resourceDiagnosticsEnabled_)</code>.
+    In release builds where you never call <code>SetResourceDiagnosticsEnabled(true)</code>
+    there is no overhead.
+  </p>
+</div>
 
 </main>
 </div>

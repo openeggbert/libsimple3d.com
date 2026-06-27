@@ -12,11 +12,15 @@
   <nav>
     <a href="index.html">Home</a>
     <a href="getting-started.html" class="active">Getting Started</a>
+    <a href="tutorial.html">Tutorial</a>
     <a href="architecture.html">Architecture</a>
     <a href="api.html">C++ API</a>
     <a href="lua-api.html">Lua API</a>
     <a href="examples.html">Examples</a>
     <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
   </nav>
 </header>
 
@@ -31,6 +35,8 @@
     <li><a href="#windows">Windows (MinGW)</a></li>
     <li><a href="#web">Web / Emscripten</a></li>
     <li><a href="#cmake-options">CMake options</a></li>
+    <li><a href="#cmake-presets">CMakePresets</a></li>
+    <li><a href="#unit-tests">Unit tests</a></li>
   </ul>
   <h3>Integration</h3>
   <ul>
@@ -45,6 +51,7 @@
     <li><a href="#asset-paths">Asset paths</a></li>
     <li><a href="#asset-formats">Asset formats</a></li>
     <li><a href="#debugging">Debugging</a></li>
+    <li><a href="#resource-diagnostics">Resource diagnostics</a></li>
     <li><a href="#troubleshooting">Troubleshooting</a></li>
   </ul>
 </aside>
@@ -255,6 +262,31 @@ cmake --build build-web -j$(nproc)</pre>
     <td>Pass <code>cmake/toolchains/mingw-w64.cmake</code> for Windows cross-compile.</td>
   </tr>
 </table>
+
+<!-- ─── CMAKE PRESETS ──────────────────────────────────────────── -->
+<h2 id="cmake-presets">CMakePresets</h2>
+<p>
+  simple-3d ships a <code>CMakePresets.json</code>. Use presets instead of raw flags to keep
+  commands short and reproducible across machines:
+</p>
+<pre>cmake --preset debug-u3d    <span class="sh-cm"># Debug build with U3D backend</span>
+cmake --preset release-u3d  <span class="sh-cm"># Release build with U3D</span>
+cmake --list-presets        <span class="sh-cm"># Show all available presets</span></pre>
+<p>Then build using the matching build preset:</p>
+<pre>cmake --build --preset debug-u3d</pre>
+
+<!-- ─── UNIT TESTS ──────────────────────────────────────────────── -->
+<h2 id="unit-tests">Unit Tests</h2>
+<p>
+  simple-3d includes 78 automated tests. Enable, build, and run them with:
+</p>
+<pre>cmake -S . -B build-u3d -DSIMPLE3D_BUILD_TESTS=ON &amp;&amp; \
+cmake --build build-u3d --target Simple3DTests &amp;&amp; \
+./build-u3d/Simple3DTests</pre>
+<p>
+  All 78 tests must pass. Tests cover: <code>CollisionLayer</code>, <code>AnimStateMachine</code>,
+  <code>SaveData</code>, <code>InputActions</code>, <code>BehaviorFSM</code>, <code>EntityTagging</code>.
+</p>
 
 <!-- ─── CMAKE INTEGRATION ─────────────────────────────────────── -->
 <h2 id="cmake-integration">Integrating into Your Project</h2>
@@ -517,6 +549,12 @@ jumpForce = <span class="lua-num">8</span>
     ├── Sprites/       ← 2D sprites (PNG) and Spriter files (.scml)
     └── Fonts/         ← fonts for UI labels (.ttf, .otf)</pre>
 
+<p>
+  To add extra resource directories at runtime (for example, DLC or mod content), call
+  <code>AddResourceDir</code> inside <code>Start()</code>:
+</p>
+<pre><span class="fn">AddResourceDir</span>(<span class="st">"/path/to/extra/data"</span>);  <span class="cm">// runtime extra resource path</span></pre>
+
 <p>Reference assets with paths relative to <code>Data/</code>:</p>
 <pre><span class="cm">// Correct:</span>
 entity-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Character.mdl"</span>);       <span class="cm">// → Data/Models/Character.mdl</span>
@@ -631,6 +669,15 @@ entity-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/player.lu
   </tr>
 </table>
 
+<h3 id="resource-diagnostics">Resource Diagnostics</h3>
+<p>
+  Enable resource diagnostics in <code>Start()</code> to catch missing assets early:
+</p>
+<pre><span class="fn">SetResourceDiagnosticsEnabled</span>(<span class="kw">true</span>);
+<span class="fn">SetFallbackModel</span>(<span class="st">"Models/Cube.mdl"</span>);     <span class="cm">// shown when a model fails to load</span>
+<span class="fn">SetFallbackTexture</span>(<span class="st">"Textures/white.png"</span>);
+<span class="kw">auto</span> missing = <span class="fn">GetMissingResources</span>();      <span class="cm">// call after Start() to see what failed</span></pre>
+
 <!-- ─── TROUBLESHOOTING ────────────────────────────────────────── -->
 <h2 id="troubleshooting">Build Troubleshooting</h2>
 <table>
@@ -659,6 +706,21 @@ entity-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/player.lu
     <td>linker: <code>multiple definition of Simple3D::…</code></td>
     <td>simple-3d added twice as a CMake subdirectory.</td>
     <td>Use <code>if(NOT TARGET simple3d)</code> guard before <code>add_subdirectory</code>.</td>
+  </tr>
+  <tr>
+    <td><code>NOVA3D missing XNA headers</code></td>
+    <td><code>NOVA3D_HOME</code> points to the wrong directory.</td>
+    <td>Pass <code>-DNOVA3D_HOME=/path/to/nova3d/build</code> to CMake.</td>
+  </tr>
+  <tr>
+    <td>Entity falls through trigger</td>
+    <td>Trigger collision mask is missing the Actor layer.</td>
+    <td>Call <code>SetCollisionMask</code> on the trigger: <code>MakeCollisionMask({CollisionLayer::Actor})</code>.</td>
+  </tr>
+  <tr>
+    <td><code>LuaSmoke</code> prints <code>FAIL</code></td>
+    <td>Lua binding bug.</td>
+    <td>Check the output line for the test name and report it to the issue tracker.</td>
   </tr>
 </table>
 

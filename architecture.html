@@ -12,11 +12,15 @@
   <nav>
     <a href="index.html">Home</a>
     <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html">Tutorial</a>
     <a href="architecture.html" class="active">Architecture</a>
     <a href="api.html">C++ API</a>
     <a href="lua-api.html">Lua API</a>
     <a href="examples.html">Examples</a>
     <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
   </nav>
 </header>
 
@@ -38,6 +42,16 @@
     <li><a href="#component-map">Component mapping</a></li>
     <li><a href="#layout">File layout</a></li>
     <li><a href="#internal-headers">Internal headers</a></li>
+    <li><a href="#collision-layers">Collision layers</a></li>
+    <li><a href="#character-controller">CharacterController</a></li>
+    <li><a href="#anim-state-machine">AnimStateMachine</a></li>
+    <li><a href="#behavior-fsm">BehaviorFSM</a></li>
+    <li><a href="#save-data">SaveData</a></li>
+    <li><a href="#ui-system">UI System</a></li>
+    <li><a href="#input-actions">InputActions</a></li>
+    <li><a href="#lua-safety">Lua Safety Architecture</a></li>
+    <li><a href="#pimpl-variants">PIMPL Variants</a></li>
+    <li><a href="#mc3-bridge">Mc3Bridge</a></li>
   </ul>
 </aside>
 
@@ -558,6 +572,208 @@ target_link_libraries(simple3d
     <code>#include &lt;Simple3D/Simple3D.h&gt;</code>.
   </p>
 </div>
+
+
+<!-- ─── COLLISION LAYERS ─────────────────────────────────────────── -->
+<h2 id="collision-layers">Collision Layers</h2>
+<p>
+  simple-3d defines three built-in collision layer bits:
+</p>
+<table>
+  <tr><th>Name</th><th>Bit value</th></tr>
+  <tr><td><code>Actor</code></td><td>1</td></tr>
+  <tr><td><code>StaticGeometry</code></td><td>2</td></tr>
+  <tr><td><code>Trigger</code></td><td>4</td></tr>
+</table>
+<p>
+  Use <code>MakeCollisionMask({A, B, …})</code> to combine layer bits into a mask.
+  The governing rule: Actors collide with StaticGeometry; Trigger volumes are non-solid
+  (no physics response) but fire <code>OnTriggerEnter</code> / <code>OnTriggerExit</code>
+  callbacks when an Actor overlaps them.
+</p>
+
+<!-- ─── CHARACTERCONTROLLER ─────────────────────────────────────── -->
+<h2 id="character-controller">CharacterController</h2>
+<p>
+  <code>CharacterController</code> is implemented as an interim RigidBody approach rather
+  than a dedicated kinematic controller. The setup is:
+</p>
+<ul>
+  <li>Capsule collider attached to the entity's RigidBody.</li>
+  <li>Angular factor locked to zero so the character never tips over.</li>
+  <li>Ground detection via a layer-2 downward raycast filtered by slope angle — only
+      hits below the configured max slope are considered ground.</li>
+</ul>
+<p>
+  API summary: <code>cc-&gt;Move(velocity)</code> applies the given velocity to the RigidBody
+  each frame. <code>cc-&gt;TryJump()</code> adds a Y-axis impulse if the character is currently
+  grounded; the call is a no-op otherwise.
+</p>
+
+<!-- ─── ANIMSTATEMACHINE ─────────────────────────────────────────── -->
+<h2 id="anim-state-machine">AnimStateMachine</h2>
+<p>
+  <code>AnimStateMachine</code> maps string-keyed state names to
+  <code>AnimationController</code> clips and manages transitions between them.
+  Four condition types are supported:
+</p>
+<table>
+  <tr><th>Type</th><th>Behaviour</th></tr>
+  <tr><td><code>bool</code></td><td>Fires when a named boolean parameter equals a target value.</td></tr>
+  <tr><td><code>float</code></td><td>Fires when a named float parameter crosses a threshold.</td></tr>
+  <tr><td><code>trigger</code></td><td>Fires once then is consumed; subsequent frames do not re-evaluate it.</td></tr>
+  <tr><td><code>auto</code></td><td>Time-based; fires automatically after the current clip has played for a set duration.</td></tr>
+</table>
+<p>
+  Transitions are evaluated in definition order each frame; the first matching
+  transition wins.
+</p>
+
+<!-- ─── BEHAVIORFSM ──────────────────────────────────────────────── -->
+<h2 id="behavior-fsm">BehaviorFSM</h2>
+<p>
+  <code>BehaviorFSM</code> is a lightweight AI state machine. States expose three hooks
+  that can be set as C++ lambdas or Lua functions:
+  <code>onEnter</code>, <code>onUpdate(dt)</code>, and <code>onExit</code>.
+</p>
+<p>
+  Two built-in states are provided:
+</p>
+<ul>
+  <li><strong>NavPatrol</strong> — cycles through a list of waypoints using Recast path-finding.</li>
+  <li><strong>NavChase</strong> — moves the entity toward a target using <code>MoveToward</code>.</li>
+</ul>
+<p>
+  Condition transitions use predicate functions: when the predicate returns <code>true</code>,
+  the FSM switches to the named target state.
+</p>
+<p>
+  Intended composition pattern: <strong>BehaviorFSM</strong> owns game-logic state
+  (what the AI is doing), while <strong>AnimStateMachine</strong> owns visual state
+  (which animation is playing). They are independent and communicate only through
+  shared parameters.
+</p>
+
+<!-- ─── SAVEDATA ─────────────────────────────────────────────────── -->
+<h2 id="save-data">SaveData</h2>
+<p>
+  <code>SaveData</code> is a JSON key-value store with per-slot persistence.
+  Supported value types: <code>int</code>, <code>string</code>, <code>bool</code>,
+  <code>float</code>.
+</p>
+<p>
+  Platform save paths:
+</p>
+<table>
+  <tr><th>OS</th><th>Path</th></tr>
+  <tr><td>Linux</td><td><code>~/.local/share/&lt;AppName&gt;/</code></td></tr>
+  <tr><td>Windows</td><td><code>%APPDATA%\&lt;AppName&gt;\</code></td></tr>
+</table>
+<p>
+  <strong>Atomic load</strong>: the JSON file is parsed into a temporary map first;
+  the live data is swapped in only if parsing succeeds. A corrupted or partial file
+  therefore never overwrites good in-memory state.
+</p>
+
+<!-- ─── UI SYSTEM ────────────────────────────────────────────────── -->
+<h2 id="ui-system">UI System</h2>
+<p>
+  All UI widgets (<code>Label</code>, <code>Panel</code>, <code>Button</code>,
+  <code>ProgressBar</code>, <code>Slider</code>, <code>Image</code>) wrap an
+  <code>Urho3D::UIElement</code> via PIMPL. No Urho3D UI type is ever
+  exposed in the public API.
+</p>
+<p>
+  Parent-child relationships are established with <code>panel-&gt;AddChild(elem)</code>,
+  which builds the underlying Urho3D element tree automatically.
+</p>
+<p>
+  <strong>Anchor</strong> aligns a widget relative to a screen edge or corner;
+  <code>SetPosition</code> then sets a pixel offset from that anchor point.
+</p>
+<p>
+  <strong>Liveness guard</strong>: every widget proxy pointer is registered in
+  <code>GameImpl::liveUI_</code> (an <code>unordered_set&lt;void*&gt;</code>) on
+  creation and removed on destruction. Lua callbacks use
+  <code>IsUIAlive(ptr)</code> (O(1) lookup) before dereferencing any widget pointer.
+</p>
+
+<!-- ─── INPUTACTIONS ─────────────────────────────────────────────── -->
+<h2 id="input-actions">InputActions</h2>
+<p>
+  <code>BindAction</code> and <code>BindAxis2D</code> map abstract action names to
+  concrete keyboard keys or gamepad sources, decoupling game logic from hardware specifics.
+</p>
+<ul>
+  <li><strong>Axis2D</strong> can be bound to four directional keys or a gamepad analog stick.</li>
+  <li><strong>InvertY</strong> compensates for SDL's Y-axis convention (positive Y is down).</li>
+</ul>
+<p>
+  <strong>Persistence</strong>: <code>SaveInputBindings()</code> serializes all current
+  bindings to <code>controls.json</code>. <code>LoadInputBindings()</code> uses the same
+  atomic pattern as SaveData — parses to a temporary structure, swaps on success only.
+</p>
+
+<!-- ─── LUA SAFETY ARCHITECTURE ─────────────────────────────────── -->
+<h2 id="lua-safety">Lua Safety Architecture</h2>
+<p>
+  Lua scripts can hold references to C++ objects that may be destroyed while the script
+  is still running. simple-3d uses several guards to prevent invalid dereferences:
+</p>
+<ul>
+  <li>
+    <strong>IsEntityAlive</strong> — 3-phase check: (1) present in the entity registry,
+    (2) not in the <code>pendingDestroy</code> set, (3) no ancestor is in
+    <code>pendingDestroy</code>. All three must pass.
+  </li>
+  <li>
+    <strong>IsUIAlive</strong> — O(1) hash-set lookup in <code>GameImpl::liveUI_</code>.
+  </li>
+  <li>
+    <strong>Type dispatch helpers</strong> — <code>IsVector3Arg</code>,
+    <code>IsQuaternionArg</code>, <code>IsNodeArg</code> validate Lua argument types
+    before passing them to C++ to avoid undefined behaviour from mismatched casts.
+  </li>
+  <li>
+    <strong>ClearLuaCallbackRefs</strong> — called whenever the Lua API is
+    re-registered (e.g., hot-reload) to release all stale callback references and
+    prevent dangling closures.
+  </li>
+</ul>
+
+<!-- ─── PIMPL VARIANTS ──────────────────────────────────────────── -->
+<h2 id="pimpl-variants">PIMPL Variants</h2>
+<p>
+  Not all PIMPL objects use the same ownership model. simple-3d uses two variants:
+</p>
+<table>
+  <tr><th>Storage</th><th>Used for</th><th>Rationale</th></tr>
+  <tr>
+    <td><code>std::unique_ptr&lt;Impl&gt;</code></td>
+    <td><code>Camera</code>, <code>Label</code>, UI widgets, <code>NetworkManager</code></td>
+    <td>Game-owned: lifetime is explicit and independent of any entity.</td>
+  </tr>
+  <tr>
+    <td>Raw <code>Impl*</code></td>
+    <td><code>CharacterController</code>, <code>AnimStateMachine</code>,
+        <code>BehaviorFSM</code>, <code>AudioSource</code>, <code>ParticleEmitter</code></td>
+    <td>Entity-embedded: the <code>Impl</code> is allocated and freed inside
+        <code>Entity::Impl</code>; the component's lifetime is tied to the entity's.</td>
+  </tr>
+</table>
+
+<!-- ─── MC3BRIDGE ───────────────────────────────────────────────── -->
+<h2 id="mc3-bridge">Mc3Bridge</h2>
+<p>
+  <code>Mc3Bridge</code> provides integration with the MeshCraft3D scene editor:
+</p>
+<ul>
+  <li><strong>Import</strong>: reads Urho3D scene XML exported by MeshCraft3D.</li>
+  <li><strong>Export</strong>: converts the loaded scene to simple-3d's JSON representation.</li>
+  <li><strong>Live reload</strong>: <code>Mc3Watcher</code> installs a filesystem watcher
+      on the source XML file and triggers an automatic reimport whenever the file changes
+      on disk, enabling a live editor-to-runtime workflow.</li>
+</ul>
 
 </main>
 </div>

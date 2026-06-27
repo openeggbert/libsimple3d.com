@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 15: Gamepad Input — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li class="active"><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 15</div>
+
+<h1><span class="tutorial-part">Part 15 of 30</span>Gamepad Input</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>IsGamepadConnected(index)</code> &mdash; query whether a controller is plugged in at a given slot.<br>
+    <code>GetGamepadAxis(GamepadAxis, index)</code> &mdash; read a stick or trigger axis as a float with dead zone applied.<br>
+    <code>IsGamepadButtonDown(GamepadButton, index)</code> &mdash; true every frame the button is held.<br>
+    <code>IsGamepadButtonPressed(GamepadButton, index)</code> &mdash; true only on the first frame the button is pressed.<br>
+    <code>SetGamepadDeadZone(float)</code> / <code>GetGamepadDeadZone()</code> &mdash; configure the stick dead zone threshold.<br>
+    <code>SetGamepadRumble(lowFreq, highFreq, duration, index)</code> &mdash; trigger haptic feedback on a controller.<br>
+    <code>SetOnGamepadConnected(callback)</code> / <code>SetOnGamepadDisconnected(callback)</code> &mdash; hot-plug event callbacks.
+  </p>
+</div>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How simple-3d exposes gamepad input through a polling-based API backed by SDL GameController.</li>
+  <li>How to check whether a gamepad is connected at any given slot index before reading its input.</li>
+  <li>How to read the six axis values (<code>LeftX</code>, <code>LeftY</code>, <code>RightX</code>, <code>RightY</code>, <code>LTrigger</code>, <code>RTrigger</code>) and understand the range and dead zone behaviour of each.</li>
+  <li>The difference between <code>IsGamepadButtonDown</code> (held) and <code>IsGamepadButtonPressed</code> (first frame only), and when to use each.</li>
+  <li>How to combine keyboard and gamepad input in the same movement vector so keyboard-only and controller-only players are handled by identical code.</li>
+  <li>How the dead zone works, how to tune it with <code>SetGamepadDeadZone</code>, and why triggers are exempt from it.</li>
+  <li>How to fire rumble feedback on landing, taking damage, or any other game event.</li>
+  <li>How to register hot-plug callbacks so your game reacts gracefully when a controller is connected or disconnected at runtime.</li>
+  <li>The full <code>GamepadAxis</code> and <code>GamepadButton</code> enum tables for quick reference.</li>
+  <li>The Lua equivalent of the same raw gamepad API.</li>
+</ul>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>How the gamepad API works</h2>
+
+<p>
+  simple-3d wraps SDL's GameController system behind a small set of free functions
+  that live on the <code>Game</code> base class. Every function follows the same
+  signature pattern: the last parameter is always an optional <code>int index</code>
+  (default <code>0</code>) that selects which controller slot to query.
+  Index <code>0</code> is the first controller plugged in, index <code>1</code> is the
+  second, and so on. SDL applies its standard button-mapping database automatically, so
+  the same <code>GamepadButton::A</code> refers to the correct physical button on an
+  Xbox pad, a PlayStation pad, and most generic USB controllers.
+</p>
+
+<p>
+  The API is <em>polling-based</em>: you call it from <code>Update()</code> each frame,
+  exactly as you call <code>IsKeyDown</code> for keyboard input. There are no events to
+  subscribe to for axis or button state (hot-plug connection/disconnection being the
+  only exception). This makes it trivial to mix keyboard and gamepad input in the same
+  code path.
+</p>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Axis and button quick reference</h2>
+
+<h3>GamepadAxis enum</h3>
+
+<table>
+  <thead>
+    <tr><th>Enum value</th><th>Physical control</th><th>Range</th><th>Dead zone applied?</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>GamepadAxis::LeftX</code></td><td>Left stick, horizontal</td><td>-1 to +1</td><td>Yes</td></tr>
+    <tr><td><code>GamepadAxis::LeftY</code></td><td>Left stick, vertical</td><td>-1 to +1</td><td>Yes</td></tr>
+    <tr><td><code>GamepadAxis::RightX</code></td><td>Right stick, horizontal</td><td>-1 to +1</td><td>Yes</td></tr>
+    <tr><td><code>GamepadAxis::RightY</code></td><td>Right stick, vertical</td><td>-1 to +1</td><td>Yes</td></tr>
+    <tr><td><code>GamepadAxis::LTrigger</code></td><td>Left trigger (L2)</td><td>0 to +1</td><td>No</td></tr>
+    <tr><td><code>GamepadAxis::RTrigger</code></td><td>Right trigger (R2)</td><td>0 to +1</td><td>No</td></tr>
+  </tbody>
+</table>
+
+<p>
+  Positive <code>LeftX</code> / <code>RightX</code> points right.
+  Positive <code>LeftY</code> / <code>RightY</code> points <em>down</em> (SDL convention) &mdash;
+  negate or invert when you want "push up = move forward".
+</p>
+
+<h3>GamepadButton enum</h3>
+
+<table>
+  <thead>
+    <tr><th>Enum value</th><th>Xbox / generic</th><th>PlayStation</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>GamepadButton::A</code></td><td>A</td><td>Cross</td></tr>
+    <tr><td><code>GamepadButton::B</code></td><td>B</td><td>Circle</td></tr>
+    <tr><td><code>GamepadButton::X</code></td><td>X</td><td>Square</td></tr>
+    <tr><td><code>GamepadButton::Y</code></td><td>Y</td><td>Triangle</td></tr>
+    <tr><td><code>GamepadButton::LB</code></td><td>Left Bumper</td><td>L1</td></tr>
+    <tr><td><code>GamepadButton::RB</code></td><td>Right Bumper</td><td>R1</td></tr>
+    <tr><td><code>GamepadButton::Start</code></td><td>Start / Menu</td><td>Options</td></tr>
+    <tr><td><code>GamepadButton::Select</code></td><td>Back / View</td><td>Share</td></tr>
+    <tr><td><code>GamepadButton::DPadUp</code></td><td>D-Pad Up</td><td>D-Pad Up</td></tr>
+    <tr><td><code>GamepadButton::DPadDown</code></td><td>D-Pad Down</td><td>D-Pad Down</td></tr>
+    <tr><td><code>GamepadButton::DPadLeft</code></td><td>D-Pad Left</td><td>D-Pad Left</td></tr>
+    <tr><td><code>GamepadButton::DPadRight</code></td><td>D-Pad Right</td><td>D-Pad Right</td></tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Complete working example</h2>
+
+<p>
+  The example below creates a third-person character that can be controlled by
+  keyboard alone, gamepad alone, or both simultaneously. It also shows D-pad
+  camera reset, trigger-based dash, rumble on landing, hot-plug hint labels,
+  and multi-player index selection.
+</p>
+
+<pre><span class="cm">// GamepadDemo.cpp</span>
+<span class="cm">// Part 15 — Gamepad Input</span>
+<span class="cm">// Build: link against simple-3d</span>
+
+<span class="kw">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+<span class="kw">#include</span> <span class="st">&lt;cmath&gt;</span>
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">GamepadDemo</span> : <span class="kw">public</span> <span class="ty">Game</span> {
+<span class="kw">public</span>:
+    <span class="ty">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="cm">// ── Ground ────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* ground = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        ground-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">40</span>, <span class="val">0.2f</span>, <span class="val">40</span>));
+        ground-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+        <span class="cm">// ── Player ────────────────────────────────────────────</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">1</span>, <span class="val">0</span>);
+        player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Hero.mdl"</span>);
+
+        cc_ = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+        cc_-&gt;<span class="fn">SetGravity</span>(<span class="val">25.0f</span>);
+        player_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+        player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>
+        }));
+
+        <span class="cm">// ── Camera ────────────────────────────────────────────</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">Follow</span>(player_, <span class="val">7.0f</span>, <span class="val">2.5f</span>);
+        cam_-&gt;<span class="fn">LookAt</span>(player_);
+        cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">5.0f</span>);
+
+        <span class="cm">// ── Light ─────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50</span>, <span class="val">30</span>, <span class="val">0</span>));
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>, <span class="val">1.1f</span>);
+
+        <span class="cm">// ── Dead zone: tighten the default slightly ───────────</span>
+        <span class="cm">// Default is 0.20; lower values make the stick more sensitive.</span>
+        <span class="fn">SetGamepadDeadZone</span>(<span class="val">0.15f</span>);
+
+        <span class="cm">// ── Hot-plug callbacks ────────────────────────────────</span>
+        <span class="cm">// Called whenever a controller is plugged in or removed.</span>
+        <span class="fn">SetOnGamepadConnected</span>([<span class="kw">this</span>](<span class="ty">int</span> index) {
+            <span class="fn">UpdateConnectionLabel</span>();
+            URHO3D_LOGINFO((<span class="st">"Gamepad connected: index "</span> +
+                            std::<span class="fn">to_string</span>(index)).<span class="fn">c_str</span>());
+        });
+        <span class="fn">SetOnGamepadDisconnected</span>([<span class="kw">this</span>](<span class="ty">int</span> <span class="cm">/*index*/</span>) {
+            <span class="fn">UpdateConnectionLabel</span>();
+            URHO3D_LOGINFO(<span class="st">"Gamepad disconnected"</span>);
+        });
+
+        <span class="cm">// ── HUD labels ────────────────────────────────────────</span>
+        connLabel_ = <span class="fn">CreateLabel</span>(<span class="st">""</span>);
+        connLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">20</span>);
+        connLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">18</span>);
+        connLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>);
+
+        axisLabel_ = <span class="fn">CreateLabel</span>(<span class="st">""</span>);
+        axisLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">48</span>);
+        axisLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">15</span>);
+        axisLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.85f</span>, <span class="val">0.85f</span>, <span class="val">0.85f</span>, <span class="val">1</span>));
+
+        hintLabel_ = <span class="fn">CreateLabel</span>(
+            <span class="st">"WASD/Arrows=move  Space/A=jump  Shift/LB=dash  Esc=quit"</span>);
+        hintLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">20</span>, <span class="val">72</span>);
+        hintLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">14</span>);
+        hintLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.7f</span>, <span class="val">0.7f</span>, <span class="val">0.7f</span>, <span class="val">1</span>));
+
+        <span class="cm">// Initial label text based on whether a pad is already plugged in</span>
+        <span class="fn">UpdateConnectionLabel</span>();
+    }
+
+    <span class="ty">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="cm">// ── Quit ──────────────────────────────────────────────</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Escape</span>) ||
+            <span class="fn">IsGamepadButtonPressed</span>(<span class="ty">GamepadButton</span>::<span class="val">Start</span>))
+        {
+            <span class="fn">Quit</span>();
+            <span class="kw">return</span>;
+        }
+
+        <span class="cm">// ── Keyboard movement ─────────────────────────────────</span>
+        <span class="ty">float</span> mx = <span class="val">0.0f</span>, mz = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">A</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Left</span>))  mx -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">D</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Right</span>)) mx += <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">W</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Up</span>))    mz += <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">S</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Down</span>))  mz -= <span class="val">1.0f</span>;
+
+        <span class="cm">// ── Gamepad movement (left stick) ─────────────────────</span>
+        <span class="cm">// Always guard with IsGamepadConnected() before reading axes.</span>
+        <span class="kw">if</span> (<span class="fn">IsGamepadConnected</span>()) {
+            <span class="cm">// LeftX: left = -1, right = +1</span>
+            <span class="cm">// LeftY: up = -1, down = +1 (SDL convention — negate for forward)</span>
+            mx += <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftX</span>);
+            mz -= <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftY</span>);
+        }
+
+        <span class="cm">// Normalise so diagonal movement is not faster than straight</span>
+        <span class="ty">float</span> len = std::<span class="fn">sqrt</span>(mx * mx + mz * mz);
+        <span class="kw">if</span> (len &gt; <span class="val">1.0f</span>) { mx /= len; mz /= len; }
+
+        <span class="ty">float</span> speed = <span class="val">5.0f</span>;
+
+        <span class="cm">// ── Dash (keyboard Shift OR gamepad LB) ───────────────</span>
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">LShift</span>) ||
+            (<span class="fn">IsGamepadConnected</span>() &amp;&amp;
+             <span class="fn">IsGamepadButtonDown</span>(<span class="ty">GamepadButton</span>::<span class="val">LB</span>)))
+        {
+            speed = <span class="val">10.0f</span>;
+        }
+
+        cc_-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(mx, <span class="val">0</span>, mz) * speed, dt);
+
+        <span class="cm">// ── Jump (keyboard Space OR gamepad A) ────────────────</span>
+        <span class="cm">// IsGamepadButtonPressed fires only on the FIRST frame of press.</span>
+        <span class="ty">bool</span> jumpKey = <span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Space</span>);
+        <span class="ty">bool</span> jumpPad = <span class="fn">IsGamepadConnected</span>() &amp;&amp;
+                       <span class="fn">IsGamepadButtonPressed</span>(<span class="ty">GamepadButton</span>::<span class="val">A</span>);
+        <span class="kw">if</span> (jumpKey || jumpPad) {
+            <span class="kw">bool</span> wasGround = cc_-&gt;<span class="fn">IsOnGround</span>();
+            cc_-&gt;<span class="fn">TryJump</span>(<span class="val">9.0f</span>);
+            <span class="cm">// Rumble when leaving the ground (not when pressing in mid-air)</span>
+            <span class="kw">if</span> (wasGround &amp;&amp; jumpPad) {
+                <span class="cm">// Short sharp buzz: 80% low-freq, 40% high-freq, 0.12 s</span>
+                <span class="fn">SetGamepadRumble</span>(<span class="val">0.8f</span>, <span class="val">0.4f</span>, <span class="val">0.12f</span>);
+            }
+        }
+
+        <span class="cm">// ── Right stick: camera orbit ─────────────────────────</span>
+        <span class="cm">// Right stick Y controls camera pitch (look up/down).</span>
+        <span class="cm">// Here we just log the value; a real game would rotate the camera.</span>
+        <span class="kw">if</span> (<span class="fn">IsGamepadConnected</span>()) {
+            rightStickX_ = <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">RightX</span>);
+            rightStickY_ = <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">RightY</span>);
+        }
+
+        <span class="cm">// ── Triggers: read acceleration / braking ─────────────</span>
+        <span class="cm">// Triggers return 0.0 (released) to 1.0 (fully pressed).</span>
+        <span class="cm">// No dead zone is applied to triggers.</span>
+        <span class="kw">if</span> (<span class="fn">IsGamepadConnected</span>()) {
+            triggerL_ = <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">LTrigger</span>);
+            triggerR_ = <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">RTrigger</span>);
+        }
+
+        <span class="cm">// ── D-Pad: UI / special actions ───────────────────────</span>
+        <span class="kw">if</span> (<span class="fn">IsGamepadConnected</span>()) {
+            <span class="kw">if</span> (<span class="fn">IsGamepadButtonPressed</span>(<span class="ty">GamepadButton</span>::<span class="val">DPadUp</span>)) {
+                <span class="cm">// Example: reset camera zoom</span>
+                cam_-&gt;<span class="fn">Follow</span>(player_, <span class="val">7.0f</span>, <span class="val">2.5f</span>);
+            }
+            <span class="kw">if</span> (<span class="fn">IsGamepadButtonPressed</span>(<span class="ty">GamepadButton</span>::<span class="val">Select</span>)) {
+                <span class="cm">// Example: toggle HUD (Back / Share button)</span>
+                hintLabel_-&gt;<span class="fn">SetVisible</span>(!hintLabel_-&gt;<span class="fn">IsVisible</span>());
+            }
+        }
+
+        <span class="cm">// ── Landing rumble ────────────────────────────────────</span>
+        <span class="cm">// Detect the moment of landing (was airborne last frame).</span>
+        <span class="ty">bool</span> grounded = cc_-&gt;<span class="fn">IsOnGround</span>();
+        <span class="kw">if</span> (grounded &amp;&amp; !wasGroundedLastFrame_ &amp;&amp; <span class="fn">IsGamepadConnected</span>()) {
+            <span class="cm">// Strong low-frequency rumble for landing impact</span>
+            <span class="fn">SetGamepadRumble</span>(<span class="val">1.0f</span>, <span class="val">0.2f</span>, <span class="val">0.25f</span>);
+        }
+        wasGroundedLastFrame_ = grounded;
+
+        <span class="cm">// ── Axis debug display ────────────────────────────────</span>
+        <span class="kw">if</span> (<span class="fn">IsGamepadConnected</span>()) {
+            <span class="ty">char</span> buf[<span class="val">128</span>];
+            std::<span class="fn">snprintf</span>(buf, <span class="kw">sizeof</span>(buf),
+                <span class="st">"LX=%.2f LY=%.2f  RX=%.2f RY=%.2f  LT=%.2f RT=%.2f"</span>,
+                <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftX</span>),
+                <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftY</span>),
+                rightStickX_, rightStickY_,
+                triggerL_, triggerR_);
+            axisLabel_-&gt;<span class="fn">SetText</span>(buf);
+        } <span class="kw">else</span> {
+            axisLabel_-&gt;<span class="fn">SetText</span>(<span class="st">""</span>);
+        }
+    }
+
+<span class="kw">private</span>:
+    <span class="ty">void</span> <span class="fn">UpdateConnectionLabel</span>()
+    {
+        <span class="kw">if</span> (<span class="fn">IsGamepadConnected</span>()) {
+            connLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Gamepad: connected (index 0)"</span>);
+            connLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.4f</span>, <span class="val">1.0f</span>, <span class="val">0.4f</span>, <span class="val">1</span>));
+        } <span class="kw">else</span> {
+            connLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Gamepad: not connected"</span>);
+            connLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.5f</span>, <span class="val">0.3f</span>, <span class="val">1</span>));
+        }
+    }
+
+    <span class="ty">Entity</span>*              player_              = <span class="kw">nullptr</span>;
+    <span class="ty">CharacterController</span>* cc_                  = <span class="kw">nullptr</span>;
+    <span class="ty">Camera</span>*              cam_                 = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*               connLabel_           = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*               axisLabel_           = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*               hintLabel_           = <span class="kw">nullptr</span>;
+    <span class="ty">bool</span>                 wasGroundedLastFrame_ = <span class="kw">true</span>;
+    <span class="ty">float</span>                rightStickX_         = <span class="val">0.0f</span>;
+    <span class="ty">float</span>                rightStickY_         = <span class="val">0.0f</span>;
+    <span class="ty">float</span>                triggerL_            = <span class="val">0.0f</span>;
+    <span class="ty">float</span>                triggerR_            = <span class="val">0.0f</span>;
+};
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">GamepadDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<h3><code>IsGamepadConnected(int index = 0)</code></h3>
+<p>
+  Returns <code>true</code> if a controller is currently plugged in at <code>index</code>.
+  You should call this at the start of any code block that reads gamepad axes or
+  buttons, including every frame inside <code>Update()</code>. Controllers can be
+  connected and disconnected at any moment at runtime, so a guard that was true on
+  one frame may be false on the next. Calling the axis or button functions without
+  checking first is safe (they return zero/false for missing pads), but guarding
+  explicitly makes the intended logic clear. The most common pattern is:
+</p>
+
+<pre><span class="kw">if</span> (<span class="fn">IsGamepadConnected</span>()) {
+    mx += <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftX</span>);
+}</pre>
+
+<p>
+  For a split-screen two-player game, use index <code>1</code> for the second player:
+</p>
+
+<pre><span class="kw">if</span> (<span class="fn">IsGamepadConnected</span>(<span class="val">1</span>)) {
+    <span class="ty">float</span> p2x = <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftX</span>, <span class="val">1</span>);
+}</pre>
+
+<h3><code>GetGamepadAxis(GamepadAxis axis, int index = 0)</code></h3>
+<p>
+  Returns a <code>float</code> representing the current deflection of the named axis.
+  Stick axes (<code>LeftX</code>, <code>LeftY</code>, <code>RightX</code>, <code>RightY</code>)
+  return a value in [-1, +1] after applying the dead zone. Values whose magnitude
+  falls inside the dead zone are returned as exactly <code>0.0f</code>, and the
+  remaining range is linearly remapped so that full deflection always returns
+  exactly 1.0 or -1.0 &mdash; you will never see a jump from 0.0 to 0.2 when the
+  stick leaves the dead zone.
+</p>
+<p>
+  Trigger axes (<code>LTrigger</code>, <code>RTrigger</code>) return a value in [0, +1]
+  with 0 meaning fully released and 1 meaning fully depressed. No dead zone is
+  applied to triggers: the raw SDL value is returned directly. Use a small threshold
+  in your own code if you need to prevent accidental activation from resting trigger
+  pressure.
+</p>
+<p>
+  Note the SDL convention for stick Y axes: pushing the stick <em>up</em> returns a
+  <em>negative</em> value. In a standard third-person movement setup you will want to
+  negate <code>LeftY</code> so that "push up = move forward":
+</p>
+
+<pre>mz -= <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftY</span>);  <span class="cm">// push up (negative Y) adds positive Z</span></pre>
+
+<h3><code>IsGamepadButtonDown(GamepadButton button, int index = 0)</code></h3>
+<p>
+  Returns <code>true</code> on <em>every frame</em> while the button is held down.
+  Use this for continuous actions that should remain active as long as the button is
+  held, such as sprinting, charging a shot, or holding a block pose. It is the
+  gamepad equivalent of <code>IsKeyDown()</code>.
+</p>
+
+<pre><span class="cm">// Sprint while LB is held</span>
+<span class="ty">float</span> speed = <span class="fn">IsGamepadButtonDown</span>(<span class="ty">GamepadButton</span>::<span class="val">LB</span>) ? <span class="val">10.0f</span> : <span class="val">5.0f</span>;</pre>
+
+<h3><code>IsGamepadButtonPressed(GamepadButton button, int index = 0)</code></h3>
+<p>
+  Returns <code>true</code> only on the <em>first</em> frame the button transitions
+  from released to pressed, regardless of how long it is then held. This is the
+  gamepad equivalent of <code>IsKeyPressed()</code> and is the correct function for
+  discrete one-shot actions such as jumping, interacting, or opening a menu. Using
+  <code>IsGamepadButtonDown</code> for jump would cause the character to jump
+  repeatedly on every frame the button is held.
+</p>
+
+<pre><span class="cm">// Jump fires once per button press, even if the button is held</span>
+<span class="kw">if</span> (<span class="fn">IsGamepadButtonPressed</span>(<span class="ty">GamepadButton</span>::<span class="val">A</span>))
+    cc_-&gt;<span class="fn">TryJump</span>(<span class="val">9.0f</span>);</pre>
+
+<h3><code>SetGamepadDeadZone(float threshold)</code> and <code>GetGamepadDeadZone()</code></h3>
+<p>
+  Sets the dead zone radius applied to all stick axes globally (not per-axis or
+  per-controller). The default is <code>0.20</code>, which is appropriate for most
+  modern controllers. Values are clamped to the range [0, 0.95]. Call this once in
+  <code>Start()</code>; changing it during gameplay mid-frame is safe but unusual.
+</p>
+<p>
+  A smaller dead zone (e.g. <code>0.10f</code>) makes sticks more responsive but may
+  cause visible drift when a worn controller does not return to true center. A larger
+  dead zone (e.g. <code>0.30f</code>) eliminates drift but makes small precise
+  movements impossible. The default of <code>0.20</code> works well as a starting
+  point; consider exposing it as a player setting in your options menu for accessibility.
+</p>
+
+<pre><span class="fn">SetGamepadDeadZone</span>(<span class="val">0.15f</span>);           <span class="cm">// more sensitive than the default 0.20</span>
+<span class="ty">float</span> dz = <span class="fn">GetGamepadDeadZone</span>();      <span class="cm">// read back the current value</span></pre>
+
+<h3><code>SetGamepadRumble(float lowFreq, float highFreq, float durationSec, int index = 0)</code></h3>
+<p>
+  Triggers the controller's haptic motors. <code>lowFreq</code> drives the large
+  low-frequency motor (felt as a deep body rumble, like an explosion or landing
+  impact) and <code>highFreq</code> drives the small high-frequency motor (felt as a
+  sharp buzz, like a collision or UI confirmation). Both values are normalised
+  intensities in [0, 1]. <code>durationSec</code> is how long the rumble plays in
+  seconds; after that time the engine stops the motors automatically. You do not need
+  to call any "stop rumble" function.
+</p>
+<p>
+  If the connected controller does not support <code>SDL_GameControllerRumble</code>,
+  a one-time warning is logged to the console and the call is silently ignored &mdash;
+  it will never crash or produce an error in your game logic. The same applies when
+  no controller is connected at the given index.
+</p>
+
+<pre><span class="cm">// Heavy landing: strong low-freq, light high-freq, 0.25 seconds</span>
+<span class="fn">SetGamepadRumble</span>(<span class="val">1.0f</span>, <span class="val">0.2f</span>, <span class="val">0.25f</span>);
+
+<span class="cm">// UI confirm: no low-freq, strong high-freq buzz, 0.08 seconds</span>
+<span class="fn">SetGamepadRumble</span>(<span class="val">0.0f</span>, <span class="val">0.9f</span>, <span class="val">0.08f</span>);
+
+<span class="cm">// Target player 2's controller specifically</span>
+<span class="fn">SetGamepadRumble</span>(<span class="val">0.5f</span>, <span class="val">0.5f</span>, <span class="val">0.3f</span>, <span class="val">1</span>);</pre>
+
+<h3><code>SetOnGamepadConnected(callback)</code> and <code>SetOnGamepadDisconnected(callback)</code></h3>
+<p>
+  These register a callback that fires when a gamepad is plugged in or removed at
+  runtime. The callbacks accept an <code>int index</code> identifying the slot. For
+  the connect callback, <code>index</code> is the slot that just became active and can
+  be used immediately for axis/button queries inside the callback. For the disconnect
+  callback, <code>index</code> is a best-effort value (usually <code>0</code>) because
+  the controller has already been removed from SDL's list by the time the callback fires.
+</p>
+<p>
+  Register both callbacks in <code>Start()</code>. They replace any previously
+  registered callbacks (there is only one slot per callback type). Inside each callback
+  you can update UI labels, pause the game, reassign player indices, or do any other
+  logic that makes sense for your game.
+</p>
+
+<pre><span class="fn">SetOnGamepadConnected</span>([<span class="kw">this</span>](<span class="ty">int</span> index) {
+    hintLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Gamepad ready! Press A to start."</span>);
+    URHO3D_LOGINFO((<span class="st">"Controller at index "</span> +
+                    std::<span class="fn">to_string</span>(index) + <span class="st">" connected"</span>).<span class="fn">c_str</span>());
+});
+
+<span class="fn">SetOnGamepadDisconnected</span>([<span class="kw">this</span>](<span class="ty">int</span> <span class="cm">/*index*/</span>) {
+    hintLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Controller disconnected! Plug in to continue."</span>);
+    <span class="cm">// Consider pausing the game here if it's controller-only</span>
+});</pre>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Combining keyboard and gamepad input</h2>
+
+<p>
+  Because both keyboard and gamepad produce the same type of float values (or boolean
+  flags), you can accumulate them into a single movement vector. This lets a player
+  use whichever device they prefer without any mode-switching code:
+</p>
+
+<pre><span class="ty">float</span> mx = <span class="val">0.0f</span>, mz = <span class="val">0.0f</span>;
+
+<span class="cm">// Keyboard contributes ±1 on each axis</span>
+<span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">A</span>)) mx -= <span class="val">1.0f</span>;
+<span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">D</span>)) mx += <span class="val">1.0f</span>;
+<span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">W</span>)) mz += <span class="val">1.0f</span>;
+<span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">S</span>)) mz -= <span class="val">1.0f</span>;
+
+<span class="cm">// Gamepad stick adds on top (both can be active at once)</span>
+<span class="kw">if</span> (<span class="fn">IsGamepadConnected</span>()) {
+    mx += <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftX</span>);
+    mz -= <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftY</span>);  <span class="cm">// negate: up = forward</span>
+}
+
+<span class="cm">// Clamp the combined vector to unit length</span>
+<span class="ty">float</span> len = std::<span class="fn">sqrt</span>(mx * mx + mz * mz);
+<span class="kw">if</span> (len &gt; <span class="val">1.0f</span>) { mx /= len; mz /= len; }
+
+cc_-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(mx, <span class="val">0</span>, mz) * speed, dt);</pre>
+
+<p>
+  The clamping step is important: if a player holds both the keyboard and the left
+  stick simultaneously, the raw sum could exceed 1.0 and the character would move
+  faster than intended. Normalising to unit length keeps speed consistent regardless
+  of how many input sources are active.
+</p>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Reading right stick and triggers</h2>
+
+<p>
+  The right stick is typically used for camera control in third-person games, or for
+  aiming in shooters. Triggers are commonly used for analogue acceleration and braking
+  in racing games, or for variable zoom in action games. The following snippet shows
+  how to read all four additional axes:
+</p>
+
+<pre><span class="kw">if</span> (<span class="fn">IsGamepadConnected</span>()) {
+    <span class="cm">// Right stick: camera orbit delta this frame</span>
+    <span class="ty">float</span> camYaw   =  <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">RightX</span>) * <span class="val">120.0f</span> * dt;
+    <span class="ty">float</span> camPitch = -<span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">RightY</span>) * <span class="val">80.0f</span>  * dt;
+    <span class="cm">// ... apply camYaw / camPitch to your camera orbit angles ...</span>
+
+    <span class="cm">// Triggers: analogue accelerate / brake</span>
+    <span class="ty">float</span> accel = <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">RTrigger</span>);  <span class="cm">// 0 to 1</span>
+    <span class="ty">float</span> brake = <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">LTrigger</span>);  <span class="cm">// 0 to 1</span>
+    <span class="ty">float</span> throttle = accel - brake;                        <span class="cm">// -1 to +1</span>
+}</pre>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>D-Pad and face buttons for menus</h2>
+
+<p>
+  The D-Pad values are exposed as buttons, not as axes. Each direction is a separate
+  <code>GamepadButton</code> constant. This makes them ideal for grid navigation in
+  menus, discrete item cycling, or any action that should fire once per press.
+  Using <code>IsGamepadButtonPressed</code> (not <code>Down</code>) ensures the action
+  fires once per tap and does not auto-repeat at the frame rate.
+</p>
+
+<pre><span class="kw">if</span> (<span class="fn">IsGamepadConnected</span>()) {
+    <span class="kw">if</span> (<span class="fn">IsGamepadButtonPressed</span>(<span class="ty">GamepadButton</span>::<span class="val">DPadUp</span>))    selectedRow_--;
+    <span class="kw">if</span> (<span class="fn">IsGamepadButtonPressed</span>(<span class="ty">GamepadButton</span>::<span class="val">DPadDown</span>))  selectedRow_++;
+    <span class="kw">if</span> (<span class="fn">IsGamepadButtonPressed</span>(<span class="ty">GamepadButton</span>::<span class="val">DPadLeft</span>))  selectedCol_--;
+    <span class="kw">if</span> (<span class="fn">IsGamepadButtonPressed</span>(<span class="ty">GamepadButton</span>::<span class="val">DPadRight</span>)) selectedCol_++;
+    <span class="kw">if</span> (<span class="fn">IsGamepadButtonPressed</span>(<span class="ty">GamepadButton</span>::<span class="val">A</span>))          <span class="fn">ConfirmSelection</span>();
+    <span class="kw">if</span> (<span class="fn">IsGamepadButtonPressed</span>(<span class="ty">GamepadButton</span>::<span class="val">B</span>))          <span class="fn">CancelMenu</span>();
+}</pre>
+
+<p>
+  For a more integrated approach to gamepad menu navigation &mdash; with automatic
+  D-Pad cycling and focus highlighting &mdash; see <code>SetFocusGroup()</code> and
+  <code>EnableFocusNavigation()</code>, which are covered in Part 17 (UI System).
+</p>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Multi-player: querying a specific controller index</h2>
+
+<p>
+  Every gamepad API call accepts an optional <code>int index</code> as its last
+  argument. Passing <code>0</code> (the default) queries the first connected
+  controller; <code>1</code> queries the second, and so on. The index is assigned by
+  SDL in the order controllers were plugged in. When a controller disconnects and
+  reconnects, SDL may assign it a new index.
+</p>
+
+<pre><span class="kw">void</span> <span class="fn">UpdatePlayer</span>(<span class="ty">int</span> padIndex, <span class="ty">CharacterController</span>* cc, <span class="ty">float</span> dt)
+{
+    <span class="kw">if</span> (!<span class="fn">IsGamepadConnected</span>(padIndex)) <span class="kw">return</span>;
+
+    <span class="ty">float</span> mx = <span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftX</span>, padIndex);
+    <span class="ty">float</span> mz = -<span class="fn">GetGamepadAxis</span>(<span class="ty">GamepadAxis</span>::<span class="val">LeftY</span>, padIndex);
+    cc-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(mx, <span class="val">0</span>, mz) * <span class="val">5.0f</span>, dt);
+
+    <span class="kw">if</span> (<span class="fn">IsGamepadButtonPressed</span>(<span class="ty">GamepadButton</span>::<span class="val">A</span>, padIndex))
+        cc-&gt;<span class="fn">TryJump</span>(<span class="val">9.0f</span>);
+}
+
+<span class="cm">// In Update(dt):</span>
+<span class="fn">UpdatePlayer</span>(<span class="val">0</span>, player1cc_, dt);
+<span class="fn">UpdatePlayer</span>(<span class="val">1</span>, player2cc_, dt);</pre>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Rumble recipes</h2>
+
+<p>
+  The following table gives common rumble patterns as a quick reference.
+  Tune the values for your game's feel.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Event</th><th>Low freq</th><th>High freq</th><th>Duration</th><th>Call</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Heavy landing</td>
+      <td>1.0</td><td>0.2</td><td>0.25 s</td>
+      <td><code>SetGamepadRumble(1.0f, 0.2f, 0.25f)</code></td>
+    </tr>
+    <tr>
+      <td>Jump launch</td>
+      <td>0.8</td><td>0.4</td><td>0.12 s</td>
+      <td><code>SetGamepadRumble(0.8f, 0.4f, 0.12f)</code></td>
+    </tr>
+    <tr>
+      <td>Damage taken</td>
+      <td>0.6</td><td>0.8</td><td>0.35 s</td>
+      <td><code>SetGamepadRumble(0.6f, 0.8f, 0.35f)</code></td>
+    </tr>
+    <tr>
+      <td>Explosion nearby</td>
+      <td>1.0</td><td>0.5</td><td>0.5 s</td>
+      <td><code>SetGamepadRumble(1.0f, 0.5f, 0.5f)</code></td>
+    </tr>
+    <tr>
+      <td>UI confirm</td>
+      <td>0.0</td><td>0.9</td><td>0.08 s</td>
+      <td><code>SetGamepadRumble(0.0f, 0.9f, 0.08f)</code></td>
+    </tr>
+    <tr>
+      <td>Continuous engine</td>
+      <td>0.3</td><td>0.1</td><td>per frame</td>
+      <td>Call each frame while engine is running</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+
+<p>
+  The raw gamepad API is fully exposed to Lua as global functions. String names are
+  used for axis and button values instead of C++ enum scoping. Integer enum values
+  are accepted as a fallback but string names are preferred for readability.
+</p>
+
+<pre><span class="lua-cm">-- Scripts/gamepad_player.lua</span>
+<span class="lua-cm">-- Raw gamepad input from Lua (Part 15)</span>
+
+<span class="lua-kw">local</span> cc      <span class="lua-cm">-- CharacterController</span>
+<span class="lua-kw">local</span> player  <span class="lua-cm">-- Entity</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    player = <span class="lua-fn">GetEntity</span>()
+    cc     = player:<span class="lua-fn">AddCharacterController</span>(<span class="lua-num">0.35</span>, <span class="lua-num">1.8</span>)
+    cc:<span class="lua-fn">SetGravity</span>(<span class="lua-num">25.0</span>)
+
+    <span class="lua-cm">-- Tighten the dead zone</span>
+    <span class="lua-fn">SetGamepadDeadZone</span>(<span class="lua-num">0.15</span>)
+
+    <span class="lua-cm">-- Hot-plug callbacks</span>
+    <span class="lua-fn">SetOnGamepadConnected</span>(<span class="lua-kw">function</span>(index)
+        <span class="lua-fn">Log</span>(<span class="lua-str">"Gamepad connected at index "</span> .. index)
+    <span class="lua-kw">end</span>)
+
+    <span class="lua-fn">SetOnGamepadDisconnected</span>(<span class="lua-kw">function</span>(index)
+        <span class="lua-fn">Log</span>(<span class="lua-str">"Gamepad disconnected"</span>)
+    <span class="lua-kw">end</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-cm">-- Quit</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyPressed</span>(<span class="lua-str">"Escape"</span>) <span class="lua-kw">or</span>
+       (<span class="lua-fn">IsGamepadConnected</span>(<span class="lua-num">0</span>) <span class="lua-kw">and</span>
+        <span class="lua-fn">IsGamepadButtonPressed</span>(<span class="lua-str">"Start"</span>, <span class="lua-num">0</span>)) <span class="lua-kw">then</span>
+        <span class="lua-fn">Quit</span>()
+        <span class="lua-kw">return</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Movement: combine keyboard and left stick</span>
+    <span class="lua-kw">local</span> mx, mz = <span class="lua-num">0</span>, <span class="lua-num">0</span>
+
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"A"</span>) <span class="lua-kw">then</span> mx = mx - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"D"</span>) <span class="lua-kw">then</span> mx = mx + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"W"</span>) <span class="lua-kw">then</span> mz = mz + <span class="lua-num">1</span> <span class="lua-kw">end</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyDown</span>(<span class="lua-str">"S"</span>) <span class="lua-kw">then</span> mz = mz - <span class="lua-num">1</span> <span class="lua-kw">end</span>
+
+    <span class="lua-kw">if</span> <span class="lua-fn">IsGamepadConnected</span>(<span class="lua-num">0</span>) <span class="lua-kw">then</span>
+        <span class="lua-cm">-- Lua string names: "LeftX", "LeftY", "RightX", "RightY", "LTrigger", "RTrigger"</span>
+        mx = mx + <span class="lua-fn">GetGamepadAxis</span>(<span class="lua-str">"LeftX"</span>, <span class="lua-num">0</span>)
+        mz = mz - <span class="lua-fn">GetGamepadAxis</span>(<span class="lua-str">"LeftY"</span>, <span class="lua-num">0</span>)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Normalise diagonal</span>
+    <span class="lua-kw">local</span> len = math.<span class="lua-fn">sqrt</span>(mx * mx + mz * mz)
+    <span class="lua-kw">if</span> len &gt; <span class="lua-num">1.0</span> <span class="lua-kw">then</span>
+        mx = mx / len
+        mz = mz / len
+    <span class="lua-kw">end</span>
+
+    cc:<span class="lua-fn">Move</span>(Vector3(mx, <span class="lua-num">0</span>, mz) * <span class="lua-num">5.0</span>, dt)
+
+    <span class="lua-cm">-- Jump: keyboard Space OR gamepad A button</span>
+    <span class="lua-kw">local</span> jumpGamepad = <span class="lua-fn">IsGamepadConnected</span>(<span class="lua-num">0</span>) <span class="lua-kw">and</span>
+                        <span class="lua-fn">IsGamepadButtonPressed</span>(<span class="lua-str">"A"</span>, <span class="lua-num">0</span>)
+
+    <span class="lua-kw">if</span> <span class="lua-fn">IsKeyPressed</span>(<span class="lua-str">"Space"</span>) <span class="lua-kw">or</span> jumpGamepad <span class="lua-kw">then</span>
+        cc:<span class="lua-fn">TryJump</span>(<span class="lua-num">9.0</span>)
+        <span class="lua-kw">if</span> jumpGamepad <span class="lua-kw">then</span>
+            <span class="lua-fn">SetGamepadRumble</span>(<span class="lua-num">0.8</span>, <span class="lua-num">0.4</span>, <span class="lua-num">0.12</span>, <span class="lua-num">0</span>)
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- Read right stick and triggers for debug output</span>
+    <span class="lua-kw">if</span> <span class="lua-fn">IsGamepadConnected</span>(<span class="lua-num">0</span>) <span class="lua-kw">then</span>
+        <span class="lua-kw">local</span> rx = <span class="lua-fn">GetGamepadAxis</span>(<span class="lua-str">"RightX"</span>, <span class="lua-num">0</span>)
+        <span class="lua-kw">local</span> ry = <span class="lua-fn">GetGamepadAxis</span>(<span class="lua-str">"RightY"</span>, <span class="lua-num">0</span>)
+        <span class="lua-kw">local</span> lt = <span class="lua-fn">GetGamepadAxis</span>(<span class="lua-str">"LTrigger"</span>, <span class="lua-num">0</span>)
+        <span class="lua-kw">local</span> rt = <span class="lua-fn">GetGamepadAxis</span>(<span class="lua-str">"RTrigger"</span>, <span class="lua-num">0</span>)
+        <span class="lua-cm">-- Log(string.format("RS=%.2f,%.2f  LT=%.2f RT=%.2f", rx, ry, lt, rt))</span>
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<div class="callout new">
+  <h4>Raw gamepad vs Input Actions</h4>
+  <p>
+    The raw polling API covered in this part is the right tool for: checking device
+    presence with <code>IsGamepadConnected</code>, triggering rumble effects, reading
+    triggers for analogue values, and debug overlays that display raw axis numbers.
+    For gameplay logic that needs to support both keyboard and gamepad from a single
+    code path &mdash; and ideally allow the player to remap controls &mdash; the
+    <strong>Input Actions</strong> system covered in Part 16 is a cleaner abstraction.
+    <code>BindAction</code> / <code>BindAxis2D</code> wrap exactly the polling shown
+    here behind named actions, and <code>SaveInputBindings</code> /
+    <code>LoadInputBindings</code> handle persistence.
+  </p>
+</div>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>Common mistakes</h2>
+
+<div class="callout warn">
+  <h4>Common mistakes to avoid</h4>
+  <ul>
+    <li>
+      <strong>Reading axes without checking <code>IsGamepadConnected()</code> first.</strong>
+      While it is technically safe (functions return 0 for a missing controller),
+      skipping the check makes the code ambiguous: you cannot tell whether the axis
+      returned 0 because the stick is centred or because no pad is connected.
+      Always guard with <code>IsGamepadConnected()</code> before reading input.
+    </li>
+    <li>
+      <strong>Using <code>IsGamepadButtonDown</code> for one-shot actions like jump.</strong>
+      <code>IsGamepadButtonDown</code> is true on every frame while the button is held.
+      For a jump running at 60 fps, this would fire 60 jump attempts per second. Use
+      <code>IsGamepadButtonPressed</code> for actions that should trigger once per press.
+    </li>
+    <li>
+      <strong>Forgetting that <code>LeftY</code> is inverted (SDL convention).</strong>
+      Pushing the left stick up returns a <em>negative</em> Y value. If you use
+      <code>GetGamepadAxis(GamepadAxis::LeftY)</code> directly as a forward movement
+      value, pushing up will move the character backward. Always negate:
+      <code>mz -= GetGamepadAxis(GamepadAxis::LeftY)</code>.
+    </li>
+    <li>
+      <strong>Expecting the dead zone to apply to triggers.</strong>
+      The dead zone is applied only to stick axes (<code>LeftX/Y</code>,
+      <code>RightX/Y</code>). Triggers return raw SDL values in [0, 1].
+      If you need a dead zone on a trigger (to avoid accidental activation from
+      resting pressure), apply a threshold in your own code:
+      <code>if (GetGamepadAxis(GamepadAxis::RTrigger) &gt; 0.05f) { ... }</code>
+    </li>
+    <li>
+      <strong>Calling <code>SetGamepadRumble</code> every frame for a continuous effect.</strong>
+      Calling <code>SetGamepadRumble(0.3f, 0.1f, 0.05f)</code> every frame
+      (i.e. with a duration equal to roughly one frame) is the correct way to
+      simulate continuous rumble that scales with gameplay intensity. Do not call it
+      with a long duration and rely on the motors to stop themselves while your
+      game state has already changed &mdash; start a new short rumble each frame
+      instead so you can update intensity dynamically.
+    </li>
+    <li>
+      <strong>Hardcoding index 0 in hot-plug callbacks when you support multiple players.</strong>
+      The <code>index</code> parameter of <code>SetOnGamepadConnected</code> tells you
+      which slot just became active. Store it so you know which slot to query in
+      <code>Update()</code> for that player. Do not assume it is always 0.
+    </li>
+    <li>
+      <strong>Not normalising the combined keyboard + gamepad movement vector.</strong>
+      If the player holds a keyboard key and pushes the stick in the same direction,
+      the raw sum can exceed 1.0 and the character will move faster than the design
+      speed. Always normalise to unit length after combining sources.
+    </li>
+    <li>
+      <strong>Registering hot-plug callbacks after the first frame.</strong>
+      Callbacks registered after the game has started will miss any plug-in events
+      that occurred before they were registered. Register both callbacks at the end
+      of <code>Start()</code> before <code>Run()</code> enters its main loop.
+    </li>
+  </ul>
+</div>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>API method reference summary</h2>
+
+<table>
+  <thead>
+    <tr><th>Method</th><th>Returns</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>IsGamepadConnected(index=0)</code></td>
+      <td><code>bool</code></td>
+      <td>Call every frame; index 0 = first controller</td>
+    </tr>
+    <tr>
+      <td><code>GetGamepadAxis(GamepadAxis, index=0)</code></td>
+      <td><code>float</code></td>
+      <td>Sticks: [-1,1] dead zone applied. Triggers: [0,1] no dead zone.</td>
+    </tr>
+    <tr>
+      <td><code>IsGamepadButtonDown(GamepadButton, index=0)</code></td>
+      <td><code>bool</code></td>
+      <td>True every frame while held; use for continuous actions</td>
+    </tr>
+    <tr>
+      <td><code>IsGamepadButtonPressed(GamepadButton, index=0)</code></td>
+      <td><code>bool</code></td>
+      <td>True on first frame of press only; use for one-shot actions</td>
+    </tr>
+    <tr>
+      <td><code>SetGamepadDeadZone(float)</code></td>
+      <td>—</td>
+      <td>Global; default 0.20; range [0, 0.95]; affects sticks only</td>
+    </tr>
+    <tr>
+      <td><code>GetGamepadDeadZone()</code></td>
+      <td><code>float</code></td>
+      <td>Read current dead zone value</td>
+    </tr>
+    <tr>
+      <td><code>SetGamepadRumble(low, high, dur, index=0)</code></td>
+      <td>—</td>
+      <td>Intensities [0,1]; duration in seconds; no-op if unsupported</td>
+    </tr>
+    <tr>
+      <td><code>SetOnGamepadConnected(callback)</code></td>
+      <td>—</td>
+      <td><code>std::function&lt;void(int)&gt;</code>; replaces previous callback</td>
+    </tr>
+    <tr>
+      <td><code>SetOnGamepadDisconnected(callback)</code></td>
+      <td>—</td>
+      <td><code>std::function&lt;void(int)&gt;</code>; index is best-effort on disconnect</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ───────────────────────────────────────────────────── -->
+<h2>What you learned</h2>
+
+<ul>
+  <li>
+    <code>IsGamepadConnected(index)</code> is the entry-point guard for all gamepad
+    input. Controllers can arrive and depart at any time, so call it every frame
+    before reading axes or buttons.
+  </li>
+  <li>
+    <code>GetGamepadAxis(GamepadAxis, index)</code> returns stick values in [-1, +1]
+    with the dead zone already applied and linearly remapped. Trigger values come back
+    in [0, +1] with no dead zone. Push-up on the left stick returns a <em>negative</em>
+    Y value (SDL convention) &mdash; negate it when up should mean forward.
+  </li>
+  <li>
+    <code>IsGamepadButtonDown</code> is for continuous held actions; <code>IsGamepadButtonPressed</code>
+    is for one-shot discrete actions. Using the wrong one is the most common gamepad
+    input bug.
+  </li>
+  <li>
+    Keyboard and gamepad input can be accumulated into the same float vector.
+    Normalise the combined result to unit length so maximum speed is consistent
+    regardless of which devices are active simultaneously.
+  </li>
+  <li>
+    <code>SetGamepadDeadZone(0.15f)</code> tunes the global stick dead zone.
+    The default of <code>0.20</code> suits most controllers; lower it for
+    responsive precision controls, raise it to suppress drift on worn hardware.
+    Triggers are exempt from the dead zone.
+  </li>
+  <li>
+    <code>SetGamepadRumble(lowFreq, highFreq, duration)</code> triggers haptic
+    motors. Large low-frequency values feel like heavy impacts; large high-frequency
+    values feel like sharp buzzes. The call is a safe no-op on controllers that do not
+    support rumble.
+  </li>
+  <li>
+    <code>SetOnGamepadConnected</code> and <code>SetOnGamepadDisconnected</code>
+    fire when controllers are hotplugged. Use them to update UI, reassign player
+    slots, or pause the game. Register them in <code>Start()</code> before the first frame.
+  </li>
+  <li>
+    The complete <code>GamepadButton</code> set covers A, B, X, Y, LB, RB, Start,
+    Select, and all four D-Pad directions. SDL's mapping database ensures these map
+    to the correct physical button on Xbox, PlayStation, and most generic USB controllers.
+  </li>
+  <li>
+    All raw gamepad functions are available as Lua globals. Use string names for axes
+    and buttons: <code>GetGamepadAxis("LeftX", 0)</code>,
+    <code>IsGamepadButtonPressed("A", 0)</code>.
+  </li>
+  <li>
+    For production gameplay code that needs remappable controls, see Part 16 (Input
+    Actions). <code>BindAction</code> and <code>BindAxis2D</code> wrap the raw polling
+    shown in this part behind named abstractions that are easier to extend and persist.
+  </li>
+</ul>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-14.html">&#8592; Part 14: Navigation and Pathfinding</a>
+  <a href="tutorial-16.html">Part 16: Input Actions &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

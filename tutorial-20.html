@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 20: Scene Management — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li class="active"><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 20</div>
+
+<h1><span class="tutorial-part">Part 20 of 30</span>Scene Management</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>LoadScene(path, callback={})</code> &mdash;
+    <code>UnloadScene()</code> &mdash;
+    <code>FadeOut(duration, callback={})</code> &mdash;
+    <code>FadeIn(duration)</code> &mdash;
+    <code>SetPersistentEntity(entity)</code> &mdash;
+    <code>SetLevelList(vector&lt;string&gt;)</code> &mdash;
+    <code>LoadLevel(index)</code> &mdash;
+    <code>LoadNextLevel()</code> &mdash;
+    <code>GetCurrentLevelIndex()</code> &mdash;
+    <code>GetLevelCount()</code> &mdash;
+    smooth fade-to-black transitions between levels, entities that survive scene unloads.
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ──────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How to load a <code>.mc3.xml</code> scene file at runtime with <code>LoadScene</code>.</li>
+  <li>How to tear down the current scene without loading a new one using <code>UnloadScene</code>.</li>
+  <li>How to play smooth black-screen fade transitions with <code>FadeOut</code> and <code>FadeIn</code>.</li>
+  <li>How to chain a fade-out, scene swap, and fade-in in a single callback.</li>
+  <li>How to keep a player entity alive across scene transitions with <code>SetPersistentEntity</code>.</li>
+  <li>How to define an ordered list of levels and navigate it with <code>SetLevelList</code>, <code>LoadLevel</code>, and <code>LoadNextLevel</code>.</li>
+  <li>How to query the current position in the level list with <code>GetCurrentLevelIndex</code> and <code>GetLevelCount</code>.</li>
+  <li>How to detect the last level and branch to a win screen instead of advancing.</li>
+  <li>Best practices for scene asset organisation and transition timing.</li>
+</ul>
+
+<!-- ─── BACKGROUND ───────────────────────────────────────────────── -->
+<h2>Background: how scenes work in simple-3d</h2>
+
+<p>
+  In simple-3d, a <em>scene</em> is the set of all non-persistent entities currently
+  alive in the world.  When you call <code>LoadScene</code> or <code>UnloadScene</code>,
+  every entity that was not explicitly marked persistent is destroyed and its memory
+  is freed.  Persistent entities &mdash; typically the player character and global
+  managers &mdash; keep their components intact and simply find themselves in the new
+  world geometry.
+</p>
+
+<p>
+  Scene files are <code>.mc3.xml</code> format, imported through the <code>Mc3::Import</code>
+  bridge internally.  You never call <code>Mc3::Import</code> directly; <code>LoadScene</code>
+  does it for you.
+</p>
+
+<div class="grid2">
+  <div class="card card-green">
+    <h3>Level list (recommended)</h3>
+    <p>
+      Register all your level file paths with <code>SetLevelList</code> once in
+      <code>Start()</code>.  Then use <code>LoadLevel(index)</code> or
+      <code>LoadNextLevel()</code> to advance through them.
+      <code>GetCurrentLevelIndex()</code> and <code>GetLevelCount()</code> let you
+      guard against going past the last level.
+    </p>
+  </div>
+  <div class="card card-blue">
+    <h3>Direct load (flexible)</h3>
+    <p>
+      For menus, cutscenes, or non-linear games, call
+      <code>LoadScene("path/to/scene.mc3.xml")</code> directly.
+      An optional lambda callback fires after the new scene is ready
+      &mdash; useful for repositioning the player or triggering a fade-in
+      from within the same call.
+    </p>
+  </div>
+</div>
+
+<!-- ─── ASSET LAYOUT ─────────────────────────────────────────────── -->
+<h2>Recommended asset layout</h2>
+
+<p>
+  Keep your level files under <code>Data/</code> so the resource cache resolves
+  paths consistently regardless of working directory:
+</p>
+
+<pre>Data/
+  levels/
+    01.mc3.xml    <span class="cm">// level 1 — grassy plains</span>
+    02.mc3.xml    <span class="cm">// level 2 — underground caves</span>
+    03.mc3.xml    <span class="cm">// level 3 — boss arena</span>
+  menus/
+    main_menu.mc3.xml   <span class="cm">// title screen geometry</span>
+  models/
+    Player.mdl
+  Textures/
+    ...
+</pre>
+
+<!-- ─── COMPLETE EXAMPLE ──────────────────────────────────────────── -->
+<h2>Complete working example</h2>
+
+<p>
+  The example below builds a three-level linear platformer.  The player entity
+  is created once, marked persistent, and carries through every level transition.
+  A trigger volume in each level sets <code>reachedExit_</code>; the game then
+  fades out, advances to the next level, and fades back in.  After the final
+  level, a win screen appears instead.
+</p>
+
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="cm">// ────────────────────────────────────────────────────────────────────
+// LevelGame — demonstrates the full scene-management API.
+// ────────────────────────────────────────────────────────────────────</span>
+<span class="kw">class</span> <span class="ty">LevelGame</span> : <span class="kw">public</span> <span class="ty">Game</span>
+{
+<span class="kw">public</span>:
+    <span class="cm">// ── Persistent objects (survive scene transitions) ───────────────</span>
+    <span class="ty">Entity</span>*  player_        = <span class="kw">nullptr</span>;
+    <span class="ty">Camera</span>*  cam_           = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── Per-scene objects (recreated each level) ─────────────────────</span>
+    <span class="ty">Entity</span>*  exitTrigger_   = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── UI (always preserved) ────────────────────────────────────────</span>
+    <span class="ty">Label</span>*   levelLabel_    = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*   hintLabel_     = <span class="kw">nullptr</span>;
+    <span class="ty">UI::Panel</span>* winPanel_    = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*   winLabel_      = <span class="kw">nullptr</span>;
+    <span class="ty">UI::Button</span>* quitBtn_    = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── State ────────────────────────────────────────────────────────</span>
+    <span class="ty">bool</span>  reachedExit_   = <span class="kw">false</span>;
+    <span class="ty">bool</span>  transitioning_ = <span class="kw">false</span>; <span class="cm">// lock out re-entrance during fades</span>
+
+    <span class="cm">// ── Fade duration used for every transition ───────────────────────</span>
+    <span class="kw">static constexpr</span> <span class="ty">float</span> FADE_TIME = <span class="val">0.45f</span>;
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // Start() — runs once before the first frame.
+    // Create the persistent player, camera, and HUD here;
+    // then register the level list and load level 0.
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="fn">SetAppName</span>(<span class="st">"LevelGame"</span>);
+
+        <span class="cm">// ── Persistent player ────────────────────────────────────────
+        // Create once.  SetPersistentEntity ensures it is NOT
+        // destroyed when UnloadScene / LoadScene is called.</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        player_-&gt;<span class="fn">SetScale</span>(<span class="val">0.7f</span>);
+
+        <span class="ty">CharacterController</span>* cc = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.6f</span>);
+        cc-&gt;<span class="fn">SetGravity</span>(<span class="val">22.0f</span>);
+        player_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+        player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>,
+            <span class="ty">CollisionLayer</span>::<span class="val">Trigger</span>
+        }));
+
+        <span class="cm">// Mark player as persistent BEFORE the first LoadLevel call.</span>
+        <span class="fn">SetPersistentEntity</span>(player_);
+
+        <span class="cm">// ── Camera ───────────────────────────────────────────────────
+        // CreateCamera() is always preserved; no need to call
+        // SetPersistentEntity on it.</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">Follow</span>(player_, <span class="val">8.0f</span>, <span class="val">3.5f</span>);
+        cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">6.0f</span>);
+        cam_-&gt;<span class="fn">SetCollisionEnabled</span>(<span class="kw">true</span>);
+
+        <span class="cm">// ── HUD ──────────────────────────────────────────────────────
+        // UI elements are always preserved across scene transitions.</span>
+        levelLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Level 1"</span>);
+        levelLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">10</span>);
+        levelLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">20</span>);
+        levelLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>);
+
+        hintLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Reach the glowing exit portal"</span>);
+        hintLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">38</span>);
+        hintLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">14</span>);
+        hintLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.85f</span>, <span class="val">0.85f</span>, <span class="val">0.85f</span>, <span class="val">1.0f</span>));
+
+        <span class="cm">// ── Win screen (hidden until all levels are complete) ─────────</span>
+        winPanel_ = <span class="fn">CreatePanel</span>();
+        winPanel_-&gt;<span class="fn">SetSize</span>(<span class="val">420</span>, <span class="val">200</span>);
+        winPanel_-&gt;<span class="fn">SetAnchor</span>(<span class="ty">UI::Anchor</span>::<span class="val">Center</span>);
+        winPanel_-&gt;<span class="fn">SetPosition</span>(<span class="val">0</span>, <span class="val">0</span>);
+        winPanel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.75f</span>));
+        winPanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);
+
+        winLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"You Win!"</span>);
+        winLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">135</span>, <span class="val">50</span>);
+        winLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">36</span>);
+        winLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.9f</span>, <span class="val">0.2f</span>, <span class="val">1.0f</span>));
+        winPanel_-&gt;<span class="fn">AddChild</span>(winLabel_);
+
+        quitBtn_ = <span class="fn">CreateButton</span>(<span class="st">"Quit"</span>);
+        quitBtn_-&gt;<span class="fn">SetSize</span>(<span class="val">140</span>, <span class="val">40</span>);
+        quitBtn_-&gt;<span class="fn">SetPosition</span>(<span class="val">140</span>, <span class="val">130</span>);
+        quitBtn_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.15f</span>, <span class="val">0.4f</span>, <span class="val">0.15f</span>, <span class="val">0.9f</span>));
+        quitBtn_-&gt;<span class="fn">SetOnClick</span>([<span class="kw">this</span>] { <span class="fn">Quit</span>(); });
+        winPanel_-&gt;<span class="fn">AddChild</span>(quitBtn_);
+
+        <span class="cm">// ── Level list ───────────────────────────────────────────────
+        // Register all levels in play order.
+        // LoadLevel(0) immediately loads the first scene and
+        // sets GetCurrentLevelIndex() to 0.</span>
+        <span class="fn">SetLevelList</span>({
+            <span class="st">"levels/01.mc3.xml"</span>,
+            <span class="st">"levels/02.mc3.xml"</span>,
+            <span class="st">"levels/03.mc3.xml"</span>
+        });
+
+        <span class="cm">// Fade in as the first level appears (no callback needed here).</span>
+        <span class="fn">FadeIn</span>(FADE_TIME);
+        <span class="fn">LoadLevel</span>(<span class="val">0</span>);
+
+        <span class="cm">// Set up per-scene objects after LoadLevel.</span>
+        <span class="fn">SetupCurrentLevel</span>();
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // SetupCurrentLevel() — called once after every scene swap.
+    // Spawns the player at the level's start point and hooks up
+    // the exit trigger for this particular scene.
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">SetupCurrentLevel</span>()
+    {
+        <span class="ty">int</span> idx = <span class="fn">GetCurrentLevelIndex</span>();
+
+        <span class="cm">// Update the HUD label.</span>
+        levelLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Level "</span> + <span class="ty">String</span>(idx + <span class="val">1</span>) +
+                              <span class="st">" / "</span> + <span class="ty">String</span>(<span class="fn">GetLevelCount</span>()));
+
+        <span class="cm">// Each level defines a spawn point entity named "Spawn".</span>
+        <span class="ty">Entity</span>* spawn = <span class="fn">FindEntity</span>(<span class="st">"Spawn"</span>);
+        <span class="kw">if</span> (spawn)
+            player_-&gt;<span class="fn">SetPosition</span>(spawn-&gt;<span class="fn">GetPosition</span>() + <span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">1.0f</span>, <span class="val">0.0f</span>));
+        <span class="kw">else</span>
+            player_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">2.0f</span>, <span class="val">0.0f</span>); <span class="cm">// fallback</span>
+
+        <span class="cm">// The exit trigger volume is placed by the level artist.
+        // We look it up by name and wire the callback here in code
+        // so the game logic stays in C++ rather than the scene file.</span>
+        exitTrigger_ = <span class="fn">FindEntity</span>(<span class="st">"Exit"</span>);
+        <span class="kw">if</span> (exitTrigger_)
+        {
+            exitTrigger_-&gt;<span class="fn">SetOnTriggerEnter</span>([<span class="kw">this</span>](<span class="ty">Entity</span>* other) {
+                <span class="kw">if</span> (other == player_)
+                    reachedExit_ = <span class="kw">true</span>;
+            });
+        }
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // Update() — player movement + exit detection.
+    // ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="fn">HandleMovement</span>(dt);
+
+        <span class="cm">// When the player reaches the exit and no transition is
+        // already in progress, start the fade-out / advance / fade-in chain.</span>
+        <span class="kw">if</span> (reachedExit_ &amp;&amp; !transitioning_)
+        {
+            reachedExit_   = <span class="kw">false</span>;
+            transitioning_ = <span class="kw">true</span>;
+
+            <span class="fn">FadeOut</span>(FADE_TIME, [<span class="kw">this</span>] {
+                <span class="cm">// Are there more levels?</span>
+                <span class="kw">if</span> (<span class="fn">GetCurrentLevelIndex</span>() + <span class="val">1</span> &lt; <span class="fn">GetLevelCount</span>())
+                {
+                    <span class="cm">// Advance to the next level in the list.</span>
+                    <span class="fn">LoadNextLevel</span>();
+                    <span class="fn">SetupCurrentLevel</span>();
+
+                    <span class="fn">FadeIn</span>(FADE_TIME);
+                    transitioning_ = <span class="kw">false</span>;
+                }
+                <span class="kw">else</span>
+                {
+                    <span class="cm">// All levels complete — show the win screen and fade in.</span>
+                    winPanel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">true</span>);
+                    hintLabel_-&gt;<span class="fn">SetVisible</span>(<span class="kw">false</span>);
+                    <span class="fn">FadeIn</span>(FADE_TIME);
+                    transitioning_ = <span class="kw">false</span>;
+                }
+            });
+        }
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Escape</span>))
+            <span class="fn">Quit</span>();
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">HandleMovement</span>(<span class="ty">float</span> dt)
+    {
+        <span class="ty">CharacterController</span>* cc = player_-&gt;<span class="fn">GetComponent</span>&lt;<span class="ty">CharacterController</span>&gt;();
+        <span class="kw">if</span> (!cc) <span class="kw">return</span>;
+
+        <span class="ty">float</span> mx = <span class="val">0.0f</span>, mz = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Left</span>)  || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">A</span>)) mx -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Right</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">D</span>)) mx += <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Up</span>)    || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">W</span>)) mz -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Down</span>)  || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">S</span>)) mz += <span class="val">1.0f</span>;
+
+        cc-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(mx, <span class="val">0.0f</span>, mz) * <span class="val">5.0f</span>, dt);
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Space</span>) &amp;&amp; cc-&gt;<span class="fn">IsOnGround</span>())
+            cc-&gt;<span class="fn">TryJump</span>(<span class="val">10.0f</span>);
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">LevelGame</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ──────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<!-- LoadScene -->
+<h3>LoadScene(path, callback={})</h3>
+<p>
+  <code>LoadScene</code> is the fundamental scene-switching call.  It performs the
+  following sequence atomically: destroys all non-persistent entities, then imports
+  the given <code>.mc3.xml</code> file via <code>Mc3::Import</code> internally.
+  You do not need to include <code>&lt;Simple3D/Mc3/Mc3Bridge.h&gt;</code> or call
+  <code>Import</code> yourself &mdash; <code>LoadScene</code> handles it.
+</p>
+<p>
+  The optional second argument is a <code>std::function&lt;void()&gt;</code> callback
+  that fires once, synchronously, after the new scene has been imported but before
+  the next <code>Update</code> frame.  Use it to reposition the player, rebuild
+  nav-mesh references, or trigger a <code>FadeIn</code> &mdash; all before the
+  player ever sees the new scene.
+</p>
+
+<pre><span class="cm">// Simplest form — load and forget</span>
+<span class="fn">LoadScene</span>(<span class="st">"levels/02.mc3.xml"</span>);
+
+<span class="cm">// With callback — reposition player immediately after import</span>
+<span class="fn">LoadScene</span>(<span class="st">"levels/02.mc3.xml"</span>, [<span class="kw">this</span>] {
+    <span class="ty">Entity</span>* spawn = <span class="fn">FindEntity</span>(<span class="st">"Spawn"</span>);
+    <span class="kw">if</span> (spawn)
+        player_-&gt;<span class="fn">SetPosition</span>(spawn-&gt;<span class="fn">GetPosition</span>());
+    <span class="fn">FadeIn</span>(<span class="val">0.5f</span>);
+});</pre>
+
+<!-- UnloadScene -->
+<h3>UnloadScene()</h3>
+<p>
+  <code>UnloadScene</code> destroys all non-persistent entities and clears the physics
+  world without loading anything new in their place.  After the call, only persistent
+  entities and UI elements remain.  This is useful when you need a clean empty scene
+  before procedurally generating content in C++, or before showing a menu that has
+  no 3D geometry at all.
+</p>
+
+<pre><span class="cm">// Clear geometry before building a procedural level</span>
+<span class="fn">UnloadScene</span>();
+<span class="fn">BuildProceduralDungeon</span>();   <span class="cm">// your own C++ level generator</span>
+
+<span class="cm">// Unload and then let LoadScene fill the gap</span>
+<span class="fn">UnloadScene</span>();
+<span class="fn">LoadScene</span>(<span class="st">"menus/main_menu.mc3.xml"</span>);</pre>
+
+<p>
+  Note that <code>LoadScene</code> calls <code>UnloadScene</code> first internally, so
+  you rarely need to call both in sequence yourself.
+</p>
+
+<!-- FadeOut / FadeIn -->
+<h3>FadeOut(duration, callback={}) and FadeIn(duration)</h3>
+<p>
+  These two methods animate a full-screen black overlay.  <code>FadeOut</code>
+  interpolates the overlay opacity from 0 (transparent) to 1 (fully opaque) over
+  <code>duration</code> seconds; once fully opaque, the optional callback fires.
+  <code>FadeIn</code> runs the reverse animation: from fully opaque back to transparent.
+</p>
+<p>
+  The canonical transition pattern is: call <code>FadeOut</code>, do your scene swap
+  inside its callback, then immediately call <code>FadeIn</code>.  The player sees a
+  smooth dip to black and back, covering any pop-in from level loading:
+</p>
+
+<pre><span class="fn">FadeOut</span>(<span class="val">0.4f</span>, [<span class="kw">this</span>] {
+    <span class="cm">// Screen is fully black — safe to swap scene now.</span>
+    <span class="fn">LoadNextLevel</span>();
+    <span class="fn">SetupCurrentLevel</span>();
+
+    <span class="cm">// Begin fading the new scene back in.</span>
+    <span class="fn">FadeIn</span>(<span class="val">0.4f</span>);
+});</pre>
+
+<p>
+  If you call <code>FadeOut</code> or <code>FadeIn</code> while a previous fade is
+  still running, the new call replaces it immediately from wherever the animation
+  currently is.  Both methods also accept an optional second callback to <code>FadeIn</code>
+  if you need to know when the scene is fully visible again:
+</p>
+
+<pre><span class="fn">FadeIn</span>(<span class="val">0.5f</span>); <span class="cm">// no callback — fire and forget the reveal animation</span>
+
+<span class="cm">// Or call FadeOut with no callback for a permanent blackout (cutscenes, etc.)</span>
+<span class="fn">FadeOut</span>(<span class="val">1.0f</span>);</pre>
+
+<!-- SetPersistentEntity -->
+<h3>SetPersistentEntity(Entity*)</h3>
+<p>
+  By default, every entity is destroyed when <code>UnloadScene</code> or
+  <code>LoadScene</code> is called.  Calling <code>SetPersistentEntity</code> on an
+  entity exempts it from that destruction.  Persistent entities keep all their
+  components &mdash; <code>CharacterController</code>, <code>AnimationController</code>,
+  <code>AudioSource</code>, attached scripts &mdash; and simply remain in the world when
+  non-persistent entities are swept away.
+</p>
+<p>
+  Two important categories are <em>always</em> preserved without needing this call:
+</p>
+<ul>
+  <li>The <strong>camera</strong> &mdash; it lives outside the entity list entirely.</li>
+  <li>All <strong>UI elements</strong> (Label, Image, Panel, Button, ProgressBar, Slider)
+      &mdash; they are attached to the UI subsystem, not the scene graph.</li>
+</ul>
+<p>
+  <code>SetPersistentEntity</code> can be called multiple times with different
+  entities; each call adds one entity to the persistent set.  Call it in
+  <code>Start()</code> before the first <code>LoadLevel</code> or
+  <code>LoadScene</code> so the entity is registered before any scene swap occurs.
+</p>
+
+<pre><span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+    player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+    player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.6f</span>);
+    <span class="fn">SetPersistentEntity</span>(player_);   <span class="cm">// survives all future LoadScene calls</span>
+
+    <span class="cm">// You can mark multiple entities persistent if needed:</span>
+    musicManager_ = <span class="fn">CreateEntity</span>(<span class="st">"MusicManager"</span>);
+    musicManager_-&gt;<span class="fn">AddScript</span>(<span class="st">"Scripts/music_manager.lua"</span>);
+    <span class="fn">SetPersistentEntity</span>(musicManager_);
+
+    <span class="cm">// Camera is always persistent — no call needed.</span>
+    cam_ = <span class="fn">CreateCamera</span>();
+    cam_-&gt;<span class="fn">Follow</span>(player_, <span class="val">8.0f</span>, <span class="val">3.0f</span>);
+}</pre>
+
+<!-- SetLevelList -->
+<h3>SetLevelList(vector&lt;string&gt; paths)</h3>
+<p>
+  <code>SetLevelList</code> registers an ordered sequence of scene file paths as the
+  game's level playlist.  After calling it, <code>LoadLevel(index)</code> and
+  <code>LoadNextLevel()</code> navigate within that list.  Call it once in
+  <code>Start()</code> with all level paths known at startup:
+</p>
+
+<pre><span class="fn">SetLevelList</span>({
+    <span class="st">"levels/01.mc3.xml"</span>,   <span class="cm">// index 0</span>
+    <span class="st">"levels/02.mc3.xml"</span>,   <span class="cm">// index 1</span>
+    <span class="st">"levels/03.mc3.xml"</span>,   <span class="cm">// index 2 — last level</span>
+});</pre>
+
+<p>
+  You can call <code>SetLevelList</code> again later to replace the playlist entirely
+  &mdash; useful if your game unlocks bonus levels at runtime, or if you have
+  separate act structures with different level pools.
+</p>
+
+<!-- LoadLevel -->
+<h3>LoadLevel(int index)</h3>
+<p>
+  Loads <code>levelList[index]</code> immediately.  If <code>index</code> is out of
+  bounds (negative or &ge; <code>GetLevelCount()</code>) the call is a silent no-op.
+  After a successful load, <code>GetCurrentLevelIndex()</code> returns the new index.
+  Use <code>LoadLevel(0)</code> in <code>Start()</code> to begin from the first
+  level, or <code>LoadLevel(savedIndex)</code> to resume from a saved game.
+</p>
+
+<pre><span class="cm">// Begin at the first level</span>
+<span class="fn">LoadLevel</span>(<span class="val">0</span>);
+
+<span class="cm">// Resume from a saved position</span>
+<span class="ty">int</span> savedIdx = <span class="fn">GetSaveData</span>(<span class="val">0</span>).<span class="fn">GetInt</span>(<span class="st">"levelIndex"</span>, <span class="val">0</span>);
+<span class="fn">LoadLevel</span>(savedIdx);
+
+<span class="cm">// Jump to the final level regardless of count</span>
+<span class="fn">LoadLevel</span>(<span class="fn">GetLevelCount</span>() - <span class="val">1</span>);</pre>
+
+<!-- LoadNextLevel -->
+<h3>LoadNextLevel()</h3>
+<p>
+  A convenience wrapper that loads <code>levelList[GetCurrentLevelIndex() + 1]</code>.
+  If the current level is already the last one, the call is a no-op.  Always guard
+  with a bounds check before calling if you want to branch on the final level:
+</p>
+
+<pre><span class="kw">if</span> (<span class="fn">GetCurrentLevelIndex</span>() + <span class="val">1</span> &lt; <span class="fn">GetLevelCount</span>())
+{
+    <span class="fn">LoadNextLevel</span>();   <span class="cm">// safe — there is a next level</span>
+}
+<span class="kw">else</span>
+{
+    <span class="fn">ShowCredits</span>();     <span class="cm">// custom end-game flow</span>
+}</pre>
+
+<!-- GetCurrentLevelIndex -->
+<h3>GetCurrentLevelIndex()</h3>
+<p>
+  Returns the zero-based index of the currently loaded level within the list
+  registered by <code>SetLevelList</code>.  Returns <code>-1</code> if
+  <code>LoadLevel</code> has not yet been called (i.e. no level from the list is
+  active).  This is the correct way to display "Level X of Y" HUD text and to
+  determine which level to save in a checkpoint system.
+</p>
+
+<pre><span class="ty">int</span> idx   = <span class="fn">GetCurrentLevelIndex</span>();  <span class="cm">// 0-based; -1 = no level loaded</span>
+<span class="ty">int</span> total = <span class="fn">GetLevelCount</span>();          <span class="cm">// size of the level list</span>
+
+levelLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Level "</span> + <span class="ty">String</span>(idx + <span class="val">1</span>) +
+                      <span class="st">" / "</span>    + <span class="ty">String</span>(total));
+
+<span class="cm">// Save checkpoint</span>
+<span class="fn">GetSaveData</span>(<span class="val">0</span>).<span class="fn">Set</span>(<span class="st">"levelIndex"</span>, idx);
+<span class="fn">GetSaveData</span>(<span class="val">0</span>).<span class="fn">Save</span>(<span class="val">0</span>);</pre>
+
+<!-- GetLevelCount -->
+<h3>GetLevelCount()</h3>
+<p>
+  Returns the number of entries in the list passed to <code>SetLevelList</code>.
+  Returns <code>0</code> if no list has been set.  Use it to bound-check before
+  advancing and to compute progress fractions (e.g. for a progress bar):
+</p>
+
+<pre><span class="ty">float</span> progress = (<span class="ty">float</span>)(<span class="fn">GetCurrentLevelIndex</span>() + <span class="val">1</span>) /
+                 (<span class="ty">float</span>) <span class="fn">GetLevelCount</span>();
+progressBar_-&gt;<span class="fn">SetValue</span>(progress);</pre>
+
+<!-- ─── PATTERNS ───────────────────────────────────────────────────── -->
+<h2>Patterns and tips</h2>
+
+<h3>Restart the current level</h3>
+<p>
+  When the player falls off the map or runs out of lives, reload the same level
+  using its index:
+</p>
+<pre><span class="kw">void</span> <span class="fn">OnPlayerDied</span>()
+{
+    <span class="fn">FadeOut</span>(<span class="val">0.3f</span>, [<span class="kw">this</span>] {
+        <span class="fn">LoadLevel</span>(<span class="fn">GetCurrentLevelIndex</span>());  <span class="cm">// same index = restart</span>
+        <span class="fn">SetupCurrentLevel</span>();
+        <span class="fn">FadeIn</span>(<span class="val">0.3f</span>);
+    });
+}</pre>
+
+<h3>Non-linear level selection (hub world)</h3>
+<p>
+  For hub-style games where the player chooses which level to enter, call
+  <code>LoadLevel(index)</code> directly with the chosen index rather than
+  using <code>LoadNextLevel</code>:
+</p>
+<pre><span class="cm">// Called when the player touches portal entity "Portal_2"</span>
+<span class="kw">void</span> <span class="fn">OnPortalEntered</span>(<span class="ty">int</span> levelIndex)
+{
+    <span class="fn">FadeOut</span>(<span class="val">0.5f</span>, [<span class="kw">this</span>, levelIndex] {
+        <span class="fn">LoadLevel</span>(levelIndex);
+        <span class="fn">SetupCurrentLevel</span>();
+        <span class="fn">FadeIn</span>(<span class="val">0.5f</span>);
+    });
+}</pre>
+
+<h3>Saving and restoring level progress</h3>
+<p>
+  Integrate <code>GetCurrentLevelIndex()</code> with the <code>SaveData</code>
+  system from Part 19 to persist progress across sessions:
+</p>
+<pre><span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span> {
+    <span class="fn">SetAppName</span>(<span class="st">"MyGame"</span>);
+
+    <span class="fn">SetLevelList</span>({<span class="st">"levels/01.mc3.xml"</span>, <span class="st">"levels/02.mc3.xml"</span>, <span class="st">"levels/03.mc3.xml"</span>});
+
+    <span class="cm">// Try to load the save; fall back to level 0.</span>
+    <span class="kw">auto</span>&amp; save = <span class="fn">GetSaveData</span>(<span class="val">0</span>);
+    <span class="ty">int</span> startLevel = <span class="val">0</span>;
+    <span class="kw">if</span> (save.<span class="fn">Load</span>(<span class="val">0</span>))
+        startLevel = save.<span class="fn">GetInt</span>(<span class="st">"levelIndex"</span>, <span class="val">0</span>);
+
+    <span class="fn">FadeIn</span>(<span class="val">0.5f</span>);
+    <span class="fn">LoadLevel</span>(startLevel);
+    <span class="fn">SetupCurrentLevel</span>();
+}
+
+<span class="kw">void</span> <span class="fn">OnLevelComplete</span>()
+{
+    <span class="cm">// Checkpoint: save progress before transitioning.</span>
+    <span class="kw">auto</span>&amp; save = <span class="fn">GetSaveData</span>(<span class="val">0</span>);
+    save.<span class="fn">Set</span>(<span class="st">"levelIndex"</span>, <span class="fn">GetCurrentLevelIndex</span>() + <span class="val">1</span>);
+    save.<span class="fn">Save</span>(<span class="val">0</span>);
+
+    <span class="fn">FadeOut</span>(<span class="val">0.4f</span>, [<span class="kw">this</span>] {
+        <span class="fn">LoadNextLevel</span>();
+        <span class="fn">SetupCurrentLevel</span>();
+        <span class="fn">FadeIn</span>(<span class="val">0.4f</span>);
+    });
+}</pre>
+
+<h3>Using LoadScene directly (no level list)</h3>
+<p>
+  For non-linear games or one-off scene loads (a main menu, a cutscene, a
+  settings room), you can bypass the level list entirely and call
+  <code>LoadScene</code> with a specific path:
+</p>
+<pre><span class="cm">// Return to main menu from anywhere</span>
+<span class="kw">void</span> <span class="fn">GoToMainMenu</span>()
+{
+    <span class="fn">FadeOut</span>(<span class="val">0.5f</span>, [<span class="kw">this</span>] {
+        <span class="fn">LoadScene</span>(<span class="st">"menus/main_menu.mc3.xml"</span>, [<span class="kw">this</span>] {
+            <span class="cm">// Position the menu camera once geometry is ready.</span>
+            cam_-&gt;<span class="fn">SetPosition</span>(<span class="ty">Vector3</span>(<span class="val">0.0f</span>, <span class="val">2.0f</span>, -<span class="val">5.0f</span>));
+            cam_-&gt;<span class="fn">LookAt</span>(<span class="ty">Vector3</span>::<span class="val">ZERO</span>);
+            <span class="fn">FadeIn</span>(<span class="val">0.5f</span>);
+        });
+    });
+}</pre>
+
+<!-- ─── QUICK REFERENCE TABLE ─────────────────────────────────────── -->
+<h2>Quick reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Returns</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>LoadScene(path, callback={})</code></td>
+      <td>&mdash;</td>
+      <td>Unloads current scene, imports <code>.mc3.xml</code>; callback fires after import.</td>
+    </tr>
+    <tr>
+      <td><code>UnloadScene()</code></td>
+      <td>&mdash;</td>
+      <td>Destroys all non-persistent entities; no new scene is loaded.</td>
+    </tr>
+    <tr>
+      <td><code>FadeOut(duration, callback={})</code></td>
+      <td>&mdash;</td>
+      <td>Animates overlay opacity 0&rarr;1; callback fires when fully opaque.</td>
+    </tr>
+    <tr>
+      <td><code>FadeIn(duration)</code></td>
+      <td>&mdash;</td>
+      <td>Animates overlay opacity 1&rarr;0; reveals the scene.</td>
+    </tr>
+    <tr>
+      <td><code>SetPersistentEntity(Entity*)</code></td>
+      <td>&mdash;</td>
+      <td>Exempts entity from destruction on scene unload; call before first LoadScene.</td>
+    </tr>
+    <tr>
+      <td><code>SetLevelList(vector&lt;string&gt;)</code></td>
+      <td>&mdash;</td>
+      <td>Registers the ordered level path list; replaces any previous list.</td>
+    </tr>
+    <tr>
+      <td><code>LoadLevel(int index)</code></td>
+      <td>&mdash;</td>
+      <td>Loads <code>levelList[index]</code>; no-op if out of bounds.</td>
+    </tr>
+    <tr>
+      <td><code>LoadNextLevel()</code></td>
+      <td>&mdash;</td>
+      <td>Loads <code>levelList[currentIndex + 1]</code>; no-op if already last.</td>
+    </tr>
+    <tr>
+      <td><code>GetCurrentLevelIndex()</code></td>
+      <td><code>int</code></td>
+      <td>Zero-based index of the active level; <code>-1</code> before first LoadLevel.</td>
+    </tr>
+    <tr>
+      <td><code>GetLevelCount()</code></td>
+      <td><code>int</code></td>
+      <td>Size of the registered level list; <code>0</code> if none set.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ─── LUA EQUIVALENT ───────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+
+<p>
+  All scene management methods are available on the <code>game</code> global inside
+  any Lua script attached with <code>entity:AddScript()</code>.  The signatures
+  mirror C++ exactly.  Note that you cannot call <code>SetPersistentEntity</code>
+  from Lua on a C++-created entity; mark entities persistent from your
+  <code>Start()</code> override in C++ before handing scripts any entity references.
+</p>
+
+<pre><span class="lua-cm">-- Scripts/level_controller.lua
+-- Attach this to a scene-management entity that is itself marked
+-- persistent from C++.  Manages fade transitions and level advances.</span>
+
+<span class="lua-kw">local</span> reachedExit   = <span class="lua-kw">false</span>
+<span class="lua-kw">local</span> transitioning = <span class="lua-kw">false</span>
+<span class="lua-kw">local</span> FADE_TIME     = <span class="lua-num">0.45</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-cm">-- Register levels and load the first one.</span>
+    game:<span class="lua-fn">SetLevelList</span>({
+        <span class="lua-str">"levels/01.mc3.xml"</span>,
+        <span class="lua-str">"levels/02.mc3.xml"</span>,
+        <span class="lua-str">"levels/03.mc3.xml"</span>
+    })
+
+    game:<span class="lua-fn">FadeIn</span>(FADE_TIME)
+    game:<span class="lua-fn">LoadLevel</span>(<span class="lua-num">0</span>)
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> reachedExit <span class="lua-kw">and</span> <span class="lua-kw">not</span> transitioning <span class="lua-kw">then</span>
+        reachedExit   = <span class="lua-kw">false</span>
+        transitioning = <span class="lua-kw">true</span>
+
+        game:<span class="lua-fn">FadeOut</span>(FADE_TIME, <span class="lua-kw">function</span>()
+            <span class="lua-kw">local</span> idx   = game:<span class="lua-fn">GetCurrentLevelIndex</span>()
+            <span class="lua-kw">local</span> total = game:<span class="lua-fn">GetLevelCount</span>()
+
+            <span class="lua-kw">if</span> idx + <span class="lua-num">1</span> &lt; total <span class="lua-kw">then</span>
+                game:<span class="lua-fn">LoadNextLevel</span>()
+            <span class="lua-kw">else</span>
+                <span class="lua-cm">-- All levels done — load credits scene directly.</span>
+                game:<span class="lua-fn">LoadScene</span>(<span class="lua-str">"menus/credits.mc3.xml"</span>)
+            <span class="lua-kw">end</span>
+
+            game:<span class="lua-fn">FadeIn</span>(FADE_TIME)
+            transitioning = <span class="lua-kw">false</span>
+        <span class="lua-kw">end</span>)
+    <span class="lua-kw">end</span>
+
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.Escape) <span class="lua-kw">then</span>
+        game:<span class="lua-fn">Quit</span>()
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- Called from a trigger entity's OnTriggerEnter callback
+-- (wired in C++ with entity:SetOnTriggerEnter)</span>
+<span class="lua-kw">function</span> <span class="lua-fn">OnExitReached</span>()
+    reachedExit = <span class="lua-kw">true</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- Convenience: reload the current level (respawn after death)</span>
+<span class="lua-kw">function</span> <span class="lua-fn">RestartLevel</span>()
+    <span class="lua-kw">if</span> <span class="lua-kw">not</span> transitioning <span class="lua-kw">then</span>
+        transitioning = <span class="lua-kw">true</span>
+        game:<span class="lua-fn">FadeOut</span>(<span class="lua-num">0.3</span>, <span class="lua-kw">function</span>()
+            game:<span class="lua-fn">LoadLevel</span>(game:<span class="lua-fn">GetCurrentLevelIndex</span>())
+            game:<span class="lua-fn">FadeIn</span>(<span class="lua-num">0.3</span>)
+            transitioning = <span class="lua-kw">false</span>
+        <span class="lua-kw">end</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── COMMON MISTAKES ───────────────────────────────────────────── -->
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Calling SetPersistentEntity after the first LoadScene.</strong>
+      Mark entities persistent in <code>Start()</code> before any
+      <code>LoadLevel</code> or <code>LoadScene</code> call.  If you call
+      <code>SetPersistentEntity</code> on an entity that has already been destroyed
+      by a scene transition, the pointer is dangling and the call has undefined
+      behaviour.
+    </li>
+    <li>
+      <strong>Forgetting the transitioning guard flag.</strong>
+      If the player is moving quickly, a trigger can fire multiple times per second.
+      Without a <code>bool transitioning_</code> guard, each fire starts a new
+      <code>FadeOut</code> which replaces the in-progress fade, resulting in a
+      flickering screen and possibly loading the same level twice.  Set
+      <code>transitioning_ = true</code> immediately when you start a fade and
+      reset it only inside the fade-in completion.
+    </li>
+    <li>
+      <strong>Calling LoadLevel with no level list registered.</strong>
+      If you call <code>LoadLevel(0)</code> before <code>SetLevelList</code>, the
+      call is a no-op and <code>GetCurrentLevelIndex()</code> stays at <code>-1</code>.
+      Always call <code>SetLevelList</code> first.
+    </li>
+    <li>
+      <strong>Expecting GetCurrentLevelIndex() to work before the first LoadLevel.</strong>
+      It returns <code>-1</code> until a level from the list has been loaded.
+      Compute your HUD text or save-checkpoint data only after <code>LoadLevel</code>
+      has been called at least once.
+    </li>
+    <li>
+      <strong>Calling LoadScene or LoadLevel from inside a trigger callback during Update.</strong>
+      Setting a flag (like <code>reachedExit_ = true</code>) inside the trigger
+      callback and acting on it at the top of the next <code>Update</code> frame is
+      much safer than calling <code>FadeOut</code> or <code>LoadLevel</code> directly
+      inside the callback.  Direct calls inside trigger callbacks can fire mid-physics
+      step and leave entity pointers in an inconsistent state.
+    </li>
+    <li>
+      <strong>Using FadeOut / FadeIn without nesting the load inside the FadeOut callback.</strong>
+      If you call <code>FadeOut</code>, then immediately call <code>LoadNextLevel</code>
+      on the very next line (outside the callback), the scene is swapped while the
+      fade is still animating.  The player will see the new scene pop in before the
+      screen goes black.  Always do the scene swap <em>inside</em> the callback.
+    </li>
+    <li>
+      <strong>Marking the camera as persistent via SetPersistentEntity.</strong>
+      The camera is already always preserved; you do not need &mdash; and should not
+      try &mdash; to pass it to <code>SetPersistentEntity</code>.
+      <code>CreateCamera()</code> returns a <code>Camera*</code>, not an
+      <code>Entity*</code>, and the function signature requires an <code>Entity*</code>.
+    </li>
+    <li>
+      <strong>Calling LoadScene and forgetting that it internally calls UnloadScene first.</strong>
+      Any entity pointer you hold that was created in the previous scene (and is not
+      persistent) becomes invalid immediately after <code>LoadScene</code> returns.
+      Null-out all scene-local entity pointers after a scene swap and re-acquire
+      them via <code>FindEntity</code>.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ─────────────────────────────────────────── -->
+<h2>What you learned</h2>
+
+<p>
+  In this part you gained full control over the scene lifecycle in simple-3d:
+</p>
+<ul>
+  <li>
+    <strong>Loading scenes:</strong> <code>LoadScene(path, callback)</code> destroys all
+    non-persistent entities and imports a <code>.mc3.xml</code> file.  The optional
+    callback lets you reposition entities and trigger a fade-in immediately after import.
+  </li>
+  <li>
+    <strong>Clearing scenes:</strong> <code>UnloadScene()</code> tears down all
+    non-persistent entities without loading anything new, leaving a clean slate for
+    procedural content or menus with no 3D geometry.
+  </li>
+  <li>
+    <strong>Fade transitions:</strong> <code>FadeOut(duration, callback)</code>
+    and <code>FadeIn(duration)</code> animate a black overlay so scene swaps feel
+    polished rather than abrupt.  The canonical pattern is fade out, swap scene inside
+    the callback, fade in.
+  </li>
+  <li>
+    <strong>Persistent entities:</strong> <code>SetPersistentEntity(entity)</code>
+    keeps a specific entity and all its components alive through every scene transition.
+    The camera and UI elements are always preserved without this call.
+  </li>
+  <li>
+    <strong>Level lists:</strong> <code>SetLevelList(paths)</code> registers an ordered
+    playlist.  <code>LoadLevel(index)</code> and <code>LoadNextLevel()</code> navigate
+    it; <code>GetCurrentLevelIndex()</code> and <code>GetLevelCount()</code> let you
+    display progress and guard against out-of-bounds advances.
+  </li>
+  <li>
+    <strong>Best practices:</strong> use a <code>transitioning_</code> flag to prevent
+    re-entrant fades, null out non-persistent entity pointers after a scene swap, and
+    always call <code>SetPersistentEntity</code> before the first scene load.
+  </li>
+</ul>
+
+<p>
+  Next up: <a href="tutorial-21.html">Part 21: Particle Systems</a> &mdash;
+  attaching <code>ParticleEmitter</code> components to entities to create smoke,
+  explosions, sparkles, and dust clouds.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-19.html">&#8592; Part 19: Save and Load</a>
+  <a href="tutorial-21.html">Part 21: Particle Systems &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

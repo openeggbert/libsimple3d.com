@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>What's New — simple-3d Changelog</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html" class="active">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Current Status</h3>
+  <ul>
+    <li><a href="#status">Status Summary</a></li>
+  </ul>
+  <h3>Phases</h3>
+  <ul>
+    <li><a href="#phase1">Phase 1 — Core</a></li>
+    <li><a href="#phase2">Phase 2 — Physics</a></li>
+    <li><a href="#phase3">Phase 3 — 2D + Scripting</a></li>
+    <li><a href="#phase4">Phase 4 — Navigation + Networking</a></li>
+    <li><a href="#phase5">Phase 5 — Animation</a></li>
+    <li><a href="#phase6">Phase 6 — Character + AI</a></li>
+    <li><a href="#phase7">Phase 7 — Full UI</a></li>
+    <li><a href="#phase8">Phase 8 — Audio Expansion</a></li>
+    <li><a href="#phase9">Phase 9 — Input Expansion</a></li>
+    <li><a href="#phase10">Phase 10 — Effects + Visual</a></li>
+    <li><a href="#phase11">Phase 11 — Scene + Persistence</a></li>
+    <li><a href="#phase12">Phase 12 — Tools + Utilities</a></li>
+    <li><a href="#phase13">Phase 13 — Entity Hierarchy</a></li>
+    <li><a href="#phase14">Phase 14 — Mc3Bridge</a></li>
+    <li><a href="#phase15">Phase 15 — Hardening</a></li>
+  </ul>
+  <h3>Documentation</h3>
+  <ul>
+    <li><a href="getting-started.html">Getting Started</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="api.html">C++ API Reference</a></li>
+    <li><a href="lua-api.html">Lua API Reference</a></li>
+    <li><a href="features.html">Feature Status</a></li>
+  </ul>
+</aside>
+
+<main class="content">
+
+<div class="hero">
+  <h1>What's New</h1>
+  <p class="subtitle">Development history of <strong>simple-3d</strong> across 15 phases.</p>
+  <p class="tagline">
+    From bare game loop to a full-featured C++/Lua game framework — 96 tracked tasks,
+    78 unit tests, and 6 sample applications.
+  </p>
+  <div>
+    <span class="badge badge-green">96 Tasks Complete</span>
+    <span class="badge badge-green">78/78 Tests Pass</span>
+    <span class="badge badge-blue">6 Sample Apps</span>
+    <span class="badge badge-green">U3D Backend Clean</span>
+    <span class="badge">15 Phases</span>
+  </div>
+</div>
+
+<!-- ─── STATUS BOX ─────────────────────────────────────────── -->
+<h2 id="status">Current Status</h2>
+
+<div class="callout ok">
+  <h4>Build &amp; Test Status — U3D Debug (2026-06-27)</h4>
+  <p>All six sample targets build cleanly on the U3D backend. <strong>78/78 unit tests pass.</strong> The develop branch is feature-rich and hardened; remaining work is the Nova3D backend audit (Task #35, separate agent) and the eventual master merge (Task #36).</p>
+</div>
+
+<table>
+  <tr><th>Target</th><th>Type</th><th>Status</th><th>Notes</th></tr>
+  <tr>
+    <td><code>Simple3D</code></td>
+    <td>Library</td>
+    <td><span class="status-done">Clean</span></td>
+    <td>Core framework library, U3D backend</td>
+  </tr>
+  <tr>
+    <td><code>BlupiProto</code></td>
+    <td>Sample</td>
+    <td><span class="status-done">Clean</span></td>
+    <td>Vertical slice — player, enemies, collectibles, save/load, pause</td>
+  </tr>
+  <tr>
+    <td><code>Platformer3D</code></td>
+    <td>Sample</td>
+    <td><span class="status-done">Clean</span></td>
+    <td>Low-level physics reference</td>
+  </tr>
+  <tr>
+    <td><code>HelloWorld</code></td>
+    <td>Sample</td>
+    <td><span class="status-done">Clean</span></td>
+    <td>Minimal entry-point example</td>
+  </tr>
+  <tr>
+    <td><code>Game2D</code></td>
+    <td>Sample</td>
+    <td><span class="status-done">Clean</span></td>
+    <td>2D sprites and tile map demo</td>
+  </tr>
+  <tr>
+    <td><code>LuaSmoke</code></td>
+    <td>Sample</td>
+    <td><span class="status-done">Clean</span></td>
+    <td>Automated Lua API smoke test — prints PASS/FAIL per assertion</td>
+  </tr>
+  <tr>
+    <td>Nova3D backend</td>
+    <td>Backend</td>
+    <td><span class="status-wip">Not tested</span></td>
+    <td>Task #35 deferred — separate agent</td>
+  </tr>
+</table>
+
+<div class="grid3">
+  <div class="card card-green">
+    <h3>78 / 78 unit tests</h3>
+    <p>Collision (11), AnimStateMachine (13), SaveData (14), InputActions (17), BehaviorFSM (14), Tagging (9). All green.</p>
+  </div>
+  <div class="card card-green">
+    <h3>6 sample applications</h3>
+    <p>BlupiProto, Platformer3D, HelloWorld, Game2D, LuaSmoke — plus the framework library target itself, all building clean.</p>
+  </div>
+  <div class="card card-green">
+    <h3>U3D backend clean</h3>
+    <p>Zero warnings on all six targets. No Urho3D types leak into public headers. PIMPL enforced everywhere.</p>
+  </div>
+</div>
+
+<!-- ─── PHASE 1 ─────────────────────────────────────────────── -->
+<h2 id="phase1">Phase 1 — Core</h2>
+<p class="section-intro">
+  <strong>Foundation.</strong> Established the game loop, PIMPL architecture, public API boundary,
+  and the zero-engine-coupling design principle that all later phases build on.
+</p>
+
+<div class="grid2">
+  <div class="card card-green">
+    <h3>Game class</h3>
+    <p>Subclass <code>Game</code>, override <code>Start()</code> and <code>Update(dt)</code>.
+    <code>CreateGame&lt;T&gt;()-&gt;Run()</code> is the entire entry point. No context wiring, no subsystem registration.</p>
+  </div>
+  <div class="card card-green">
+    <h3>Entity system</h3>
+    <p><code>CreateEntity(name)</code> returns an opaque <code>Entity*</code>.
+    All Urho3D node internals hidden behind PIMPL. Public headers contain zero engine includes.</p>
+  </div>
+  <div class="card card-green">
+    <h3>Transform API</h3>
+    <p>World and local <code>SetPosition</code>, <code>SetRotation</code>, <code>SetScale</code>,
+    <code>GetPosition</code>, <code>GetRotation</code>. Deferred entity destroy prevents mid-frame crashes.</p>
+  </div>
+  <div class="card card-green">
+    <h3>Type system</h3>
+    <p>Math types (<code>Vector2</code>, <code>Vector3</code>, <code>Color</code>, <code>Quaternion</code>)
+    re-exported as <code>Simple3D::</code> aliases — ABI-identical, zero wrapping overhead.</p>
+  </div>
+</div>
+
+<ul>
+  <li>PIMPL idiom enforced: every public class stores <code>unique_ptr&lt;Impl&gt;</code>; impl defined only in <code>.cpp</code></li>
+  <li>Backend abstraction from day one: <code>SIMPLE3D_ENGINE=U3D</code> (default) or <code>NOVA3D</code> CMake flag</li>
+  <li>No Urho3D engine types in <code>include/Simple3D/</code> — critical invariant held across all 96 tasks</li>
+  <li>CMake 3.21+ build system; C++23 standard throughout</li>
+</ul>
+
+<!-- ─── PHASE 2 ─────────────────────────────────────────────── -->
+<h2 id="phase2">Phase 2 — Physics</h2>
+<p class="section-intro">
+  <strong>Bullet Physics (3D) and Box2D (2D).</strong> Rigid bodies, colliders, triggers, constraints,
+  and a typed collision layer system that eliminated magic collision numbers forever.
+</p>
+
+<div class="grid2">
+  <div class="card card-blue">
+    <h3>3D rigid bodies (Bullet)</h3>
+    <p>Dynamic and static rigid bodies via <code>entity-&gt;AddRigidBody(mass)</code>.
+    Box, capsule, sphere, and triangle-mesh colliders. Mass 0.0 = static geometry.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>2D rigid bodies (Box2D)</h3>
+    <p><code>AddRigidBody2D</code>, box and circle colliders, linear velocity, impulse,
+    and ground detection. Runs alongside the 3D physics world in the same scene.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>Trigger volumes</h3>
+    <p>Trigger colliders with <code>OnTriggerEnter</code> and <code>OnTriggerExit</code> callbacks.
+    Deferred destroy ensures safe removal of entities contacted mid-frame.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>Physics constraints</h3>
+    <p>BallSocket, Hinge (with motor), Slider (with motor), and Fixed constraints
+    between any two entities — all wrapped with the same PIMPL pattern.</p>
+  </div>
+</div>
+
+<ul>
+  <li><code>CollisionLayer</code> enum: <code>Actor=1</code>, <code>StaticGeometry=2</code>, <code>Trigger=4</code> — raw numbers banned</li>
+  <li><code>ApplyImpulse</code>, <code>ApplyForce</code>, <code>SetLinearVelocity</code>, <code>GetLinearVelocity</code> on Entity</li>
+  <li>Impulse / force / velocity control unified through the Entity interface</li>
+</ul>
+
+<!-- ─── PHASE 3 ─────────────────────────────────────────────── -->
+<h2 id="phase3">Phase 3 — 2D + Scripting</h2>
+<p class="section-intro">
+  <strong>Sprite rendering, tile maps, and the Lua scripting foundation.</strong>
+  Per-entity Lua scripts with the same <code>Start()</code>/<code>Update(dt)</code>/<code>Stop()</code>
+  lifecycle as C++ — hot-reloadable at runtime.
+</p>
+
+<div class="grid2">
+  <div class="card">
+    <h3>2D sprites</h3>
+    <p><code>AddStaticSprite2D(texPath)</code> for still images.
+    <code>AddAnimatedSprite2D(scmlPath)</code> for Spriter <code>.scml</code> skeletal animations.
+    Horizontal flip control. Orthographic camera auto-configured.</p>
+  </div>
+  <div class="card">
+    <h3>Tiled tile maps</h3>
+    <p><code>LoadTileMap(tmxPath)</code> parses Tiled <code>.tmx</code> files and creates the
+    scene geometry automatically. Tile layers rendered as static batched meshes.</p>
+  </div>
+  <div class="card">
+    <h3>Lua scripting (core)</h3>
+    <p><code>entity-&gt;AddScript("Scripts/foo.lua")</code> attaches a per-entity Lua script
+    backed by Urho3D's <code>LuaScriptInstance</code>. Scripts are isolated and hot-reloadable.</p>
+  </div>
+  <div class="card">
+    <h3>Lua bindings (initial)</h3>
+    <p><code>self.node</code> alias, basic entity methods, <code>Input:</code> global,
+    <code>PlaySound</code> / <code>PlayMusic</code> globals. AngelScript explicitly banned — Lua only.</p>
+  </div>
+</div>
+
+<!-- ─── PHASE 4 ─────────────────────────────────────────────── -->
+<h2 id="phase4">Phase 4 — Navigation + Networking</h2>
+<p class="section-intro">
+  <strong>Recast/Detour nav-mesh pathfinding and ENet client/server networking.</strong>
+  Both systems wrapped so game code never touches engine-internal types.
+</p>
+
+<div class="grid2">
+  <div class="card card-green">
+    <h3>Navigation (Recast/Detour)</h3>
+    <p><code>BuildNavMesh()</code> bakes from static scene geometry.
+    <code>entity-&gt;MoveToward(target, speed, dt)</code> auto-steers along the nav-mesh.
+    <code>FindPath(from, to)</code> returns a <code>vector&lt;Vector3&gt;</code> waypoint list.</p>
+  </div>
+  <div class="card card-green">
+    <h3>Networking (ENet)</h3>
+    <p>Client/server topology via <code>NetworkManager</code>. Scene entities auto-replicate.
+    Custom messages with IDs 100–32767 carry raw byte payloads.
+    Typed connection and disconnection callbacks.</p>
+  </div>
+</div>
+
+<ul>
+  <li><code>StopMoving()</code> cancels ongoing nav-mesh navigation</li>
+  <li>Navigation Lua bindings added in Task #82: <code>BuildNavMesh()</code>, <code>entity:FindPath(target)</code>, <code>entity:MoveToward(target, speed, dt)</code></li>
+  <li>ENet messages handled through <code>NetworkManager</code> — no direct Urho3D network headers in game code</li>
+</ul>
+
+<!-- ─── PHASE 5 ─────────────────────────────────────────────── -->
+<h2 id="phase5">Phase 5 — Animation</h2>
+<p class="section-intro">
+  <strong>Skeletal animation for 3D models.</strong> Named clips, blend layers, weight control,
+  speed multipliers, and fade in/out — all through a single <code>AnimationController</code>.
+</p>
+
+<div class="grid2">
+  <div class="card card-blue">
+    <h3>AnimationController</h3>
+    <p><code>entity-&gt;AddAnimationController()</code> wraps Urho3D's skeletal animation system.
+    <code>Play(clip, layer, loop, fadeTime)</code>, <code>Stop(clip)</code>, <code>SetWeight</code>,
+    <code>SetSpeed</code>, <code>GetTime</code>.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>Blend layers</h3>
+    <p>Multiple simultaneous animations on independent blend layers. Per-layer weight control
+    for additive mixing — idle + upper-body shoot, run + wave, etc.</p>
+  </div>
+</div>
+
+<ul>
+  <li>Accessed from Lua via <code>entity:GetAnimationController()</code> — same API surface as C++</li>
+  <li>Fade in/out via <code>fadeTime</code> parameter on <code>Play</code> — no separate tween required</li>
+</ul>
+
+<!-- ─── PHASE 6 ─────────────────────────────────────────────── -->
+<h2 id="phase6">Phase 6 — Character + AI</h2>
+<p class="section-intro">
+  <strong>High-level character movement, finite state machines for animation, and a
+  behaviour FSM for AI.</strong> All three systems fully Lua-accessible.
+</p>
+
+<div class="grid2">
+  <div class="card card-green">
+    <h3>CharacterController</h3>
+    <p>Capsule collider + slope-filtered raycast grounding + built-in gravity.
+    <code>IsOnGround()</code>, <code>MoveRelative(dir)</code>, <code>SetMaxSlope</code>,
+    <code>SetStepHeight</code>, <code>SetEnabled</code>. No custom physics loop needed.</p>
+  </div>
+  <div class="card card-green">
+    <h3>AnimStateMachine</h3>
+    <p>String-keyed conditions drive animation transitions automatically.
+    Condition types: <code>bool</code>, <code>float</code>, <code>trigger</code>, <code>auto</code>.
+    <code>asm:Update(dt)</code> from Lua or C++.</p>
+  </div>
+  <div class="card card-green">
+    <h3>BehaviorFSM</h3>
+    <p>Custom states with enter/update/exit callbacks. Built-in NavMesh patrol and chase states.
+    Condition transitions between states. <code>fsm:Update(dt)</code> drives the AI tick.</p>
+  </div>
+  <div class="card card-green">
+    <h3>BehaviorFSM correctness</h3>
+    <p>Task #84 fixed three root causes in <code>BehaviorFSM::Update</code> and <code>IsInState</code>.
+    All 14 BehaviorFSM unit tests now pass. Zero regressions in the full suite.</p>
+  </div>
+</div>
+
+<ul>
+  <li>CharacterController Lua proxy methods: <code>SetEnabled/IsEnabled/SetMaxSlope/SetStepHeight</code> added in Task #77</li>
+  <li><code>IsOnGround()</code> uses slope-filtered raycast — reliable on ramps and stairs</li>
+  <li>BehaviorFSM integrates with NavMesh: built-in patrol/chase states call <code>MoveToward</code> internally</li>
+</ul>
+
+<!-- ─── PHASE 7 ─────────────────────────────────────────────── -->
+<h2 id="phase7">Phase 7 — Full UI</h2>
+<p class="section-intro">
+  <strong>A complete retained-mode 2D UI system.</strong> Label, Image, Panel, Button, ProgressBar,
+  and Slider — with anchor-based responsive layout, Z-ordering, and gamepad focus navigation.
+  All widgets fully Lua-accessible.
+</p>
+
+<div class="grid3">
+  <div class="card">
+    <h3>Label</h3>
+    <p>On-screen HUD text. Screen position, font size, RGBA color, visibility toggle.
+    Custom font via <code>SetFont</code>. Scale control via <code>SetScale</code>.</p>
+  </div>
+  <div class="card">
+    <h3>Image</h3>
+    <p>2D texture panel for HUD icons, overlays, and decorative elements.
+    Full anchor and Z-order support.</p>
+  </div>
+  <div class="card">
+    <h3>Panel</h3>
+    <p>Container widget. <code>panel-&gt;AddChild(element)</code> composes layouts.
+    Background color, border, anchor-relative sizing.</p>
+  </div>
+  <div class="card">
+    <h3>Button</h3>
+    <p>Clickable element with press/release/hover callbacks. Gamepad focus navigation.
+    <code>SetOnClick</code> closure from Lua or C++.</p>
+  </div>
+  <div class="card">
+    <h3>ProgressBar</h3>
+    <p>Horizontal or vertical fill bar. <code>SetValue(0–1)</code>, <code>SetVertical</code>.
+    Used for health bars, loading indicators, cooldown meters.</p>
+  </div>
+  <div class="card">
+    <h3>Slider</h3>
+    <p>Value range slider. <code>SetMin</code>/<code>SetMax</code>, <code>SetOnChange</code> callback.
+    Gamepad-navigable. Used for volume controls and settings panels.</p>
+  </div>
+</div>
+
+<ul>
+  <li><code>SetAnchor</code>: 9-point string anchoring (<code>"TopLeft"</code>, <code>"Center"</code>, <code>"BottomRight"</code>, etc.) — Task #74</li>
+  <li><code>SetZOrder</code>: explicit draw-order control for overlapping elements</li>
+  <li>Getter methods on all widgets: <code>GetPosition</code>, <code>GetSize</code>, <code>GetText</code>, <code>GetMin</code>, <code>GetMax</code> — Task #75</li>
+  <li><code>SetBackgroundColor</code>, <code>SetVertical</code> on ProgressBar via Lua — Task #75</li>
+  <li>Gamepad focus navigation built in — D-pad moves focus between interactive widgets</li>
+  <li>UI parent-child: <code>panel-&gt;AddChild(element)</code> chains composable layouts</li>
+</ul>
+
+<!-- ─── PHASE 8 ─────────────────────────────────────────────── -->
+<h2 id="phase8">Phase 8 — Audio Expansion</h2>
+<p class="section-intro">
+  <strong>Spatial 3D audio, per-channel routing, ambient playback, and full Lua coverage.</strong>
+  Built on Urho3D's <code>SoundSource3D</code> component — attenuation handled automatically.
+</p>
+
+<div class="grid2">
+  <div class="card card-blue">
+    <h3>AudioSource component</h3>
+    <p><code>entity-&gt;AddAudioSource()</code> attaches a spatial 3D sound source.
+    <code>SetGain</code>, <code>SetPitch</code>, <code>SetRange</code>, <code>SetLooped</code>,
+    <code>Play</code>, <code>Stop</code>, <code>PlayAmbient</code>.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>Per-channel audio</h3>
+    <p><code>PlaySound(path, vol, channel)</code> routes sounds to named channels.
+    <code>StopSound(channel)</code>, <code>SetChannelVolume(channel, vol)</code>,
+    <code>IsChannelPlaying(channel)</code> — Task #69.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>Music streaming</h3>
+    <p><code>PlayMusic(path)</code> streams OGG/WAV with loop control.
+    <code>StopMusic()</code>. Master volume via <code>SetMasterVolume</code>.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>Audio listener</h3>
+    <p><code>SetAudioListener(entity)</code> Lua global designates which entity is the 3D listener
+    — typically the camera or the player's head. Added in Task #80.</p>
+  </div>
+</div>
+
+<!-- ─── PHASE 9 ─────────────────────────────────────────────── -->
+<h2 id="phase9">Phase 9 — Input Expansion</h2>
+<p class="section-intro">
+  <strong>Input Actions API, binding persistence, gamepad raw API, and touch input.</strong>
+  Raw keyboard/mouse/touch remain available; the Actions layer adds named, rebindable controls.
+</p>
+
+<div class="grid2">
+  <div class="card card-green">
+    <h3>Input Actions API</h3>
+    <p><code>BindAction("Jump", Key::Space)</code> / <code>BindAxis2D("Move", ...)</code>.
+    Query with <code>IsActionPressed("Jump")</code> / <code>GetAxis2D("Move")</code>.
+    Per-binding dead-zone configuration.</p>
+  </div>
+  <div class="card card-green">
+    <h3>Binding persistence</h3>
+    <p><code>SaveInputBindings(path)</code>, <code>LoadInputBindings(path)</code>,
+    <code>ResetInputBindings()</code>. Atomic load: parses into a temporary map first;
+    swaps live only on full success — Task #72 / #92.</p>
+  </div>
+  <div class="card card-green">
+    <h3>Gamepad raw API (Lua)</h3>
+    <p><code>IsGamepadConnected()</code>, <code>GetGamepadAxis(name)</code>,
+    <code>IsGamepadButtonDown/Pressed(name)</code>, <code>SetGamepadRumble(lo, hi)</code>.
+    String axis/button names. Task #83.</p>
+  </div>
+  <div class="card card-green">
+    <h3>Touch input (Lua)</h3>
+    <p>Multi-touch globals: touch count, position, pressure. Accessed via <code>Input:</code>
+    table in Lua scripts. Task #73.</p>
+  </div>
+</div>
+
+<ul>
+  <li>Raw keyboard: <code>IsKeyDown</code>, <code>IsKeyPress</code> — available in both C++ and Lua</li>
+  <li>Mouse: position, delta, buttons — held and first-frame variants</li>
+  <li>Controller rumble: <code>SetGamepadRumble(lowFreq, highFreq)</code></li>
+  <li><code>Axis2DBinding::DeadZone()</code> clamped to <code>[0.0f, 0.95f]</code> — Task #92; prevents saturation lockout</li>
+  <li>LoadInputBindings validates array-length parity; malformed JSON no longer wipes live bindings</li>
+</ul>
+
+<!-- ─── PHASE 10 ─────────────────────────────────────────────── -->
+<h2 id="phase10">Phase 10 — Effects + Visual</h2>
+<p class="section-intro">
+  <strong>Particle emitters, billboards, sky dome, debug drawing, ray picking, and the tween helper.</strong>
+  Visual polish tools available from both C++ and Lua.
+</p>
+
+<div class="grid3">
+  <div class="card">
+    <h3>ParticleEmitter</h3>
+    <p><code>entity-&gt;AddParticleEmitter(xmlPath)</code>. <code>Play()</code>, <code>Stop()</code>,
+    <code>Burst(count)</code>. Five built-in preset XMLs (sparks, smoke, fire, magic, dust).</p>
+  </div>
+  <div class="card">
+    <h3>Billboard</h3>
+    <p><code>entity-&gt;AddBillboard(texPath, size)</code>. Always faces camera
+    (<code>FC_ROTATE_XYZ</code>). <code>SetBillboardUVRect</code> for atlas sprites.
+    Lua: <code>entity:AddBillboard(texPath, size)</code> — Task #79.</p>
+  </div>
+  <div class="card">
+    <h3>Sky dome</h3>
+    <p><code>SetSkyDome(texPath)</code>, <code>SetSkyDomeEnabled(bool)</code>,
+    <code>SetSkyGradient(zenith, horizon)</code>. Full Lua coverage. Task #68.</p>
+  </div>
+  <div class="card">
+    <h3>Debug draw</h3>
+    <p><code>SetDebugDrawEnabled</code>, <code>DrawDebugLine</code>, <code>DrawDebugBox</code>,
+    <code>DrawDebugSphere</code>, <code>DrawDebugText</code>. Toggle at runtime.
+    Lua globals — Task #76.</p>
+  </div>
+  <div class="card">
+    <h3>Ray picking</h3>
+    <p><code>PickEntity(screenPos, mask)</code> returns the first hit <code>Entity*</code>.
+    <code>PickPosition(screenPos, mask)</code> returns the world-space hit point.
+    Useful for mouse selection and placement.</p>
+  </div>
+  <div class="card">
+    <h3>Tween helper</h3>
+    <p><code>CreateTween(...)</code> returns a proxy with <code>Cancel()</code> and <code>IsComplete()</code>.
+    4 easing modes. Ownership changed to <code>shared_ptr</code> — safe from Lua. Task #78.</p>
+  </div>
+</div>
+
+<ul>
+  <li>Screenshot: <code>SaveScreenshot(path)</code> — saves the current frame as PNG</li>
+  <li>Entity materials: <code>SetTileTexture</code> (UV atlas tiling), <code>SetMaterialColor</code> (flat unlit color)</li>
+  <li>Tween Lua binding: <code>local t = CreateTween(...); t:Cancel(); t:IsComplete()</code></li>
+</ul>
+
+<!-- ─── PHASE 11 ─────────────────────────────────────────────── -->
+<h2 id="phase11">Phase 11 — Scene + Persistence</h2>
+<p class="section-intro">
+  <strong>Level transitions, fog and atmosphere, time scaling, and a JSON save-data system.</strong>
+  Scenes fade between levels; save slots persist across sessions.
+</p>
+
+<div class="grid2">
+  <div class="card card-blue">
+    <h3>Scene management</h3>
+    <p><code>LoadScene(path)</code>, <code>UnloadScene()</code>, <code>FadeOut(dur)</code>,
+    <code>FadeIn(dur)</code>, <code>SetLevelList(list)</code>, <code>LoadNextLevel()</code>.
+    <code>UnloadScene</code> calls <code>FlushPendingDestroys()</code> — fixed in Task #88.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>SaveData</h3>
+    <p>JSON key-value store. Multi-slot support. <code>GetInt/SetInt</code>, <code>GetString/SetString</code>,
+    <code>GetBool/SetBool</code>, <code>GetFloat/SetFloat</code>. 14 unit tests. Full Lua binding.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>Atmosphere</h3>
+    <p><code>SetAmbientColor</code>, <code>SetFogEnabled(bool)</code>, <code>SetFogColor</code>,
+    <code>SetFogRange(start, end)</code>. Scene-wide environmental controls for mood and performance.</p>
+  </div>
+  <div class="card card-blue">
+    <h3>Time control</h3>
+    <p><code>SetTimeScale(s)</code> / <code>GetTimeScale()</code> scales the simulation tick globally.
+    Use <code>0.0</code> to pause, <code>0.5</code> for slow-motion, <code>2.0</code> for fast-forward.</p>
+  </div>
+</div>
+
+<!-- ─── PHASE 12 ─────────────────────────────────────────────── -->
+<h2 id="phase12">Phase 12 — Tools + Utilities</h2>
+<p class="section-intro">
+  <strong>Resource diagnostics, runtime resource path registration, entity tagging, and activation toggles.</strong>
+  Quality-of-life utilities that reduce debug time and support dynamic scene management.
+</p>
+
+<div class="grid2">
+  <div class="card">
+    <h3>Resource diagnostics</h3>
+    <p><code>SetResourceDiagnosticsEnabled(bool)</code>, <code>GetMissingResources()</code>,
+    <code>ClearMissingResources()</code>. Fallback model/texture/sound via <code>SetFallback*</code>.
+    Task #96.</p>
+  </div>
+  <div class="card">
+    <h3>AddResourceDir</h3>
+    <p><code>Game::AddResourceDir(path)</code> registers additional resource search paths at runtime —
+    useful for mod support, DLC, and test fixture isolation. Added in commit <code>9cd38f7</code>.</p>
+  </div>
+  <div class="card">
+    <h3>Entity tagging</h3>
+    <p><code>entity-&gt;AddTag("enemy")</code>, <code>HasTag</code>, <code>RemoveTag</code>.
+    <code>Game::FindEntitiesByTag("enemy")</code> returns all matching entities. Fully Lua-accessible.</p>
+  </div>
+  <div class="card">
+    <h3>Entity activation</h3>
+    <p><code>entity-&gt;SetActive(bool)</code> / <code>IsActive()</code> hides and disables
+    entities without destroying them. Useful for pooling and off-screen objects.</p>
+  </div>
+</div>
+
+<!-- ─── PHASE 13 ─────────────────────────────────────────────── -->
+<h2 id="phase13">Phase 13 — Entity Hierarchy</h2>
+<p class="section-intro">
+  <strong>Parent-child scene graph relationships and local-space transform accessors.</strong>
+  Full Lua node extension coverage added in Task #80.
+</p>
+
+<table>
+  <tr><th>Method</th><th>Description</th><th>C++</th><th>Lua</th></tr>
+  <tr>
+    <td><code>CreateChild(name)</code></td>
+    <td>Creates a child entity parented to this entity</td>
+    <td><span class="status-done">Yes</span></td>
+    <td><span class="status-done">Yes</span></td>
+  </tr>
+  <tr>
+    <td><code>GetParent()</code></td>
+    <td>Returns the parent entity, or null if root</td>
+    <td><span class="status-done">Yes</span></td>
+    <td><span class="status-done">Yes</span></td>
+  </tr>
+  <tr>
+    <td><code>GetChildCount()</code></td>
+    <td>Number of direct children</td>
+    <td><span class="status-done">Yes</span></td>
+    <td><span class="status-done">Yes</span></td>
+  </tr>
+  <tr>
+    <td><code>GetChild(index)</code></td>
+    <td>Returns the nth direct child</td>
+    <td><span class="status-done">Yes</span></td>
+    <td><span class="status-done">Yes</span></td>
+  </tr>
+  <tr>
+    <td><code>GetChildren()</code></td>
+    <td>Returns all direct children as a list</td>
+    <td><span class="status-done">Yes</span></td>
+    <td><span class="status-done">Yes</span></td>
+  </tr>
+  <tr>
+    <td><code>SetLocalPosition</code> / <code>GetLocalPosition</code></td>
+    <td>Position relative to parent</td>
+    <td><span class="status-done">Yes</span></td>
+    <td><span class="status-done">Yes</span></td>
+  </tr>
+  <tr>
+    <td><code>SetLocalRotation</code> / <code>GetLocalRotation</code></td>
+    <td>Rotation relative to parent</td>
+    <td><span class="status-done">Yes</span></td>
+    <td><span class="status-done">Yes</span></td>
+  </tr>
+  <tr>
+    <td><code>TranslateLocal(delta)</code></td>
+    <td>Moves in local space — forward/right/up relative to entity orientation</td>
+    <td><span class="status-done">Yes</span></td>
+    <td><span class="status-done">Yes</span></td>
+  </tr>
+  <tr>
+    <td><code>TranslateWorld(delta)</code></td>
+    <td>Moves in world space regardless of parent transform</td>
+    <td><span class="status-done">Yes</span></td>
+    <td><span class="status-done">Yes</span></td>
+  </tr>
+</table>
+
+<ul>
+  <li><code>CreateEntity(name)</code> / <code>DestroyEntity(node)</code> added as Lua globals — Task #81</li>
+  <li>All hierarchy node extensions exercised by the <code>LuaSmoke</code> sample — Task #93</li>
+</ul>
+
+<!-- ─── PHASE 14 ─────────────────────────────────────────────── -->
+<h2 id="phase14">Phase 14 — Mc3Bridge</h2>
+<p class="section-intro">
+  <strong>MC3 scene format import, export, and live-reload.</strong>
+  Mc3Bridge enables scene authoring tools to push incremental changes into a running game session.
+</p>
+
+<div class="grid2">
+  <div class="card card-green">
+    <h3>Mc3Bridge</h3>
+    <p><code>#include &lt;Simple3D/Mc3/Mc3Bridge.h&gt;</code>.
+    Import MC3 scene descriptions and materialise them as simple-3d entities.
+    Export the current scene back to MC3 format for round-trip authoring.</p>
+  </div>
+  <div class="card card-green">
+    <h3>Mc3Watcher</h3>
+    <p>File-system watcher that monitors a <code>.mc3</code> file for changes.
+    On modification, triggers a live reload — updated entities appear in the running
+    game without restarting. Accelerates iteration on level layouts.</p>
+  </div>
+</div>
+
+<ul>
+  <li>Mc3 headers kept in a separate include path: <code>&lt;Simple3D/Mc3/Mc3Bridge.h&gt;</code>, <code>&lt;Simple3D/Mc3/Mc3Watcher.h&gt;</code></li>
+  <li>Not included in the single-header umbrella <code>Simple3D.h</code> — opt-in for projects that need it</li>
+  <li>Designed to integrate with external scene tools targeting the MC3 interchange format</li>
+</ul>
+
+<!-- ─── PHASE 15 ─────────────────────────────────────────────── -->
+<h2 id="phase15">Phase 15 — Hardening (Tasks #86–#96)</h2>
+<p class="section-intro">
+  <strong>Safety, correctness, and production readiness.</strong> A deep audit pass followed by nine
+  targeted hardening tasks eliminated the remaining Lua proxy lifetime risks, type dispatch gaps,
+  and correctness bugs. The backlog is now closed.
+</p>
+
+<div class="callout ok">
+  <h4>Hardening Backlog — Closed</h4>
+  <p>Tasks #86–#96 complete. All six U3D targets build clean. 78/78 unit tests pass. No hard blockers remain. The framework is ready for use as a galaxy-eggbert dependency.</p>
+</div>
+
+<table>
+  <tr><th>Task</th><th>Title</th><th>Impact</th></tr>
+  <tr>
+    <td>#86</td>
+    <td>Component proxy safety</td>
+    <td><code>Internal::IsEntityAlive</code> + <code>PROXY_OWNER_ALIVE</code> macro applied to all 34 component proxy methods (CC / ASM / Audio / PE / FSM). Closed medium-risk Lua lifetime gap.</td>
+  </tr>
+  <tr>
+    <td>#87</td>
+    <td>UI proxy liveness guard</td>
+    <td><code>GameImpl::liveUI_</code> hash-set populated in all 6 <code>Create*</code> functions. <code>Internal::IsUIAlive</code> O(1) check applied to all 38 UI proxy methods. UI proxy rows → Low risk.</td>
+  </tr>
+  <tr>
+    <td>#85</td>
+    <td>Lua proxy lifetime audit</td>
+    <td><code>docs/lua_lifetime_audit.md</code> created. All 9 <code>new Urho3D::Vector3/Quaternion</code> pushes changed to <code>tolua_pushusertype_and_takeownership</code> (memory leak fix). <code>GetEntityFromNode</code> now rejects pending-destroy entities.</td>
+  </tr>
+  <tr>
+    <td>#88</td>
+    <td>Deep audit + correctness fixes</td>
+    <td>13-section framework-wide audit. <code>UnloadScene()</code> fixed to call <code>FlushPendingDestroys()</code>. <code>GetEntityFromNodeExact</code> added. <code>LoadInputBindings</code> made atomic. <code>IsEntityAlive</code> made ancestor-aware.</td>
+  </tr>
+  <tr>
+    <td>#89</td>
+    <td>Node extension hardening</td>
+    <td><code>MoveRelative</code>, <code>IsOnGround</code>, <code>ApplyImpulse</code>, <code>ApplyForce</code>, <code>SetLinearVelocity</code>, <code>GetLinearVelocity</code> all resolve entity via <code>GetEntityFromNodeExact</code>. Stale nodes return safe no-op / default.</td>
+  </tr>
+  <tr>
+    <td>#90</td>
+    <td>Lua type dispatch type-checking</td>
+    <td><code>IsVector3Arg</code>, <code>IsQuaternionArg</code>, <code>IsNodeArg</code> helpers added. Applied to <code>FindPath</code>, <code>MoveToward</code>, <code>SetLocalPosition</code>, <code>SetLocalRotation</code>, <code>TranslateLocal</code>, <code>TranslateWorld</code>, <code>MoveRelative</code>, <code>ApplyImpulse</code>, <code>ApplyForce</code>, <code>SetLinearVelocity</code>.</td>
+  </tr>
+  <tr>
+    <td>#91</td>
+    <td>Lua callback ref cleanup</td>
+    <td><code>ClearLuaCallbackRefs()</code> added; called at the start of <code>RegisterSimple3DLuaAPI</code>. Button and slider callbacks guarded with <code>IsUIAlive</code>.</td>
+  </tr>
+  <tr>
+    <td>#92</td>
+    <td>DeadZone clamping</td>
+    <td><code>Axis2DBinding::DeadZone()</code> clamped to <code>[0.0f, 0.95f]</code> / <code>-1.0f</code> sentinel. <code>LoadInputBindings</code> validates array-length parity. 2 new unit tests (78 total).</td>
+  </tr>
+  <tr>
+    <td>#93</td>
+    <td>LuaSmoke sample</td>
+    <td><code>samples/lua_smoke/</code> created — CMakeLists, main.cpp, <code>Scripts/lua_smoke.lua</code>. Exercises hierarchy, transforms, and gamepad no-ops. Prints PASS/FAIL per assertion.</td>
+  </tr>
+  <tr>
+    <td>#94</td>
+    <td>Build matrix documentation</td>
+    <td><code>docs/build_matrix.md</code> created. All 7 targets documented with CMake commands, expected output, and known caveats.</td>
+  </tr>
+  <tr>
+    <td>#95</td>
+    <td>Galaxy Eggbert readiness</td>
+    <td><code>docs/galaxy_eggbert_readiness.md</code> created. P0/P1/P2 feature gap table with prioritised backlog for the remake project.</td>
+  </tr>
+  <tr>
+    <td>#96</td>
+    <td>Resource diagnostics</td>
+    <td><code>SetResourceDiagnosticsEnabled</code>, <code>GetMissingResources</code>, <code>ClearMissingResources</code>, <code>SetFallbackModel</code>, <code>SetFallbackTexture</code>, <code>SetFallbackSound</code> added. <code>PlaySound</code> / <code>PlayMusic</code> hooked in.</td>
+  </tr>
+</table>
+
+<h3>Remaining work</h3>
+<div class="grid2">
+  <div class="card card-orange">
+    <h3>Task #35 — Nova3D backend audit</h3>
+    <p>Verify <code>Game.cpp</code> compiles on the Nova3D backend. Fix SDL gamepad field guards.
+    Handled by a dedicated Nova3D agent. <em>Not yet complete.</em></p>
+  </div>
+  <div class="card">
+    <h3>Task #36 — Merge develop → master</h3>
+    <p>Release v0.1. Blocked on Task #35. The develop branch is production-ready for internal use;
+    master merge awaits the Nova3D backend audit sign-off.</p>
+  </div>
+</div>
+
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d — part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Part 21: Particle Systems — simple-3d Tutorial</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Tutorial Series</h3>
+  <ol class="tutorial-sidebar-list">
+      <li><a href="tutorial-01.html">01. Hello World</a></li>
+      <li><a href="tutorial-02.html">02. Lights and Colors</a></li>
+      <li><a href="tutorial-03.html">03. Keyboard Input</a></li>
+      <li><a href="tutorial-04.html">04. 3D Physics</a></li>
+      <li><a href="tutorial-05.html">05. Third-Person Camera</a></li>
+      <li><a href="tutorial-06.html">06. Lua Scripting Basics</a></li>
+      <li><a href="tutorial-07.html">07. Character Controller</a></li>
+      <li><a href="tutorial-08.html">08. Skeletal Animation</a></li>
+      <li><a href="tutorial-09.html">09. Animation State Machine</a></li>
+      <li><a href="tutorial-10.html">10. Audio</a></li>
+      <li><a href="tutorial-11.html">11. Spatial Audio</a></li>
+      <li><a href="tutorial-12.html">12. 2D Mode</a></li>
+      <li><a href="tutorial-13.html">13. 2D Physics</a></li>
+      <li><a href="tutorial-14.html">14. Navigation and Pathfinding</a></li>
+      <li><a href="tutorial-15.html">15. Gamepad Input</a></li>
+      <li><a href="tutorial-16.html">16. Input Actions</a></li>
+      <li><a href="tutorial-17.html">17. UI System</a></li>
+      <li><a href="tutorial-18.html">18. UI Advanced</a></li>
+      <li><a href="tutorial-19.html">19. Save and Load</a></li>
+      <li><a href="tutorial-20.html">20. Scene Management</a></li>
+      <li class="active"><a href="tutorial-21.html">21. Particle Systems</a></li>
+      <li><a href="tutorial-22.html">22. Entity Hierarchy</a></li>
+      <li><a href="tutorial-23.html">23. Physics Constraints</a></li>
+      <li><a href="tutorial-24.html">24. Collision Triggers</a></li>
+      <li><a href="tutorial-25.html">25. AI Behavior FSM</a></li>
+      <li><a href="tutorial-26.html">26. Ray Picking</a></li>
+      <li><a href="tutorial-27.html">27. Debug Draw</a></li>
+      <li><a href="tutorial-28.html">28. Tweens</a></li>
+      <li><a href="tutorial-29.html">29. Sky and Atmosphere</a></li>
+      <li><a href="tutorial-30.html">30. Networking Basics</a></li>
+  </ol>
+</aside>
+
+<main class="content">
+<div class="tutorial-breadcrumb"><a href="index.html">Home</a> &rsaquo; <a href="tutorial.html">Tutorial</a> &rsaquo; Part 21</div>
+
+<h1><span class="tutorial-part">Part 21 of 30</span>Particle Systems</h1>
+
+<div class="callout new">
+  <h4>New in this part</h4>
+  <p>
+    <code>entity-&gt;AddParticleEmitter(xmlPath)</code> &mdash;
+    <code>emitter-&gt;Play()</code> &mdash;
+    <code>emitter-&gt;Stop()</code> &mdash;
+    <code>emitter-&gt;Burst()</code> &mdash;
+    <code>emitter-&gt;IsEmitting()</code> &mdash;
+    <code>emitter-&gt;SetEmitting(bool)</code> &mdash;
+    <code>entity-&gt;GetParticleEmitter()</code> &mdash;
+    built-in presets <code>Particles/Sparkle.xml</code> / <code>Particles/Smoke.xml</code> /
+    <code>Particles/Explosion.xml</code> / <code>Particles/Dust.xml</code> /
+    <code>Particles/Stars.xml</code> &mdash;
+    attaching emitters to child entities for position offsets &mdash;
+    world-space particle effects.
+  </p>
+</div>
+
+<!-- ─── WHAT YOU WILL LEARN ──────────────────────────────────────── -->
+<h2>What you will learn</h2>
+<ul>
+  <li>How to attach a particle emitter to any entity with <code>AddParticleEmitter(xmlPath)</code>.</li>
+  <li>How to start and stop continuous emission with <code>Play()</code> and <code>Stop()</code>.</li>
+  <li>How to trigger a one-shot burst effect with <code>Burst()</code> — for explosions, collectible pickups, and death effects.</li>
+  <li>How to query and control emitter state with <code>IsEmitting()</code> and <code>SetEmitting(bool)</code>.</li>
+  <li>How to retrieve an existing emitter later using <code>GetParticleEmitter()</code>.</li>
+  <li>What the five built-in particle presets look like and when to use each one.</li>
+  <li>How to offset an emitter from an entity's origin by attaching it to a child entity.</li>
+  <li>How to create world-space effects that are not tied to a moving entity.</li>
+  <li>The Lua equivalents for all particle emitter methods.</li>
+</ul>
+
+<!-- ─── BACKGROUND ───────────────────────────────────────────────── -->
+<h2>Background: particles in simple-3d</h2>
+
+<p>
+  A particle system describes thousands of short-lived sprites — sparks, smoke
+  puffs, snowflakes, glowing orbs — each with its own position, velocity,
+  colour, and lifetime.  Authoring them from scratch is tedious, so simple-3d
+  uses Urho3D's XML-based <code>ParticleEffect</code> format: a plain text file
+  that specifies emitter shape, particle count, velocity curves, colour
+  gradients, texture, and lifetime.  You hand the engine the path to one of
+  these files and call <code>Play()</code>; the engine handles everything else.
+</p>
+
+<div class="grid2">
+  <div class="card card-green">
+    <h3>Continuous emitters</h3>
+    <p>
+      Produce particles on every frame until you call <code>Stop()</code>.
+      Best for effects that last as long as the underlying condition is true:
+      a campfire, smoke rising from a chimney, snow falling from the sky,
+      or a magic shield shimmering around the player.
+    </p>
+  </div>
+  <div class="card card-blue">
+    <h3>One-shot bursts</h3>
+    <p>
+      Emit all particles in a single short window defined by the XML
+      <code>activetime</code> field, then go silent while the particles
+      coast through their lifetimes.  Use <code>Burst()</code> for explosions,
+      collectible pop effects, footstep dust puffs, and enemy death reactions.
+    </p>
+  </div>
+</div>
+
+<!-- ─── ASSET LAYOUT ─────────────────────────────────────────────── -->
+<h2>Asset layout</h2>
+
+<p>
+  Particle effect XML files and their textures live under <code>Data/Particles/</code>
+  in your project tree.  Make sure that path is on your resource cache by calling
+  <code>game.AddResourcePath("Data")</code> in <code>Start()</code> (or by shipping
+  the <code>Data/</code> directory alongside your executable, which is the default
+  for projects created with the simple-3d project template).
+</p>
+
+<pre>Data/
+  Particles/
+    Sparkle.xml         <span class="cm">// short colourful burst — collectibles, level-up</span>
+    Smoke.xml           <span class="cm">// continuous grey smoke column</span>
+    Explosion.xml       <span class="cm">// fiery one-shot blast</span>
+    Dust.xml            <span class="cm">// ground-level dust cloud</span>
+    Stars.xml           <span class="cm">// drifting star particles — idle ambient</span>
+  Textures/
+    particle_sparkle.png
+    particle_smoke.png
+    particle_fire.png
+    particle_dust.png
+    particle_star.png</pre>
+
+<p>
+  The built-in preset XML files reference textures relative to the same
+  <code>Data/</code> root, so shipping that whole directory is sufficient.
+  You can also load any custom Urho3D <code>ParticleEffect</code> XML by
+  passing its path to <code>AddParticleEmitter()</code>.
+</p>
+
+<!-- ─── PRESET GALLERY ────────────────────────────────────────────── -->
+<h2>Built-in preset gallery</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>File</th>
+      <th>Effect</th>
+      <th>Typical use</th>
+      <th>Mode</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>Particles/Sparkle.xml</code></td>
+      <td>Short burst of coloured glinting sparks</td>
+      <td>Collectible pickup, level-up, spell cast</td>
+      <td>Burst</td>
+    </tr>
+    <tr>
+      <td><code>Particles/Smoke.xml</code></td>
+      <td>Continuous upward grey smoke column</td>
+      <td>Campfire, chimney, damaged vehicle</td>
+      <td>Continuous</td>
+    </tr>
+    <tr>
+      <td><code>Particles/Explosion.xml</code></td>
+      <td>Fiery one-shot blast with trailing embers</td>
+      <td>Explosion, death, projectile impact</td>
+      <td>Burst</td>
+    </tr>
+    <tr>
+      <td><code>Particles/Dust.xml</code></td>
+      <td>Ground-level dust cloud</td>
+      <td>Footstep impact, landing, slide</td>
+      <td>Burst or Continuous</td>
+    </tr>
+    <tr>
+      <td><code>Particles/Stars.xml</code></td>
+      <td>Slowly drifting star sprites</td>
+      <td>Magic portal, idle ambient sparkle, dream sequence</td>
+      <td>Continuous</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ─── COMPLETE EXAMPLE ──────────────────────────────────────────── -->
+<h2>Complete working example</h2>
+
+<p>
+  The scene below places a stone plinth in the centre of the world.  Torchlight
+  flickers above it continuously.  Pressing <kbd>F</kbd> ignites the torch (starts
+  the smoke column), pressing <kbd>F</kbd> again extinguishes it.  Pressing <kbd>X</kbd>
+  detonates a one-shot explosion at the plinth position.  Pressing <kbd>C</kbd> scatters
+  a collectible sparkle effect.  Pressing <kbd>D</kbd> puffs ground dust at the player's
+  feet.  The ambient star field drifts across the whole scene from a world-space
+  entity that is not attached to anything.
+</p>
+
+<pre><span class="pp">#include</span> <span class="st">&lt;Simple3D/Simple3D.h&gt;</span>
+
+<span class="kw">using namespace</span> <span class="ty">Simple3D</span>;
+
+<span class="kw">class</span> <span class="ty">ParticleDemo</span> : <span class="kw">public</span> <span class="ty">Game</span>
+{
+<span class="kw">public</span>:
+    <span class="cm">// ── Scene entities ───────────────────────────────────────────────</span>
+    <span class="ty">Entity</span>*  ground_        = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*  plinth_        = <span class="kw">nullptr</span>;
+    <span class="ty">Entity</span>*  player_        = <span class="kw">nullptr</span>;
+    <span class="ty">Camera</span>*  cam_           = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*   hintLabel_     = <span class="kw">nullptr</span>;
+    <span class="ty">Label</span>*   stateLabel_    = <span class="kw">nullptr</span>;
+
+    <span class="cm">// ── Particle emitter handles ─────────────────────────────────────</span>
+    <span class="ty">ParticleEmitter</span>* smokeEmitter_   = <span class="kw">nullptr</span>;  <span class="cm">// torch smoke (continuous)</span>
+    <span class="ty">ParticleEmitter</span>* explosionFx_    = <span class="kw">nullptr</span>;  <span class="cm">// one-shot blast</span>
+    <span class="ty">ParticleEmitter</span>* sparkleFx_      = <span class="kw">nullptr</span>;  <span class="cm">// collectible sparkle</span>
+    <span class="ty">ParticleEmitter</span>* dustFx_         = <span class="kw">nullptr</span>;  <span class="cm">// player foot-dust</span>
+    <span class="ty">ParticleEmitter</span>* ambientStars_   = <span class="kw">nullptr</span>;  <span class="cm">// world-space star field</span>
+
+    <span class="cm">// ── State flags ──────────────────────────────────────────────────</span>
+    <span class="ty">bool</span> torchLit_    = <span class="kw">false</span>;
+
+    <span class="cm">// ── Child entities used for position offsets ─────────────────────</span>
+    <span class="ty">Entity</span>* smokeAnchor_    = <span class="kw">nullptr</span>;  <span class="cm">// top of the plinth</span>
+    <span class="ty">Entity</span>* explosionAnchor_= <span class="kw">nullptr</span>;  <span class="cm">// centre of the plinth</span>
+    <span class="ty">Entity</span>* sparkleAnchor_  = <span class="kw">nullptr</span>;  <span class="cm">// above the plinth top</span>
+    <span class="ty">Entity</span>* dustAnchor_     = <span class="kw">nullptr</span>;  <span class="cm">// at player's feet</span>
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Start</span>() <span class="kw">override</span>
+    {
+        <span class="fn">SetWindowTitle</span>(<span class="st">"simple-3d — Tutorial 21: Particle Systems"</span>);
+
+        <span class="cm">// ── Scene geometry ───────────────────────────────────────────</span>
+        ground_ = <span class="fn">CreateEntity</span>(<span class="st">"Ground"</span>);
+        ground_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Plane.mdl"</span>);
+        ground_-&gt;<span class="fn">SetScale</span>(<span class="val">30.0f</span>);
+        ground_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        ground_-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">30.0f</span>, <span class="val">0.1f</span>, <span class="val">30.0f</span>));
+        ground_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+        plinth_ = <span class="fn">CreateEntity</span>(<span class="st">"Plinth"</span>);
+        plinth_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        plinth_-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">0.75f</span>, <span class="val">0.0f</span>);
+        plinth_-&gt;<span class="fn">SetScale</span>(<span class="ty">Vector3</span>(<span class="val">1.0f</span>, <span class="val">1.5f</span>, <span class="val">1.0f</span>));
+        plinth_-&gt;<span class="fn">AddRigidBody</span>(<span class="val">0.0f</span>);
+        plinth_-&gt;<span class="fn">AddBoxCollider</span>(<span class="ty">Vector3</span>(<span class="val">1.0f</span>, <span class="val">1.5f</span>, <span class="val">1.0f</span>));
+        plinth_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>);
+
+        <span class="cm">// ── Player ───────────────────────────────────────────────────</span>
+        player_ = <span class="fn">CreateEntity</span>(<span class="st">"Player"</span>);
+        player_-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Box.mdl"</span>);
+        player_-&gt;<span class="fn">SetPosition</span>(<span class="val">4.0f</span>, <span class="val">1.0f</span>, <span class="val">4.0f</span>);
+        <span class="ty">CharacterController</span>* cc = player_-&gt;<span class="fn">AddCharacterController</span>(<span class="val">0.35f</span>, <span class="val">1.8f</span>);
+        cc-&gt;<span class="fn">SetGravity</span>(<span class="val">20.0f</span>);
+        player_-&gt;<span class="fn">SetCollisionLayer</span>(<span class="ty">CollisionLayer</span>::<span class="val">Actor</span>);
+        player_-&gt;<span class="fn">SetCollisionMask</span>(<span class="fn">MakeCollisionMask</span>({
+            <span class="ty">CollisionLayer</span>::<span class="val">StaticGeometry</span>
+        }));
+
+        <span class="cm">// ── Lighting ─────────────────────────────────────────────────</span>
+        <span class="ty">Entity</span>* sun = <span class="fn">CreateEntity</span>(<span class="st">"Sun"</span>);
+        sun-&gt;<span class="fn">AddDirectionalLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.9f</span>, <span class="val">0.8f</span>), <span class="val">0.9f</span>);
+        sun-&gt;<span class="fn">SetRotation</span>(<span class="ty">Quaternion</span>(<span class="val">50.0f</span>, <span class="val">25.0f</span>, <span class="val">0.0f</span>));
+        <span class="fn">SetAmbientColor</span>(<span class="ty">Color</span>(<span class="val">0.2f</span>, <span class="val">0.2f</span>, <span class="val">0.25f</span>));
+
+        <span class="cm">// ── Camera ───────────────────────────────────────────────────</span>
+        cam_ = <span class="fn">CreateCamera</span>();
+        cam_-&gt;<span class="fn">Follow</span>(player_, <span class="val">8.0f</span>, <span class="val">3.5f</span>);
+        cam_-&gt;<span class="fn">SetSmoothFollow</span>(<span class="kw">true</span>, <span class="val">6.0f</span>);
+
+        <span class="cm">// ── HUD ──────────────────────────────────────────────────────</span>
+        hintLabel_ = <span class="fn">CreateLabel</span>(
+            <span class="st">"WASD = move  |  F = torch smoke  |  X = explosion  |  C = sparkle  |  D = foot dust  |  Esc = quit"</span>);
+        hintLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">10</span>);
+        hintLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">13</span>);
+        hintLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>::<span class="val">WHITE</span>);
+
+        stateLabel_ = <span class="fn">CreateLabel</span>(<span class="st">"Torch: OFF"</span>);
+        stateLabel_-&gt;<span class="fn">SetPosition</span>(<span class="val">10</span>, <span class="val">32</span>);
+        stateLabel_-&gt;<span class="fn">SetFontSize</span>(<span class="val">15</span>);
+        stateLabel_-&gt;<span class="fn">SetColor</span>(<span class="ty">Color</span>(<span class="val">0.6f</span>, <span class="val">0.8f</span>, <span class="val">1.0f</span>, <span class="val">1.0f</span>));
+
+        <span class="cm">// ────────────────────────────────────────────────────────────
+        // PARTICLE SETUP
+        // ────────────────────────────────────────────────────────────</span>
+
+        <span class="cm">// ── 1. Torch smoke — continuous, mounted on a child entity ────
+        //
+        //   The plinth origin is at its geometric centre (y = 0.75).
+        //   We want smoke to rise from the TOP of the plinth (y = 1.5).
+        //   Solution: create a child entity offset 0.75 m upward in
+        //   local space, then attach the emitter to that child.
+        //
+        //   This is the standard pattern for any emitter that needs to
+        //   appear at a specific part of a model rather than its origin.</span>
+
+        smokeAnchor_ = plinth_-&gt;<span class="fn">CreateChild</span>(<span class="st">"SmokeAnchor"</span>);
+        smokeAnchor_-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, <span class="val">0.75f</span>, <span class="val">0.0f</span>);  <span class="cm">// top of plinth</span>
+
+        smokeEmitter_ = smokeAnchor_-&gt;<span class="fn">AddParticleEmitter</span>(<span class="st">"Particles/Smoke.xml"</span>);
+        <span class="cm">// Do NOT call Play() yet — torch starts extinguished.</span>
+
+        <span class="cm">// ── 2. Explosion — one-shot, same position as torch ───────────
+        //
+        //   The explosion should appear at the plinth's geometric centre,
+        //   not the top.  We use a separate child entity at the origin.
+        //   Calling Burst() resets the emitter and runs one emission cycle.</span>
+
+        explosionAnchor_ = plinth_-&gt;<span class="fn">CreateChild</span>(<span class="st">"ExplosionAnchor"</span>);
+        explosionAnchor_-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);  <span class="cm">// plinth centre</span>
+
+        explosionFx_ = explosionAnchor_-&gt;<span class="fn">AddParticleEmitter</span>(<span class="st">"Particles/Explosion.xml"</span>);
+        <span class="cm">// No Play() — remains dormant until the player presses X.</span>
+
+        <span class="cm">// ── 3. Sparkle — one-shot, above the plinth top ───────────────</span>
+
+        sparkleAnchor_ = plinth_-&gt;<span class="fn">CreateChild</span>(<span class="st">"SparkleAnchor"</span>);
+        sparkleAnchor_-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, <span class="val">1.2f</span>, <span class="val">0.0f</span>);  <span class="cm">// well above top</span>
+
+        sparkleFx_ = sparkleAnchor_-&gt;<span class="fn">AddParticleEmitter</span>(<span class="st">"Particles/Sparkle.xml"</span>);
+
+        <span class="cm">// ── 4. Foot dust — continuous while player moves ──────────────
+        //
+        //   This emitter moves WITH the player.  We attach it to a child
+        //   entity at the player's feet (y = 0 in local space = ground level
+        //   relative to the player's origin at y = 1.0).</span>
+
+        dustAnchor_ = player_-&gt;<span class="fn">CreateChild</span>(<span class="st">"DustAnchor"</span>);
+        dustAnchor_-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, <span class="val">-1.0f</span>, <span class="val">0.0f</span>);  <span class="cm">// at ground</span>
+
+        dustFx_ = dustAnchor_-&gt;<span class="fn">AddParticleEmitter</span>(<span class="st">"Particles/Dust.xml"</span>);
+        <span class="cm">// Play() / Stop() controlled by movement in Update().</span>
+
+        <span class="cm">// ── 5. Ambient star field — world-space, NOT attached to anything
+        //
+        //   We create a standalone entity at the scene's centre (x=0, y=5, z=0)
+        //   and start the emitter immediately.  Because this entity has no
+        //   parent and never moves, the stars drift through world-space
+        //   coordinates, unaffected by player movement.</span>
+
+        <span class="ty">Entity</span>* starEntity = <span class="fn">CreateEntity</span>(<span class="st">"AmbientStars"</span>);
+        starEntity-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">5.0f</span>, <span class="val">0.0f</span>);
+
+        ambientStars_ = starEntity-&gt;<span class="fn">AddParticleEmitter</span>(<span class="st">"Particles/Stars.xml"</span>);
+        ambientStars_-&gt;<span class="fn">Play</span>();   <span class="cm">// start immediately; will run for the whole session</span>
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">Update</span>(<span class="ty">float</span> dt) <span class="kw">override</span>
+    {
+        <span class="fn">HandleMovement</span>(dt);
+        <span class="fn">HandleTorchToggle</span>();
+        <span class="fn">HandleExplosion</span>();
+        <span class="fn">HandleSparkle</span>();
+        <span class="fn">HandleDustEmission</span>();
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Escape</span>))
+            <span class="fn">Quit</span>();
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────</span>
+    <span class="kw">void</span> <span class="fn">HandleMovement</span>(<span class="ty">float</span> dt)
+    {
+        <span class="ty">CharacterController</span>* cc = player_-&gt;<span class="fn">GetComponent</span>&lt;<span class="ty">CharacterController</span>&gt;();
+        <span class="kw">if</span> (!cc) <span class="kw">return</span>;
+
+        <span class="ty">float</span> mx = <span class="val">0.0f</span>, mz = <span class="val">0.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">A</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Left</span>))  mx -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">D</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Right</span>)) mx += <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">W</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Up</span>))    mz -= <span class="val">1.0f</span>;
+        <span class="kw">if</span> (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">S</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Down</span>))  mz += <span class="val">1.0f</span>;
+
+        cc-&gt;<span class="fn">Move</span>(<span class="ty">Vector3</span>(mx, <span class="val">0.0f</span>, mz) * <span class="val">5.0f</span>, dt);
+
+        <span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Space</span>))
+            cc-&gt;<span class="fn">TryJump</span>(<span class="val">10.0f</span>);
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // F — toggle the torch smoke emitter on/off.
+    // Demonstrates Play() / Stop() for a continuous emitter.</span>
+    <span class="kw">void</span> <span class="fn">HandleTorchToggle</span>()
+    {
+        <span class="kw">if</span> (!<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">F</span>)) <span class="kw">return</span>;
+
+        <span class="kw">if</span> (!torchLit_)
+        {
+            <span class="cm">// Light the torch: start continuous smoke emission.</span>
+            smokeEmitter_-&gt;<span class="fn">Play</span>();
+            torchLit_ = <span class="kw">true</span>;
+            stateLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Torch: ON  (smoke rising)"</span>);
+        }
+        <span class="kw">else</span>
+        {
+            <span class="cm">// Extinguish the torch: stop new particles being spawned.
+            // Particles already in flight linger until their own lifetime
+            // expires — this is intentional and looks natural.</span>
+            smokeEmitter_-&gt;<span class="fn">Stop</span>();
+            torchLit_ = <span class="kw">false</span>;
+            stateLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Torch: OFF"</span>);
+        }
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // X — trigger a one-shot explosion burst at the plinth centre.
+    // Demonstrates Burst() and IsEmitting() for a one-shot emitter.</span>
+    <span class="kw">void</span> <span class="fn">HandleExplosion</span>()
+    {
+        <span class="kw">if</span> (!<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">X</span>)) <span class="kw">return</span>;
+
+        <span class="cm">// Guard: don't trigger while the previous burst is still alive.
+        // IsEmitting() returns true during the short emission window that
+        // Burst() opens; it flips back to false once that window closes.</span>
+        <span class="kw">if</span> (explosionFx_-&gt;<span class="fn">IsEmitting</span>())
+            <span class="kw">return</span>;
+
+        <span class="cm">// Burst() resets all live particles, then enables the emitter for
+        // exactly one activetime cycle as defined in the XML.  After that
+        // cycle the emitter stops on its own — you don't need to call Stop().</span>
+        explosionFx_-&gt;<span class="fn">Burst</span>();
+
+        <span class="cm">// Optional: add a screen shake to sell the impact.</span>
+        cam_-&gt;<span class="fn">Shake</span>(<span class="val">0.4f</span>, <span class="val">0.5f</span>);
+
+        stateLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"BOOM!"</span>);
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // C — trigger a collectible sparkle burst above the plinth top.</span>
+    <span class="kw">void</span> <span class="fn">HandleSparkle</span>()
+    {
+        <span class="kw">if</span> (!<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">C</span>)) <span class="kw">return</span>;
+
+        <span class="cm">// We can call Burst() any number of times; each call restarts
+        // the one-shot cycle from the beginning even if the previous
+        // burst hasn't fully faded yet.</span>
+        sparkleFx_-&gt;<span class="fn">Burst</span>();
+        stateLabel_-&gt;<span class="fn">SetText</span>(<span class="st">"Sparkle!"</span>);
+    }
+
+    <span class="cm">// ────────────────────────────────────────────────────────────────
+    // Dust — continuous while the player is moving on the ground.
+    // Demonstrates toggling an emitter based on game state without
+    // using Burst(): Play() / Stop() on the same emitter per frame.</span>
+    <span class="kw">void</span> <span class="fn">HandleDustEmission</span>()
+    {
+        <span class="ty">CharacterController</span>* cc = player_-&gt;<span class="fn">GetComponent</span>&lt;<span class="ty">CharacterController</span>&gt;();
+        <span class="kw">if</span> (!cc) <span class="kw">return</span>;
+
+        <span class="ty">bool</span> shouldEmit = cc-&gt;<span class="fn">IsOnGround</span>() &amp;&amp;
+                          (<span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">A</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">D</span>) ||
+                           <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">W</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">S</span>) ||
+                           <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Left</span>) || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Right</span>) ||
+                           <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Up</span>)   || <span class="fn">IsKeyDown</span>(<span class="ty">Key</span>::<span class="val">Down</span>));
+
+        <span class="cm">// Only call Play()/Stop() when the state changes — avoids resetting
+        // the emitter every frame, which would stutter the particle output.</span>
+        <span class="kw">if</span> (shouldEmit &amp;&amp; !dustFx_-&gt;<span class="fn">IsEmitting</span>())
+            dustFx_-&gt;<span class="fn">Play</span>();
+        <span class="kw">else if</span> (!shouldEmit &amp;&amp; dustFx_-&gt;<span class="fn">IsEmitting</span>())
+            dustFx_-&gt;<span class="fn">Stop</span>();
+    }
+};
+
+<span class="ty">int</span> <span class="fn">main</span>()
+{
+    <span class="kw">return</span> <span class="ty">Simple3D</span>::<span class="fn">CreateGame</span>&lt;<span class="ty">ParticleDemo</span>&gt;()-&gt;<span class="fn">Run</span>();
+}</pre>
+
+<!-- ─── STEP-BY-STEP EXPLANATION ──────────────────────────────────── -->
+<h2>Step-by-step explanation</h2>
+
+<!-- AddParticleEmitter -->
+<h3>entity-&gt;AddParticleEmitter(xmlPath)</h3>
+<p>
+  This is the entry point for the whole particle system.  Call it on any entity and
+  pass the resource-relative path to a Urho3D <code>ParticleEffect</code> XML file.
+  The engine loads the XML, creates a <code>ParticleEmitter</code> component on the
+  entity's scene node, and returns a pointer to a thin C++ wrapper around it.
+</p>
+<p>
+  The emitter starts in the <em>stopped</em> state.  It will not produce any particles
+  until you call <code>Play()</code> or <code>Burst()</code>.  This means it is safe
+  to set up all your emitters unconditionally in <code>Start()</code> and activate
+  them only when the game logic requires it.
+</p>
+<pre><span class="cm">// Basic attachment — emitter is dormant until activated</span>
+<span class="ty">ParticleEmitter</span>* smoke = entity-&gt;<span class="fn">AddParticleEmitter</span>(<span class="st">"Particles/Smoke.xml"</span>);
+
+<span class="cm">// Custom effect from your own Data/Effects/ subdirectory</span>
+<span class="ty">ParticleEmitter</span>* magic = entity-&gt;<span class="fn">AddParticleEmitter</span>(<span class="st">"Effects/MagicAura.xml"</span>);</pre>
+
+<p>
+  Each call to <code>AddParticleEmitter</code> adds a <em>new</em> emitter to the entity.
+  An entity can carry multiple emitters simultaneously — for example, a vehicle
+  could have separate exhaust smoke, tyre smoke, and spark emitters.  Use
+  <code>GetParticleEmitter()</code> to retrieve the most-recently-added one when
+  you need it later.
+</p>
+
+<!-- Play / Stop -->
+<h3>emitter-&gt;Play() and emitter-&gt;Stop()</h3>
+<p>
+  <code>Play()</code> enables continuous particle emission.  New particles are spawned
+  at the rate defined by the XML (typically a spawn-per-second or spawn-per-second
+  range) until you call <code>Stop()</code>.  Particles that are already in flight
+  when you call <code>Stop()</code> do <em>not</em> vanish instantly; they continue
+  coasting through their own remaining lifetime.  This looks natural for smoke,
+  fire, and dust: the trail tapers off rather than cutting abruptly.
+</p>
+<pre><span class="cm">// Start a continuous smoke plume when the torch is lit</span>
+smokeEmitter_-&gt;<span class="fn">Play</span>();
+
+<span class="cm">// Later, when the torch is doused, stop spawning new particles.
+// Existing smoke puffs drift away naturally over their lifetimes.</span>
+smokeEmitter_-&gt;<span class="fn">Stop</span>();</pre>
+
+<p>
+  The recommended pattern for conditional continuous effects (like foot dust that
+  emits only while moving) is to check <code>IsEmitting()</code> before calling
+  <code>Play()</code> or <code>Stop()</code>, so you do not reset the emitter's
+  internal state on every frame.
+</p>
+<pre><span class="ty">bool</span> moving = <span class="cm">/* ... */</span>;
+
+<span class="kw">if</span> (moving &amp;&amp; !dustFx_-&gt;<span class="fn">IsEmitting</span>())
+    dustFx_-&gt;<span class="fn">Play</span>();
+<span class="kw">else if</span> (!moving &amp;&amp; dustFx_-&gt;<span class="fn">IsEmitting</span>())
+    dustFx_-&gt;<span class="fn">Stop</span>();</pre>
+
+<!-- Burst -->
+<h3>emitter-&gt;Burst()</h3>
+<p>
+  <code>Burst()</code> is the right call for any effect that should play once and
+  then go silent: an explosion, a collectible pickup shimmer, an impact puff, or
+  an ability cast.  Internally it does three things in order:
+</p>
+<ol>
+  <li>Removes all currently live particles from the emitter (resets to clean state).</li>
+  <li>Sets the emitter's internal timer back to zero.</li>
+  <li>Enables the emitter for exactly one <code>activetime</code> cycle as specified
+      in the XML — typically a fraction of a second.  After that window closes,
+      the emitter stops on its own.</li>
+</ol>
+<p>
+  You do <em>not</em> need to call <code>Stop()</code> after a burst.  Because
+  the emitter is self-limiting you can call <code>Burst()</code> again at any
+  time to restart the one-shot cycle from scratch, even while the previous
+  burst's particles are still decaying.
+</p>
+<pre><span class="cm">// Enemy dies — detonate an explosion at its position</span>
+<span class="ty">ParticleEmitter</span>* fx = enemy-&gt;<span class="fn">GetParticleEmitter</span>();
+<span class="kw">if</span> (fx) fx-&gt;<span class="fn">Burst</span>();
+
+<span class="cm">// Player collects a coin — sparkle pop above the coin entity</span>
+coinEmitter_-&gt;<span class="fn">Burst</span>();
+
+<span class="cm">// Landing dust — burst when the character touches the ground</span>
+<span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">Space</span>) &amp;&amp; cc-&gt;<span class="fn">IsOnGround</span>()) {
+    cc-&gt;<span class="fn">TryJump</span>(<span class="val">10.0f</span>);
+    dustFx_-&gt;<span class="fn">Burst</span>();   <span class="cm">// jump-off dust puff</span>
+}</pre>
+
+<!-- IsEmitting / SetEmitting -->
+<h3>emitter-&gt;IsEmitting() and emitter-&gt;SetEmitting(bool)</h3>
+<p>
+  <code>IsEmitting()</code> returns <code>true</code> during the window in which the
+  emitter is actively producing new particles.  For continuous emitters started with
+  <code>Play()</code> this stays <code>true</code> until <code>Stop()</code> is
+  called.  For burst emitters it is <code>true</code> only during the short emission
+  window opened by <code>Burst()</code>.
+</p>
+<p>
+  <code>SetEmitting(bool)</code> is the low-level toggle that both <code>Play()</code>
+  and <code>Stop()</code> delegate to internally.  Use it directly only when you need
+  to synchronise the emitter state with an external flag without the overhead of the
+  play/stop guard logic.
+</p>
+<pre><span class="cm">// Poll-guard to avoid re-triggering an explosion mid-burst</span>
+<span class="kw">if</span> (<span class="fn">IsKeyPressed</span>(<span class="ty">Key</span>::<span class="val">X</span>) &amp;&amp; !explosionFx_-&gt;<span class="fn">IsEmitting</span>())
+    explosionFx_-&gt;<span class="fn">Burst</span>();
+
+<span class="cm">// Raw toggle — equivalent to Play() / Stop() without reset logic</span>
+emitter-&gt;<span class="fn">SetEmitting</span>(<span class="kw">true</span>);
+emitter-&gt;<span class="fn">SetEmitting</span>(<span class="kw">false</span>);</pre>
+
+<!-- GetParticleEmitter -->
+<h3>entity-&gt;GetParticleEmitter()</h3>
+<p>
+  <code>GetParticleEmitter()</code> retrieves the emitter component that was most
+  recently added via <code>AddParticleEmitter()</code>.  It returns <code>nullptr</code>
+  if no emitter has been added.  This is useful when the entity is created in a
+  prefab loader or a Lua script and your C++ code receives the entity by name:
+</p>
+<pre><span class="cm">// Entity was created somewhere else; retrieve and fire its emitter</span>
+<span class="ty">Entity</span>* boom = <span class="fn">FindEntity</span>(<span class="st">"ExplosionPoint"</span>);
+<span class="kw">if</span> (boom) {
+    <span class="ty">ParticleEmitter</span>* fx = boom-&gt;<span class="fn">GetParticleEmitter</span>();
+    <span class="kw">if</span> (fx) fx-&gt;<span class="fn">Burst</span>();
+}</pre>
+
+<!-- Child entity offset -->
+<h3>Attaching emitters to child entities for position offsets</h3>
+<p>
+  An emitter added to an entity always spawns particles at that entity's world-space
+  origin.  When you want the effect to appear at a specific part of a model — the
+  tip of a gun barrel, the top of a chimney, or a character's hands — use a
+  <em>child entity</em> positioned at the right local-space offset, then add the
+  emitter to the child.  Because the child inherits its parent's transform, moving
+  or rotating the parent automatically repositions the effect.
+</p>
+<pre><span class="cm">// Emitter at the top of a pillar model (pillar origin at centre, height 3 m)</span>
+<span class="ty">Entity</span>* pillar = <span class="fn">CreateEntity</span>(<span class="st">"Pillar"</span>);
+pillar-&gt;<span class="fn">AddModel</span>(<span class="st">"Models/Pillar.mdl"</span>);
+pillar-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">1.5f</span>, <span class="val">0.0f</span>);   <span class="cm">// pillar sits on the ground</span>
+
+<span class="ty">Entity</span>* flameAnchor = pillar-&gt;<span class="fn">CreateChild</span>(<span class="st">"FlameAnchor"</span>);
+flameAnchor-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, <span class="val">1.5f</span>, <span class="val">0.0f</span>);  <span class="cm">// top of 3 m pillar</span>
+
+<span class="ty">ParticleEmitter</span>* flame = flameAnchor-&gt;<span class="fn">AddParticleEmitter</span>(<span class="st">"Particles/Smoke.xml"</span>);
+flame-&gt;<span class="fn">Play</span>();
+
+<span class="cm">// Emitter above an enemy's head — floats with the enemy as it moves</span>
+<span class="ty">Entity</span>* statusAnchor = enemy_-&gt;<span class="fn">CreateChild</span>(<span class="st">"StatusFX"</span>);
+statusAnchor-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, <span class="val">2.5f</span>, <span class="val">0.0f</span>);
+<span class="ty">ParticleEmitter</span>* stars = statusAnchor-&gt;<span class="fn">AddParticleEmitter</span>(<span class="st">"Particles/Stars.xml"</span>);
+stars-&gt;<span class="fn">Play</span>();   <span class="cm">// play while stunned</span></pre>
+
+<!-- World-space effects -->
+<h3>World-space particle effects</h3>
+<p>
+  For ambient effects that fill the scene rather than following any specific object
+  — falling rain, drifting snow, floating embers — create a standalone entity,
+  place it at a fixed world position, and never parent it to anything.  Its transform
+  stays constant in world space regardless of where the player or camera moves.
+</p>
+<pre><span class="cm">// Ambient rain at height 10 m, centred on the level origin</span>
+<span class="ty">Entity</span>* rain = <span class="fn">CreateEntity</span>(<span class="st">"AmbientRain"</span>);
+rain-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">10.0f</span>, <span class="val">0.0f</span>);
+
+<span class="ty">ParticleEmitter</span>* rainFx = rain-&gt;<span class="fn">AddParticleEmitter</span>(<span class="st">"Particles/Dust.xml"</span>);
+rainFx-&gt;<span class="fn">Play</span>();
+
+<span class="cm">// Ambient star-field at a comfortable height above the play area</span>
+<span class="ty">Entity</span>* stars = <span class="fn">CreateEntity</span>(<span class="st">"StarField"</span>);
+stars-&gt;<span class="fn">SetPosition</span>(<span class="val">0.0f</span>, <span class="val">5.0f</span>, <span class="val">0.0f</span>);
+stars-&gt;<span class="fn">AddParticleEmitter</span>(<span class="st">"Particles/Stars.xml"</span>)-&gt;<span class="fn">Play</span>();
+
+<span class="cm">// Kill world-space effects before a scene transition so they don't
+// carry over into the next level.</span>
+rain-&gt;<span class="fn">SetActive</span>(<span class="kw">false</span>);    <span class="cm">// hides + suspends rendering; reactivate later</span>
+<span class="cm">// OR destroy the entity permanently:</span>
+<span class="cm">// DestroyEntity(rain);  rain = nullptr;</span></pre>
+
+<!-- Quick reference table -->
+<h2>ParticleEmitter quick reference</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Method</th>
+      <th>Returns</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>entity-&gt;AddParticleEmitter(xmlPath)</code></td>
+      <td><code>ParticleEmitter*</code></td>
+      <td>Attaches emitter from XML. Starts stopped. Idempotent for unique paths.</td>
+    </tr>
+    <tr>
+      <td><code>entity-&gt;GetParticleEmitter()</code></td>
+      <td><code>ParticleEmitter*</code></td>
+      <td>Returns most-recently-added emitter, or <code>nullptr</code>.</td>
+    </tr>
+    <tr>
+      <td><code>emitter-&gt;Play()</code></td>
+      <td>&mdash;</td>
+      <td>Start continuous emission. Stays on until <code>Stop()</code>.</td>
+    </tr>
+    <tr>
+      <td><code>emitter-&gt;Stop()</code></td>
+      <td>&mdash;</td>
+      <td>Stop spawning. Live particles linger until their lifetime ends.</td>
+    </tr>
+    <tr>
+      <td><code>emitter-&gt;Burst()</code></td>
+      <td>&mdash;</td>
+      <td>Reset + enable for one <code>activetime</code> cycle. Self-stops.</td>
+    </tr>
+    <tr>
+      <td><code>emitter-&gt;IsEmitting()</code></td>
+      <td><code>bool</code></td>
+      <td>True while actively spawning. Use to guard re-trigger logic.</td>
+    </tr>
+    <tr>
+      <td><code>emitter-&gt;SetEmitting(bool)</code></td>
+      <td>&mdash;</td>
+      <td>Low-level toggle; skips the reset logic inside <code>Burst()</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ─── LUA EQUIVALENT ───────────────────────────────────────────── -->
+<h2>Lua equivalent</h2>
+
+<p>
+  In Lua, you set up emitters from C++ (or a scene loader) and retrieve them
+  with <code>entity:GetParticleEmitter()</code>.  All playback methods are
+  available on the returned handle.  The example below shows a self-contained
+  Lua script that manages a torch effect and a death-burst on an entity:
+</p>
+
+<pre><span class="lua-cm">-- Scripts/torch_fx.lua
+-- Attach this script to the torch entity.
+-- Assumes the emitter was already added in C++ Start() as:
+--   torchEntity->AddParticleEmitter("Particles/Smoke.xml");</span>
+
+<span class="lua-kw">local</span> smokeEmitter = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> torchLit     = <span class="lua-kw">false</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    <span class="lua-cm">-- Retrieve the emitter component already added in C++.</span>
+    smokeEmitter = entity:<span class="lua-fn">GetParticleEmitter</span>()
+    <span class="lua-kw">if</span> smokeEmitter == <span class="lua-kw">nil</span> <span class="lua-kw">then</span>
+        <span class="lua-fn">print</span>(<span class="lua-str">"[torch_fx] No particle emitter found on entity!"</span>)
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Update</span>(dt)
+    <span class="lua-kw">if</span> smokeEmitter == <span class="lua-kw">nil</span> <span class="lua-kw">then</span> <span class="lua-kw">return</span> <span class="lua-kw">end</span>
+
+    <span class="lua-cm">-- F key toggles the torch on and off</span>
+    <span class="lua-kw">if</span> game:<span class="lua-fn">IsKeyPressed</span>(Key.F) <span class="lua-kw">then</span>
+        <span class="lua-kw">if</span> <span class="lua-kw">not</span> torchLit <span class="lua-kw">then</span>
+            smokeEmitter:<span class="lua-fn">Play</span>()
+            torchLit = <span class="lua-kw">true</span>
+        <span class="lua-kw">else</span>
+            smokeEmitter:<span class="lua-fn">Stop</span>()
+            torchLit = <span class="lua-kw">false</span>
+        <span class="lua-kw">end</span>
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<pre><span class="lua-cm">-- Scripts/enemy_death.lua
+-- Trigger an explosion burst when the enemy dies.
+-- The explosion emitter was added in C++:
+--   enemy->AddParticleEmitter("Particles/Explosion.xml");</span>
+
+<span class="lua-kw">local</span> explodeFx = <span class="lua-kw">nil</span>
+<span class="lua-kw">local</span> hp        = <span class="lua-num">100</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    explodeFx = entity:<span class="lua-fn">GetParticleEmitter</span>()
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">TakeDamage</span>(amount)
+    hp = hp - amount
+    <span class="lua-kw">if</span> hp &lt;= <span class="lua-num">0</span> <span class="lua-kw">then</span>
+        <span class="lua-kw">if</span> explodeFx <span class="lua-kw">and</span> <span class="lua-kw">not</span> explodeFx:<span class="lua-fn">IsEmitting</span>() <span class="lua-kw">then</span>
+            explodeFx:<span class="lua-fn">Burst</span>()   <span class="lua-cm">-- one-shot death blast</span>
+        <span class="lua-kw">end</span>
+        entity:<span class="lua-fn">SetActive</span>(<span class="lua-kw">false</span>)   <span class="lua-cm">-- hide the enemy model</span>
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<pre><span class="lua-cm">-- Scripts/ambient_stars.lua
+-- World-space ambient emitter — attach to a dedicated entity at
+-- a fixed position.  The emitter was added in C++:
+--   starEntity->AddParticleEmitter("Particles/Stars.xml");</span>
+
+<span class="lua-kw">local</span> starFx = <span class="lua-kw">nil</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">Start</span>()
+    starFx = entity:<span class="lua-fn">GetParticleEmitter</span>()
+    <span class="lua-kw">if</span> starFx <span class="lua-kw">then</span>
+        starFx:<span class="lua-fn">Play</span>()   <span class="lua-cm">-- begin continuous ambient emission</span>
+    <span class="lua-kw">end</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-cm">-- SetEmitting example: pause stars during cutscene</span>
+<span class="lua-kw">function</span> <span class="lua-fn">PauseAmbient</span>()
+    <span class="lua-kw">if</span> starFx <span class="lua-kw">then</span> starFx:<span class="lua-fn">SetEmitting</span>(<span class="lua-kw">false</span>) <span class="lua-kw">end</span>
+<span class="lua-kw">end</span>
+
+<span class="lua-kw">function</span> <span class="lua-fn">ResumeAmbient</span>()
+    <span class="lua-kw">if</span> starFx <span class="lua-kw">then</span> starFx:<span class="lua-fn">SetEmitting</span>(<span class="lua-kw">true</span>) <span class="lua-kw">end</span>
+<span class="lua-kw">end</span></pre>
+
+<!-- ─── PATTERNS AND TIPS ─────────────────────────────────────────── -->
+<h2>Patterns and tips</h2>
+
+<h3>Death effect + entity removal</h3>
+<p>
+  A common problem is that you want an explosion to play when an enemy dies, but if
+  you call <code>DestroyEntity()</code> immediately the emitter is also destroyed and
+  no particles appear.  The cleanest solution is to hide the enemy model at once but
+  defer the actual entity destruction until the burst has had time to play:
+</p>
+<pre><span class="kw">void</span> <span class="fn">KillEnemy</span>(<span class="ty">Entity</span>* e)
+{
+    <span class="cm">// Stop the model from rendering immediately</span>
+    e-&gt;<span class="fn">SetActive</span>(<span class="kw">false</span>);
+
+    <span class="cm">// Detach the explosion anchor from the enemy so it stays
+    // in world space even after the parent is deactivated.</span>
+    <span class="ty">Entity</span>* fxAnchor = e-&gt;<span class="fn">GetChild</span>(<span class="val">0</span>);  <span class="cm">// or store the pointer</span>
+    <span class="kw">if</span> (fxAnchor) {
+        <span class="cm">// Reparent to scene root: keep world position, cut parent link</span>
+        <span class="ty">Vector3</span> worldPos = fxAnchor-&gt;<span class="fn">GetPosition</span>();
+        fxAnchor-&gt;<span class="fn">SetPosition</span>(worldPos);
+        <span class="cm">// Now trigger the burst on the now-independent node</span>
+        <span class="ty">ParticleEmitter</span>* fx = fxAnchor-&gt;<span class="fn">GetParticleEmitter</span>();
+        <span class="kw">if</span> (fx) fx-&gt;<span class="fn">Burst</span>();
+    }
+
+    <span class="cm">// Schedule destruction for later (e.g. after 2 seconds using a tween counter)</span>
+    deathTimer_ = <span class="val">2.0f</span>;
+}</pre>
+
+<h3>Combining emitters on one entity</h3>
+<p>
+  A single entity can carry multiple particle emitters — each <code>AddParticleEmitter</code>
+  call appends a new one.  This is useful for layered effects, such as a campfire
+  that has both a flame emitter and a smoke emitter, or a magic weapon with a
+  sparkle overlay on top of a base glow:
+</p>
+<pre><span class="cm">// Campfire with both flame and smoke</span>
+<span class="ty">Entity</span>* fire = <span class="fn">CreateEntity</span>(<span class="st">"Campfire"</span>);
+fire-&gt;<span class="fn">SetPosition</span>(<span class="val">3.0f</span>, <span class="val">0.0f</span>, <span class="val">-2.0f</span>);
+
+<span class="cm">// Add point light at the same spot for warm glow</span>
+fire-&gt;<span class="fn">AddPointLight</span>(<span class="ty">Color</span>(<span class="val">1.0f</span>, <span class="val">0.5f</span>, <span class="val">0.1f</span>), <span class="val">6.0f</span>);
+
+<span class="cm">// Emitter 1 — flame sparks (Sparkle preset)
+// Child anchor at origin of the fire entity</span>
+<span class="ty">Entity</span>* flameAnchor = fire-&gt;<span class="fn">CreateChild</span>(<span class="st">"FlameLayer"</span>);
+flameAnchor-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, <span class="val">0.0f</span>, <span class="val">0.0f</span>);
+<span class="ty">ParticleEmitter</span>* flameFx = flameAnchor-&gt;<span class="fn">AddParticleEmitter</span>(<span class="st">"Particles/Sparkle.xml"</span>);
+flameFx-&gt;<span class="fn">Play</span>();
+
+<span class="cm">// Emitter 2 — smoke above the flames</span>
+<span class="ty">Entity</span>* smokeAnchor = fire-&gt;<span class="fn">CreateChild</span>(<span class="st">"SmokeLayer"</span>);
+smokeAnchor-&gt;<span class="fn">SetLocalPosition</span>(<span class="val">0.0f</span>, <span class="val">0.5f</span>, <span class="val">0.0f</span>);
+<span class="ty">ParticleEmitter</span>* smokeFx = smokeAnchor-&gt;<span class="fn">AddParticleEmitter</span>(<span class="st">"Particles/Smoke.xml"</span>);
+smokeFx-&gt;<span class="fn">Play</span>();</pre>
+
+<h3>Pausing world-space effects during cutscenes</h3>
+<p>
+  Use <code>SetEmitting(false)</code> rather than <code>Stop()</code> when you want
+  to freeze an ambient effect exactly as it is (particles currently in flight stop
+  updating), then resume later with <code>SetEmitting(true)</code>.  Alternatively,
+  use <code>SetTimeScale(0.0f)</code> to freeze everything including particles.
+</p>
+<pre><span class="cm">// Freeze all particles without destroying them</span>
+<span class="fn">SetTimeScale</span>(<span class="val">0.0f</span>);   <span class="cm">// pauses Update(), physics, and particle simulation</span>
+
+<span class="cm">// Restore</span>
+<span class="fn">SetTimeScale</span>(<span class="val">1.0f</span>);</pre>
+
+<!-- ─── COMMON MISTAKES ───────────────────────────────────────────── -->
+<div class="callout warn">
+  <h4>Common mistakes</h4>
+  <ul>
+    <li>
+      <strong>Calling Play() every frame instead of once.</strong>
+      Calling <code>Play()</code> on an already-playing emitter has no visible effect
+      most of the time, but it does reset some internal bookkeeping.  Always guard the
+      call with <code>if (!emitter-&gt;IsEmitting()) emitter-&gt;Play();</code> when the
+      desired state changes from the current state, not on every tick.
+    </li>
+    <li>
+      <strong>Expecting Burst() to add to an ongoing emission.</strong>
+      <code>Burst()</code> first <em>clears</em> all live particles, then starts a
+      fresh one-shot cycle.  If you call <code>Burst()</code> while a smoke emitter
+      is in the middle of a puff cloud, you will see the cloud vanish and a new one
+      appear.  For additive one-shots (without clearing), use a separate emitter on a
+      child entity instead.
+    </li>
+    <li>
+      <strong>Adding the emitter directly to a moving entity when an offset is needed.</strong>
+      If the emitter origin and the entity origin don't coincide (barrel tip, chimney
+      top, hand socket), always use a child entity with a local-space offset.  Without
+      this the effect appears at the model's pivot, which is usually buried in the
+      geometry.
+    </li>
+    <li>
+      <strong>Destroying the entity immediately after Burst().</strong>
+      The emitter and all its live particles are destroyed along with the entity.
+      Either delay destruction with a timer (a simple float countdown in Update),
+      or detach the effect node to the scene root before calling
+      <code>DestroyEntity()</code>.
+    </li>
+    <li>
+      <strong>Forgetting to add the Data/Particles/ path to the resource cache.</strong>
+      If you move your executable or ship without the <code>Data/</code> directory at
+      the expected relative path, <code>AddParticleEmitter()</code> will log a
+      "Resource not found" warning and return a null-emitter that no-ops silently.
+      Enable resource diagnostics in debug builds with
+      <code>SetResourceDiagnosticsEnabled(true)</code> to catch this early.
+    </li>
+    <li>
+      <strong>Using a world-space emitter entity as a parent for game objects.</strong>
+      An ambient star field entity is fine as a standalone root entity, but do not
+      parent your player or enemies to it — those children would need to
+      counter-transform to stay in place, which is both fragile and confusing.
+      World-space emitter entities should have no children other than effect anchors.
+    </li>
+    <li>
+      <strong>Trying to use IsEmitting() to detect whether coasting particles are still visible.</strong>
+      <code>IsEmitting()</code> only reports whether the emitter is <em>spawning new particles</em>,
+      not whether any previously spawned particles are still alive.  After <code>Stop()</code>
+      or after a burst's emission window closes, <code>IsEmitting()</code> returns
+      <code>false</code> even if hundreds of particles are still decaying across the screen.
+    </li>
+  </ul>
+</div>
+
+<!-- ─── WHAT YOU LEARNED ─────────────────────────────────────────── -->
+<h2>What you learned</h2>
+
+<p>
+  In this part you gained full control over simple-3d's particle emitter API:
+</p>
+<ul>
+  <li>
+    <strong>Attachment:</strong> <code>AddParticleEmitter(xmlPath)</code> attaches a
+    Urho3D <code>ParticleEffect</code> XML to any entity and returns a handle.
+    The emitter starts dormant.
+  </li>
+  <li>
+    <strong>Continuous effects:</strong> <code>Play()</code> starts spawning particles
+    indefinitely; <code>Stop()</code> halts new spawns while existing particles
+    coast out naturally.  Guard both calls with <code>IsEmitting()</code> to avoid
+    resetting state on every frame.
+  </li>
+  <li>
+    <strong>One-shot bursts:</strong> <code>Burst()</code> clears live particles,
+    resets the internal timer, and opens a single emission window defined by the
+    XML's <code>activetime</code>.  The emitter self-stops after that window — no
+    manual <code>Stop()</code> required.
+  </li>
+  <li>
+    <strong>State queries:</strong> <code>IsEmitting()</code> tells you whether the
+    emitter is in its spawn window; <code>SetEmitting(bool)</code> is the raw
+    toggle behind <code>Play()</code> and <code>Stop()</code>.
+  </li>
+  <li>
+    <strong>Retrieval:</strong> <code>GetParticleEmitter()</code> fetches an emitter
+    that was set up elsewhere (a prefab, a Lua script, or an earlier C++ call).
+    Returns <code>nullptr</code> if none was added.
+  </li>
+  <li>
+    <strong>Built-in presets:</strong> Five ready-to-use effects ship with simple-3d
+    under <code>Data/Particles/</code>: <em>Sparkle</em> (collectibles), <em>Smoke</em>
+    (continuous columns), <em>Explosion</em> (one-shot blasts), <em>Dust</em>
+    (ground impacts), and <em>Stars</em> (ambient drift).
+  </li>
+  <li>
+    <strong>Position offsets via child entities:</strong> Create a child entity with
+    <code>CreateChild()</code>, set its <code>SetLocalPosition()</code> to the desired
+    offset, and add the emitter there.  The effect then inherits and follows the parent's
+    world transform automatically.
+  </li>
+  <li>
+    <strong>World-space effects:</strong> Create a standalone entity at a fixed world
+    position (no parent) and call <code>Play()</code> for ambient effects like rain,
+    snow, or a star field.  Disable with <code>SetActive(false)</code> or
+    <code>SetEmitting(false)</code> during transitions or cutscenes.
+  </li>
+</ul>
+
+<p>
+  Next up: <a href="tutorial-22.html">Part 22: Entity Hierarchy</a> &mdash; a deep
+  dive into parent&ndash;child transforms, local vs.&nbsp;world space, and how to
+  build structured character rigs using <code>CreateChild()</code>.
+</p>
+
+<nav class="tutorial-nav">
+  <a href="tutorial-20.html">&#8592; Part 20: Scene Management</a>
+  <a href="tutorial-22.html">Part 22: Entity Hierarchy &#8594;</a>
+</nav>
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d &mdash; part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

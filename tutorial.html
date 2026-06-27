@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tutorial Series — simple-3d</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* ─── Tutorial page extras ─────────────────────────────── */
+.tut-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.tut-card {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.1rem 1.1rem;
+  transition: border-color .2s, background .15s;
+  text-decoration: none;
+  color: inherit;
+}
+.tut-card:hover {
+  border-color: var(--border2);
+  background: var(--surface2);
+  text-decoration: none;
+}
+.tut-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+.tut-part-num {
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: "Courier New", monospace;
+  color: var(--muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1rem 0.45rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tut-card h3 {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--accent2);
+  margin: 0 0 0.3rem;
+}
+.tut-card p {
+  font-size: 0.815rem;
+  color: var(--muted);
+  margin: 0 0 0.65rem;
+  line-height: 1.45;
+}
+.tut-card p code {
+  font-size: 0.77rem;
+}
+.tut-card .badge {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.55rem;
+  flex-shrink: 0;
+}
+.tut-section-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  margin: 2.8rem 0 0.85rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+}
+.tut-section-heading h2 {
+  margin: 0;
+  border: none;
+  padding: 0;
+  font-size: 1.18rem;
+}
+.tut-range {
+  font-size: 0.76rem;
+  color: var(--muted);
+  font-family: "Courier New", monospace;
+}
+.tut-section-intro {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 1.2rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+.tut-section-intro strong { color: var(--text); }
+@media (max-width: 900px) {
+  .tut-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  .tut-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html" class="active">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Overview</h3>
+  <ul>
+    <li><a href="#intro">Introduction</a></li>
+    <li><a href="#getting-started-section">Getting Started</a></li>
+    <li><a href="#core-systems-section">Core Systems</a></li>
+    <li><a href="#advanced-topics-section">Advanced Topics</a></li>
+  </ul>
+  <h3>By Difficulty</h3>
+  <ul>
+    <li><a href="#getting-started-section">Beginner (01–06)</a></li>
+    <li><a href="#core-systems-section">Intermediate</a></li>
+    <li><a href="#advanced-topics-section">Advanced</a></li>
+  </ul>
+  <h3>All Parts</h3>
+  <ul>
+    <li><a href="tutorial-01.html">01 · Hello World</a></li>
+    <li><a href="tutorial-02.html">02 · Lights and Colors</a></li>
+    <li><a href="tutorial-03.html">03 · Keyboard Input</a></li>
+    <li><a href="tutorial-04.html">04 · 3D Physics</a></li>
+    <li><a href="tutorial-05.html">05 · Third-Person Camera</a></li>
+    <li><a href="tutorial-06.html">06 · Lua Scripting Basics</a></li>
+    <li><a href="tutorial-07.html">07 · Character Controller</a></li>
+    <li><a href="tutorial-08.html">08 · Skeletal Animation</a></li>
+    <li><a href="tutorial-09.html">09 · Animation State Machine</a></li>
+    <li><a href="tutorial-10.html">10 · Audio</a></li>
+    <li><a href="tutorial-11.html">11 · Spatial Audio</a></li>
+    <li><a href="tutorial-12.html">12 · 2D Mode</a></li>
+    <li><a href="tutorial-13.html">13 · 2D Physics</a></li>
+    <li><a href="tutorial-14.html">14 · Navigation</a></li>
+    <li><a href="tutorial-15.html">15 · Gamepad Input</a></li>
+    <li><a href="tutorial-16.html">16 · Input Actions</a></li>
+    <li><a href="tutorial-17.html">17 · UI System</a></li>
+    <li><a href="tutorial-18.html">18 · UI Advanced</a></li>
+    <li><a href="tutorial-19.html">19 · Save and Load</a></li>
+    <li><a href="tutorial-20.html">20 · Scene Management</a></li>
+    <li><a href="tutorial-21.html">21 · Particle Systems</a></li>
+    <li><a href="tutorial-22.html">22 · Entity Hierarchy</a></li>
+    <li><a href="tutorial-23.html">23 · Physics Constraints</a></li>
+    <li><a href="tutorial-24.html">24 · Collision Triggers</a></li>
+    <li><a href="tutorial-25.html">25 · AI Behavior FSM</a></li>
+    <li><a href="tutorial-26.html">26 · Ray Picking</a></li>
+    <li><a href="tutorial-27.html">27 · Debug Draw</a></li>
+    <li><a href="tutorial-28.html">28 · Tweens</a></li>
+    <li><a href="tutorial-29.html">29 · Sky and Atmosphere</a></li>
+    <li><a href="tutorial-30.html">30 · Networking Basics</a></li>
+  </ul>
+</aside>
+
+<main class="content">
+
+<div class="hero" id="intro">
+  <h1>Tutorial Series</h1>
+  <p class="subtitle">30-part tutorial series from <strong>Hello World</strong> to <strong>Networking</strong>.</p>
+  <p class="tagline">
+    Step-by-step guides covering every major feature of simple-3d.
+    Each part builds on the last — start at Part 01 or jump to any topic you need.
+  </p>
+  <div>
+    <span class="badge badge-green">Beginner Parts 01–06</span>
+    <span class="badge badge-blue">Intermediate Parts 07–29</span>
+    <span class="badge badge-orange">Advanced selected parts</span>
+    <span class="badge">C++23</span>
+    <span class="badge badge-lua">Lua</span>
+  </div>
+</div>
+
+<!-- ─── GETTING STARTED ───────────────────────────────────────── -->
+<div class="tut-section-heading" id="getting-started-section">
+  <h2>Getting Started</h2>
+  <span class="tut-range">Parts 01–06</span>
+</div>
+<div class="tut-section-intro">
+  <strong>No prior simple-3d experience required.</strong>
+  These six parts take you from an empty project to a scene with physics, a follow camera, and your first Lua script.
+</div>
+
+<div class="tut-grid">
+
+  <a href="tutorial-01.html" class="tut-card card-green">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 01</span>
+      <span class="badge badge-green">Beginner</span>
+    </div>
+    <h3>Hello World</h3>
+    <p>Your first game: subclass <code>Game</code>, override <code>Start()</code> and <code>Update()</code>, and run.</p>
+  </a>
+
+  <a href="tutorial-02.html" class="tut-card card-green">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 02</span>
+      <span class="badge badge-green">Beginner</span>
+    </div>
+    <h3>Lights and Colors</h3>
+    <p>Illuminate the scene with <code>AddDirectionalLight(Color, intensity)</code> and tweak color temperatures.</p>
+  </a>
+
+  <a href="tutorial-03.html" class="tut-card card-green">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 03</span>
+      <span class="badge badge-green">Beginner</span>
+    </div>
+    <h3>Keyboard Input</h3>
+    <p><code>IsKeyDown()</code> for held state every frame vs <code>IsKeyPressed()</code> for the first frame only.</p>
+  </a>
+
+  <a href="tutorial-04.html" class="tut-card card-green">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 04</span>
+      <span class="badge badge-green">Beginner</span>
+    </div>
+    <h3>3D Physics</h3>
+    <p>Add Bullet rigid bodies with <code>AddRigidBody(mass)</code> — pass <code>0.0f</code> for static world geometry.</p>
+  </a>
+
+  <a href="tutorial-05.html" class="tut-card card-green">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 05</span>
+      <span class="badge badge-green">Beginner</span>
+    </div>
+    <h3>Third-Person Camera</h3>
+    <p>Smooth third-person view with <code>camera->Follow(entity, distance, height)</code> and collision avoidance.</p>
+  </a>
+
+  <a href="tutorial-06.html" class="tut-card card-green">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 06</span>
+      <span class="badge badge-green">Beginner</span>
+    </div>
+    <h3>Lua Scripting Basics</h3>
+    <p>Attach per-entity Lua logic with <code>entity->AddScript(path)</code> and implement <code>Start()</code> / <code>Update(dt)</code>.</p>
+  </a>
+
+</div>
+
+<!-- ─── CORE SYSTEMS ──────────────────────────────────────────── -->
+<div class="tut-section-heading" id="core-systems-section">
+  <h2>Core Systems</h2>
+  <span class="tut-range">Parts 07–20</span>
+</div>
+<div class="tut-section-intro">
+  <strong>The full feature set.</strong>
+  Animation, audio, 2D mode, navigation, gamepad, input remapping, UI, save data, and scene transitions.
+  Some parts cover advanced API patterns and are marked accordingly.
+</div>
+
+<div class="tut-grid">
+
+  <a href="tutorial-07.html" class="tut-card card-orange">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 07</span>
+      <span class="badge badge-orange">Advanced</span>
+    </div>
+    <h3>Character Controller</h3>
+    <p>Capsule-based movement and ground detection via <code>entity->AddCharacterController(radius, height)</code>.</p>
+  </a>
+
+  <a href="tutorial-08.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 08</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>Skeletal Animation</h3>
+    <p>Blend and layer skeletal clips on a character mesh using <code>entity->AddAnimationController()</code>.</p>
+  </a>
+
+  <a href="tutorial-09.html" class="tut-card card-orange">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 09</span>
+      <span class="badge badge-orange">Advanced</span>
+    </div>
+    <h3>Animation State Machine</h3>
+    <p>Data-driven state transitions and blending with <code>entity->AddAnimStateMachine()</code>.</p>
+  </a>
+
+  <a href="tutorial-10.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 10</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>Audio</h3>
+    <p>Stream background music and trigger one-shot effects via <code>PlayMusic(path)</code> and <code>PlaySound(path)</code>.</p>
+  </a>
+
+  <a href="tutorial-11.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 11</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>Spatial Audio</h3>
+    <p>3D positional sound with distance attenuation using <code>entity->AddAudioSource()</code>.</p>
+  </a>
+
+  <a href="tutorial-12.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 12</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>2D Mode</h3>
+    <p>Switch to a flat, pixel-perfect view using <code>camera->SetOrthographic(true)</code> and work with sprites.</p>
+  </a>
+
+  <a href="tutorial-13.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 13</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>2D Physics</h3>
+    <p>Box2D rigid bodies alongside the 3D physics world via <code>entity->AddRigidBody2D(mass)</code>.</p>
+  </a>
+
+  <a href="tutorial-14.html" class="tut-card card-orange">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 14</span>
+      <span class="badge badge-orange">Advanced</span>
+    </div>
+    <h3>Navigation and Pathfinding</h3>
+    <p>Bake a Recast nav-mesh with <code>BuildNavMesh()</code> in <code>Start()</code> and steer agents automatically.</p>
+  </a>
+
+  <a href="tutorial-15.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 15</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>Gamepad Input</h3>
+    <p>Detect connected controllers with <code>IsGamepadConnected(index)</code> and read axes and buttons.</p>
+  </a>
+
+  <a href="tutorial-16.html" class="tut-card card-orange">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 16</span>
+      <span class="badge badge-orange">Advanced</span>
+    </div>
+    <h3>Input Actions</h3>
+    <p>Rebindable cross-device inputs via <code>BindAction("Jump").Key(Key::Space).GamepadButton(GamepadButton::A)</code>.</p>
+  </a>
+
+  <a href="tutorial-17.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 17</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>UI System</h3>
+    <p>Build HUDs and menus with <code>CreateLabel()</code>, <code>CreateImage()</code>, <code>CreatePanel()</code>, and <code>CreateButton()</code>.</p>
+  </a>
+
+  <a href="tutorial-18.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 18</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>UI Advanced</h3>
+    <p>Progress bars and styled overlays with <code>CreateProgressBar()</code>, <code>SetValue(0–1)</code>, and <code>SetColor()</code>.</p>
+  </a>
+
+  <a href="tutorial-19.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 19</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>Save and Load</h3>
+    <p>Persist and restore game state across sessions through <code>GetSaveData()</code> / <code>SaveData</code>.</p>
+  </a>
+
+  <a href="tutorial-20.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 20</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>Scene Management</h3>
+    <p>Load and transition between levels at runtime using <code>LoadScene(path)</code>.</p>
+  </a>
+
+</div>
+
+<!-- ─── ADVANCED TOPICS ───────────────────────────────────────── -->
+<div class="tut-section-heading" id="advanced-topics-section">
+  <h2>Advanced Topics</h2>
+  <span class="tut-range">Parts 21–30</span>
+</div>
+<div class="tut-section-intro">
+  <strong>Polish, performance, and multiplayer.</strong>
+  Particle effects, entity hierarchies, joints, triggers, AI, ray picking, debug utilities, tweens, atmosphere, and networking.
+</div>
+
+<div class="tut-grid">
+
+  <a href="tutorial-21.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 21</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>Particle Systems</h3>
+    <p>Spawn and configure visual effects via <code>entity->AddParticleEmitter(xmlPath)</code>.</p>
+  </a>
+
+  <a href="tutorial-22.html" class="tut-card card-orange">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 22</span>
+      <span class="badge badge-orange">Advanced</span>
+    </div>
+    <h3>Entity Hierarchy</h3>
+    <p>Parent-child transform chains and scene graphs with <code>entity->CreateChild(name)</code>.</p>
+  </a>
+
+  <a href="tutorial-23.html" class="tut-card card-orange">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 23</span>
+      <span class="badge badge-orange">Advanced</span>
+    </div>
+    <h3>Physics Constraints</h3>
+    <p>Rigidly join two bodies with joints such as <code>entity->AddBallSocketConstraint(other)</code>.</p>
+  </a>
+
+  <a href="tutorial-24.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 24</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>Collision Triggers</h3>
+    <p>Overlap enter/exit callbacks without physics response via <code>entity->SetTrigger(true)</code>.</p>
+  </a>
+
+  <a href="tutorial-25.html" class="tut-card card-orange">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 25</span>
+      <span class="badge badge-orange">Advanced</span>
+    </div>
+    <h3>AI Behavior FSM</h3>
+    <p>Rule-based NPC logic and transitions with <code>entity->AddBehaviorFSM()</code> and custom states.</p>
+  </a>
+
+  <a href="tutorial-26.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 26</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>Ray Picking</h3>
+    <p>Click-to-select scene objects via <code>PickEntity(GetMousePosition())</code> and ray casting.</p>
+  </a>
+
+  <a href="tutorial-27.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 27</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>Debug Draw</h3>
+    <p>Visualise colliders, nav-mesh, and paths at runtime with <code>SetDebugDrawEnabled(true)</code>.</p>
+  </a>
+
+  <a href="tutorial-28.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 28</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>Tweens</h3>
+    <p>Animate properties smoothly over time with <code>CreateTween(duration)</code> and chained actions.</p>
+  </a>
+
+  <a href="tutorial-29.html" class="tut-card card-blue">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 29</span>
+      <span class="badge badge-blue">Intermediate</span>
+    </div>
+    <h3>Sky and Atmosphere</h3>
+    <p>Skydome backgrounds and atmospheric fog via <code>SetSkyDome(texPath)</code> / <code>SetSkyDomeEnabled()</code>.</p>
+  </a>
+
+  <a href="tutorial-30.html" class="tut-card card-orange">
+    <div class="tut-card-header">
+      <span class="tut-part-num">Part 30</span>
+      <span class="badge badge-orange">Advanced</span>
+    </div>
+    <h3>Networking Basics</h3>
+    <p>ENet client/server setup and automatic entity replication via <code>GetNetworkManager()</code>.</p>
+  </a>
+
+</div>
+
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d — part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>

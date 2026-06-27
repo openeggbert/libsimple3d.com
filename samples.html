@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Samples — simple-3d</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header">
+  <span class="logo">simple-3d</span>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="tutorial.html">Tutorial</a>
+    <a href="architecture.html">Architecture</a>
+    <a href="api.html">C++ API</a>
+    <a href="lua-api.html">Lua API</a>
+    <a href="examples.html">Examples</a>
+    <a href="features.html">Features</a>
+    <a href="samples.html" class="active">Samples</a>
+    <a href="faq.html">FAQ</a>
+    <a href="changelog.html">What's New</a>
+  </nav>
+</header>
+
+<div class="layout">
+<aside class="sidebar">
+  <h3>Samples</h3>
+  <ul>
+    <li><a href="#helloworld">HelloWorld</a></li>
+    <li><a href="#platformer3d">Platformer3D</a></li>
+    <li><a href="#game2d">Game2D</a></li>
+    <li><a href="#blupiproto">BlupiProto</a></li>
+    <li><a href="#luasmoke">LuaSmoke</a></li>
+    <li><a href="#simple3dtests">Simple3DTests</a></li>
+  </ul>
+  <h3>Build</h3>
+  <ul>
+    <li><a href="#build-all">Build All Samples</a></li>
+  </ul>
+  <h3>Documentation</h3>
+  <ul>
+    <li><a href="getting-started.html">Getting Started</a></li>
+    <li><a href="architecture.html">Architecture</a></li>
+    <li><a href="api.html">C++ API Reference</a></li>
+    <li><a href="lua-api.html">Lua API Reference</a></li>
+    <li><a href="examples.html">Examples</a></li>
+    <li><a href="features.html">Feature Status</a></li>
+  </ul>
+</aside>
+
+<main class="content">
+
+<h1>Samples</h1>
+<p>
+  simple-3d ships six samples that demonstrate the framework from different angles: a minimal
+  "Hello World", a 3D physics reference, a 2D game, a full vertical-slice platformer, an
+  automated Lua API smoke test, and the complete unit-test suite. All six targets build from
+  the same CMake configure step.
+</p>
+<p>
+  Every sample is located under <code>samples/</code> in the repository and builds into
+  <code>build-u3d/</code>. See <a href="#build-all">Build All Samples</a> at the bottom of
+  this page for the one-command configure-and-build.
+</p>
+
+<!-- ─── HELLOWORLD ──────────────────────────────────────────── -->
+<h2 id="helloworld">HelloWorld</h2>
+<p>
+  The minimal entry point into simple-3d. Creates a spinning box in an empty scene with a
+  HUD timer in the corner. Press <kbd>ESC</kbd> to quit. The entire game fits in roughly
+  30 lines of C++.
+</p>
+
+<h3>Features demonstrated</h3>
+<ul>
+  <li><code>CreateEntity</code> — scene object creation</li>
+  <li><code>AddModel</code> — attaching a mesh to an entity</li>
+  <li><code>CreateCamera</code> — setting up the scene camera</li>
+  <li><code>CreateLabel</code> — on-screen HUD text</li>
+  <li><code>SetClearColor</code> — background colour</li>
+</ul>
+
+<h3>Build</h3>
+<pre>cmake --build build-u3d --target HelloWorld</pre>
+
+<h3>Run</h3>
+<pre>./build-u3d/bin/HelloWorld</pre>
+
+<!-- ─── PLATFORMER3D ─────────────────────────────────────────── -->
+<h2 id="platformer3d">Platformer3D</h2>
+<p>
+  A low-level 3D physics reference. Demonstrates a player capsule on a ground plane with
+  full jump mechanics and a third-person follow camera. Intended as a clean starting point
+  for any 3D game that needs character physics.
+</p>
+
+<h3>Features demonstrated</h3>
+<ul>
+  <li><code>AddRigidBody</code> — dynamic and static rigid bodies</li>
+  <li><code>AddCapsuleCollider</code> — capsule collision shape for the player</li>
+  <li><code>CharacterController</code> — slope-filtered grounding, gravity, jump impulse</li>
+  <li>Third-person follow camera with smooth lerp and collision avoidance</li>
+</ul>
+
+<h3>Build</h3>
+<pre>cmake --build build-u3d --target Platformer3D</pre>
+
+<h3>Run</h3>
+<pre>./build-u3d/bin/Platformer3D</pre>
+
+<!-- ─── GAME2D ────────────────────────────────────────────────── -->
+<h2 id="game2d">Game2D</h2>
+<p>
+  A 2D orthographic game scene. Loads a Tiled tile map, places a static sprite, and
+  enables Box2D physics. Demonstrates that 3D and 2D can coexist in the same scene using
+  the same unified API.
+</p>
+
+<h3>Features demonstrated</h3>
+<ul>
+  <li><code>SetOrthographic</code> — switching the camera to 2D orthographic projection</li>
+  <li><code>AddSprite2D</code> — attaching a static 2D sprite to an entity</li>
+  <li><code>LoadTileMap</code> — loading a Tiled <code>.tmx</code> tile map into the scene</li>
+  <li><code>AddRigidBody2D</code> — Box2D physics bodies alongside 3D Bullet physics</li>
+</ul>
+
+<h3>Build</h3>
+<pre>cmake --build build-u3d --target Game2D</pre>
+
+<h3>Run</h3>
+<pre>./build-u3d/bin/Game2D</pre>
+
+<!-- ─── BLUPIPROTO ────────────────────────────────────────────── -->
+<h2 id="blupiproto">BlupiProto</h2>
+<p>
+  The acceptance gate for the entire framework — a vertical slice of a 3D platformer.
+  Includes a playable character with animations, collectible coins, AI enemies, a pause
+  menu, and save/load support. <strong>BlupiProto must build cleanly before any new
+  subsystem is merged.</strong>
+</p>
+
+<h3>Features demonstrated</h3>
+<ul>
+  <li><code>CharacterController</code> — player movement, jump, ground detection</li>
+  <li><code>AnimStateMachine</code> — condition-driven animation state transitions</li>
+  <li><code>BehaviorFSM</code> — AI enemy patrol and chase states</li>
+  <li><code>CollisionLayer::Trigger</code> — trigger volumes for coin pickup and hazard zones</li>
+  <li><code>SaveData</code> — multi-slot JSON save/load (coins collected, level progress)</li>
+  <li>UI Panel and Button — pause menu with resume and restart actions</li>
+  <li><code>FadeOut</code> / <code>FadeIn</code> — level transition screen fades</li>
+</ul>
+
+<h3>Build</h3>
+<pre>cmake --build build-u3d --target BlupiProto</pre>
+
+<h3>Run</h3>
+<pre>./build-u3d/bin/BlupiProto</pre>
+
+<!-- ─── LUASMOKE ───────────────────────────────────────────────── -->
+<h2 id="luasmoke">LuaSmoke</h2>
+<p>
+  An automated Lua API smoke test that runs headlessly and prints <code>PASS</code> or
+  <code>FAIL</code> for each assertion. Covers entity hierarchy, local transforms, gamepad
+  no-ops, and the full breadth of the Lua bindings surface. No manual interaction required
+  — check the console output.
+</p>
+
+<h3>Features demonstrated</h3>
+<ul>
+  <li>Full Lua API coverage — CharacterController, AnimStateMachine, BehaviorFSM,
+      AudioSource, ParticleEmitter, InputActions, all UI widgets</li>
+  <li>Entity child hierarchy — <code>CreateChild</code>, <code>GetParent</code>,
+      <code>GetChildren</code></li>
+  <li>Local transforms — <code>SetLocalPosition</code>, <code>SetLocalRotation</code>,
+      <code>TranslateLocal</code></li>
+  <li>Per-assertion <code>PASS</code> / <code>FAIL</code> output to the console</li>
+</ul>
+
+<h3>Build</h3>
+<pre>cmake --build build-u3d --target LuaSmoke</pre>
+
+<h3>Run</h3>
+<pre>./build-u3d/bin/LuaSmoke</pre>
+
+<!-- ─── SIMPLE3DTESTS ─────────────────────────────────────────── -->
+<h2 id="simple3dtests">Simple3DTests</h2>
+<p>
+  The complete unit-test suite. <strong>78 tests, all 78 must pass.</strong> Tests run
+  without a graphics window and complete in seconds. Run this after every change to the
+  framework core to catch regressions.
+</p>
+
+<h3>Features demonstrated</h3>
+<ul>
+  <li><code>CollisionLayer</code> enum — 11 tests covering layer masks and flag combinations</li>
+  <li><code>AnimStateMachine</code> — 13 tests: bool/float/trigger conditions, auto transitions</li>
+  <li><code>SaveData</code> — 14 tests: multi-slot JSON, int/string/bool/float round-trips</li>
+  <li><code>InputActions</code> — 17 tests: bind/axis/dead-zone clamping, persistence round-trip</li>
+  <li><code>BehaviorFSM</code> — 14 tests: state transitions, patrol/chase built-ins</li>
+  <li>Entity tagging — 9 tests: <code>AddTag</code>, <code>HasTag</code>,
+      <code>FindEntitiesByTag</code></li>
+</ul>
+
+<h3>Build</h3>
+<pre>cmake -S . -B build-u3d -DSIMPLE3D_BUILD_TESTS=ON
+cmake --build build-u3d --target Simple3DTests</pre>
+
+<h3>Run</h3>
+<pre>./build-u3d/Simple3DTests</pre>
+
+<!-- ─── BUILD ALL ──────────────────────────────────────────────── -->
+<h2 id="build-all">Build All Samples</h2>
+<p>
+  A single configure-and-build step compiles every sample and the unit-test suite together.
+  Run these commands from the root of the <code>simple-3d</code> repository.
+</p>
+<pre>cmake -S . -B build-u3d -DSIMPLE3D_BUILD_SAMPLES=ON -DSIMPLE3D_BUILD_TESTS=ON
+cmake --build build-u3d</pre>
+<p>
+  After the build completes, binaries are available at:
+</p>
+<table>
+  <tr><th>Sample</th><th>Binary path</th></tr>
+  <tr><td>HelloWorld</td><td><code>build-u3d/bin/HelloWorld</code></td></tr>
+  <tr><td>Platformer3D</td><td><code>build-u3d/bin/Platformer3D</code></td></tr>
+  <tr><td>Game2D</td><td><code>build-u3d/bin/Game2D</code></td></tr>
+  <tr><td>BlupiProto</td><td><code>build-u3d/bin/BlupiProto</code></td></tr>
+  <tr><td>LuaSmoke</td><td><code>build-u3d/bin/LuaSmoke</code></td></tr>
+  <tr><td>Simple3DTests</td><td><code>build-u3d/Simple3DTests</code></td></tr>
+</table>
+<p>
+  <a href="getting-started.html">Build prerequisites and CMake options →</a>
+</p>
+
+</main>
+</div>
+
+<footer class="site-footer">
+  simple-3d — part of the <a href="https://github.com/openeggbert">OpenEggbert</a> project
+</footer>
+</body>
+</html>
