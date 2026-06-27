@@ -278,14 +278,14 @@ cmake --list-presets        <span class="sh-cm"># Show all available presets</sp
 <!-- ─── UNIT TESTS ──────────────────────────────────────────────── -->
 <h2 id="unit-tests">Unit Tests</h2>
 <p>
-  simple-3d includes 78 automated tests. Enable, build, and run them with:
+  simple-3d includes 92 automated tests. Enable, build, and run them with:
 </p>
 <pre>cmake -S . -B build-u3d -DSIMPLE3D_BUILD_TESTS=ON &amp;&amp; \
 cmake --build build-u3d --target Simple3DTests &amp;&amp; \
 ./build-u3d/Simple3DTests</pre>
 <p>
-  All 78 tests must pass. Tests cover: <code>CollisionLayer</code>, <code>AnimStateMachine</code>,
-  <code>SaveData</code>, <code>InputActions</code>, <code>BehaviorFSM</code>, <code>EntityTagging</code>.
+  All 92 tests must pass. Tests cover: <code>CollisionLayer</code> (11), <code>AnimStateMachine</code> (13),
+  <code>SaveData</code> (14), <code>InputActions</code> (19), <code>BehaviorFSM</code> (14), <code>EntityLifecycle</code> (8), <code>InputBindingParser</code> (4), <code>EntityTagging</code> (9).
 </p>
 
 <!-- ─── CMAKE INTEGRATION ─────────────────────────────────────── -->

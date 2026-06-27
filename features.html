@@ -88,7 +88,7 @@
   <tr>
     <td>Entity system (PIMPL)</td>
     <td><span class="status-done">&#x2705;</span></td>
-    <td><code>CreateEntity("name")</code>, <code>FindEntity(name)</code>, <code>DestroyEntity(e)</code>. Internal Urho3D types never leak into the public API.</td>
+    <td><code>CreateEntity("name")</code>, <code>FindEntity(name)</code>, <code>DestroyEntity(e)</code>. Internal Urho3D types never leak into the public API. <code>GetName()</code> / <code>SetName(string)</code> for runtime rename. <code>IsPendingDestroy()</code> safety check. <code>GetWorldPosition()</code> / <code>GetWorldRotation()</code> explicit world-space aliases.</td>
   </tr>
   <tr>
     <td>Entity hierarchy</td>
@@ -124,6 +124,16 @@
     <td>ResourceDiagnostics</td>
     <td><span class="status-done">&#x2705;</span></td>
     <td>Runtime report of loaded textures, models, and sounds via <code>PrintResourceDiagnostics()</code> or the debug overlay.</td>
+  </tr>
+  <tr>
+    <td>GetWindowWidth / GetWindowHeight</td>
+    <td><span class="status-done">&#x2705;</span></td>
+    <td><code>GetWindowWidth()</code> / <code>GetWindowHeight()</code> return current viewport dimensions in pixels. Available in C++ and as Lua globals.</td>
+  </tr>
+  <tr>
+    <td>GetEntityCount</td>
+    <td><span class="status-done">&#x2705;</span></td>
+    <td><code>GetEntityCount()</code> returns the number of live (non-pending-destroy) entities in the scene. C++ + Lua global.</td>
   </tr>
 
   <!-- 3D Rendering -->
@@ -185,6 +195,11 @@
     <td>Third-person follow camera</td>
     <td><span class="status-done">&#x2705;</span></td>
     <td><code>camera.SetFollowTarget(entity, height, distance)</code>. Lerp-smooth via <code>SetFollowSpeed()</code>. Camera stays behind last movement direction.</td>
+  </tr>
+  <tr>
+    <td>Camera direction vectors</td>
+    <td><span class="status-done">&#x2705;</span></td>
+    <td><code>GetForwardVector()</code> / <code>GetRightVector()</code> — world-space direction vectors for the current camera orientation. Useful for camera-relative movement. C++ + Lua globals.</td>
   </tr>
   <tr>
     <td>FPS camera</td>
@@ -380,7 +395,12 @@
   <tr>
     <td>InputActions</td>
     <td><span class="status-done">&#x2705;</span></td>
-    <td><code>BindAction("Jump", Key::Space, GamepadButton::A)</code>, <code>BindAxis2D("Move", Key::W/A/S/D, GamepadAxis::LeftX/Y)</code>. Query: <code>IsActionDown/Pressed(name)</code>, <code>GetAxis2D(name)</code>. Bindings persist to disk.</td>
+    <td><code>BindAction("Jump", Key::Space, GamepadButton::A)</code>, <code>BindAxis2D("Move", Key::W/A/S/D, GamepadAxis::LeftX/Y)</code>. Query: <code>IsActionDown/Pressed(name)</code>, <code>GetAxis2D(name)</code>. Bindings persist to disk. <code>IsActionJustReleased(name)</code> — single-frame released-edge detection. <code>DumpInputBindings()</code> — returns all bindings as a formatted string for debugging.</td>
+  </tr>
+  <tr>
+    <td>Mouse button Lua bindings</td>
+    <td><span class="status-done">&#x2705;</span></td>
+    <td><code>IsMouseButtonDown("Left"/"Right"/"Middle")</code> / <code>IsMouseButtonPressed(...)</code> as Lua globals. Accepts string button names.</td>
   </tr>
 
   <!-- UI System -->
@@ -398,12 +418,12 @@
   <tr>
     <td>Panel (container)</td>
     <td><span class="status-done">&#x2705;</span></td>
-    <td><code>CreatePanel()</code>. Groups child elements; show/hide the entire group at once. Transparent or opaque background color.</td>
+    <td><code>CreatePanel()</code>. Groups child elements; show/hide the entire group at once. Transparent or opaque background color. <code>SetBorderColor(Color)</code> / <code>SetBorderWidth(int)</code> — draw a colored border around the panel. Call <code>SetSize</code> before <code>SetBorderWidth</code>.</td>
   </tr>
   <tr>
     <td>Button</td>
     <td><span class="status-done">&#x2705;</span></td>
-    <td><code>CreateButton(label)</code>. <code>SetText(str)</code>, <code>SetSize(w, h)</code>, <code>SetPosition(x, y)</code>, <code>SetOnClick(callback)</code>. Hover and press states handled automatically.</td>
+    <td><code>CreateButton(label)</code>. <code>SetText(str)</code>, <code>SetSize(w, h)</code>, <code>SetPosition(x, y)</code>, <code>SetOnClick(callback)</code>. Hover and press states handled automatically. <code>SetEnabled(bool)</code> / <code>IsEnabled()</code> — disable a button visually and functionally (opacity 0.4, no click).</td>
   </tr>
   <tr>
     <td>ProgressBar</td>

@@ -47,6 +47,7 @@
     <li><a href="#phase13">Phase 13 — Entity Hierarchy</a></li>
     <li><a href="#phase14">Phase 14 — Mc3Bridge</a></li>
     <li><a href="#phase15">Phase 15 — Hardening</a></li>
+    <li><a href="#phase16">Phase 16 — API Expansion</a></li>
   </ul>
   <h3>Documentation</h3>
   <ul>
@@ -62,17 +63,17 @@
 
 <div class="hero">
   <h1>What's New</h1>
-  <p class="subtitle">Development history of <strong>simple-3d</strong> across 15 phases.</p>
+  <p class="subtitle">Development history of <strong>simple-3d</strong> across 16 phases.</p>
   <p class="tagline">
-    From bare game loop to a full-featured C++/Lua game framework — 96 tracked tasks,
-    78 unit tests, and 6 sample applications.
+    From bare game loop to a full-featured C++/Lua game framework — 152 tracked tasks,
+    92 unit tests, and 5 sample applications.
   </p>
   <div>
-    <span class="badge badge-green">96 Tasks Complete</span>
-    <span class="badge badge-green">78/78 Tests Pass</span>
-    <span class="badge badge-blue">6 Sample Apps</span>
+    <span class="badge badge-green">152 Tasks Complete</span>
+    <span class="badge badge-green">92/92 Tests Pass</span>
+    <span class="badge badge-blue">5 Sample Apps</span>
     <span class="badge badge-green">U3D Backend Clean</span>
-    <span class="badge">15 Phases</span>
+    <span class="badge">16 Phases</span>
   </div>
 </div>
 
@@ -81,7 +82,7 @@
 
 <div class="callout ok">
   <h4>Build &amp; Test Status — U3D Debug (2026-06-27)</h4>
-  <p>All six sample targets build cleanly on the U3D backend. <strong>78/78 unit tests pass.</strong> The develop branch is feature-rich and hardened; remaining work is the Nova3D backend audit (Task #35, separate agent) and the eventual master merge (Task #36).</p>
+  <p>All sample targets build cleanly on the U3D backend. <strong>92/92 unit tests pass.</strong> The most recent session (Tasks #135–#152) added entity getters, camera direction vectors, UI controls, input edge detection, mouse button Lua bindings, panel borders, and tutorials 27–28. Remaining work: Nova3D backend audit (Task #35) and the eventual master merge (Task #36).</p>
 </div>
 
 <table>
@@ -120,7 +121,7 @@
     <td><code>LuaSmoke</code></td>
     <td>Sample</td>
     <td><span class="status-done">Clean</span></td>
-    <td>Automated Lua API smoke test — prints PASS/FAIL per assertion</td>
+    <td>Automated Lua API smoke test — 48 assertions, prints PASS/FAIL per assertion</td>
   </tr>
   <tr>
     <td>Nova3D backend</td>
@@ -132,8 +133,8 @@
 
 <div class="grid3">
   <div class="card card-green">
-    <h3>78 / 78 unit tests</h3>
-    <p>Collision (11), AnimStateMachine (13), SaveData (14), InputActions (17), BehaviorFSM (14), Tagging (9). All green.</p>
+    <h3>92 / 92 unit tests</h3>
+    <p>Collision (11), AnimStateMachine (13), SaveData (14), InputActions (19), BehaviorFSM (14), EntityLifecycle (8), InputBindingParser (4), Tagging (9). All green.</p>
   </div>
   <div class="card card-green">
     <h3>6 sample applications</h3>
@@ -762,6 +763,119 @@
     <h3>Task #36 — Merge develop → master</h3>
     <p>Release v0.1. Blocked on Task #35. The develop branch is production-ready for internal use;
     master merge awaits the Nova3D backend audit sign-off.</p>
+  </div>
+</div>
+
+<!-- ─── PHASE 16 ─────────────────────────────────────────────── -->
+<h2 id="phase16">Phase 16 — API Surface Expansion (Tasks #97–#152)</h2>
+<p class="section-intro">
+  <strong>Documentation, tutorials, and API surface completion.</strong>
+  A 28-tutorial series, expanded Lua smoke tests, and 18 targeted API-surface tasks
+  that filled gaps in getters, UI controls, input edge detection, and diagnostics.
+</p>
+
+<div class="callout ok">
+  <h4>Session 2026-06-27 — Tasks #135–#152 Complete</h4>
+  <p>14 unit tests added (78 → 92). All 92 pass. No hard blockers. Next: <code>Button::SetHoverColor</code> (Task #153) and resource diagnostics Lua bindings (Task #155).</p>
+</div>
+
+<div class="grid2">
+  <div class="card card-green">
+    <h3>Documentation — 28 tutorials</h3>
+    <p>A complete 28-part tutorial series covering Hello World through pause menus and options screens.
+    Topics: physics, navigation, networking, Lua scripting, UI, AI, audio, animation, saving, tweens, ray picking, and debug draw.</p>
+  </div>
+  <div class="card card-green">
+    <h3>Lua smoke test expanded</h3>
+    <p><code>samples/lua_smoke/</code> — 48 assertions covering entity lifecycle, transforms, input, UI, audio, touch, gamepad no-ops, and hierarchy.
+    Added gamepad axis/button name reference tables to <code>LUA_API.md</code>.</p>
+  </div>
+</div>
+
+<h3>Tasks #135–#152 — API surface (2026-06-27 session)</h3>
+<table>
+  <tr><th>Task</th><th>Feature</th><th>API added</th></tr>
+  <tr>
+    <td>#135</td>
+    <td>Entity identity</td>
+    <td><code>Entity::GetName()</code> / <code>SetName(string)</code>; <code>IsPendingDestroy()</code>. C++ + Lua. <code>TestEntityLifecycle</code> — 8 new tests.</td>
+  </tr>
+  <tr>
+    <td>#136</td>
+    <td>World transform aliases</td>
+    <td><code>GetWorldPosition()</code> / <code>GetWorldRotation()</code> explicit inline aliases on <code>Entity</code>. Clarify world vs local semantics.</td>
+  </tr>
+  <tr>
+    <td>#137</td>
+    <td>Scale Lua extensions</td>
+    <td><code>SetScaleV(Vector3)</code> / <code>GetScaleV()</code> Lua Node extensions. <em>V suffix</em> avoids shadowing tolua++ <code>SetScale(float)</code>.</td>
+  </tr>
+  <tr>
+    <td>#138</td>
+    <td>Camera direction</td>
+    <td><code>Camera::GetForwardVector()</code> / <code>GetRightVector()</code>. C++ + Lua globals.</td>
+  </tr>
+  <tr>
+    <td>#139</td>
+    <td>Window size</td>
+    <td><code>Game::GetWindowWidth()</code> / <code>GetWindowHeight()</code> inline wrappers. C++ + Lua.</td>
+  </tr>
+  <tr>
+    <td>#140</td>
+    <td>Button enable/disable</td>
+    <td><code>UI::Button::SetEnabled(bool)</code> / <code>IsEnabled()</code>. Uses <code>FM_NOTFOCUSABLE</code> + opacity 0.4 for visual state.</td>
+  </tr>
+  <tr>
+    <td>#142</td>
+    <td>Entity count</td>
+    <td><code>Game::GetEntityCount()</code> returns live (non-pending-destroy) entity count. C++ + Lua global.</td>
+  </tr>
+  <tr>
+    <td>#143</td>
+    <td>Header compile checks</td>
+    <td><code>Simple3DHeaderChecks</code> CMake OBJECT library — one <code>.cpp</code> per public header compiled under <code>SIMPLE3D_BUILD_TESTS</code>. Catches Urho3D leaks at build time. 4 new tests.</td>
+  </tr>
+  <tr>
+    <td>#144</td>
+    <td>Umbrella header</td>
+    <td><code>Simple3D.h</code>: added missing <code>Tween.h</code> and <code>InputBindingParser.h</code> includes.</td>
+  </tr>
+  <tr>
+    <td>#145</td>
+    <td>Input edge detection</td>
+    <td><code>IsActionJustReleased(name)</code> — per-frame released-edge detection via <code>actionsDownLastFrame_</code> / <code>actionsJustReleasedThisFrame_</code> sets. Computed before <code>Update()</code>.</td>
+  </tr>
+  <tr>
+    <td>#146</td>
+    <td>Input diagnostics</td>
+    <td><code>DumpInputBindings()</code> — returns formatted string + fires <code>URHO3D_LOGINFO</code>. Covers all key / gamepad axis / button names.</td>
+  </tr>
+  <tr>
+    <td>#149</td>
+    <td>Mouse buttons in Lua</td>
+    <td><code>IsMouseButtonDown("Left"/"Right"/"Middle")</code> / <code>IsMouseButtonPressed(...)</code> Lua globals. <code>ParseMouseButton</code> string→enum helper.</td>
+  </tr>
+  <tr>
+    <td>#150–#151</td>
+    <td>Tutorials 27–28</td>
+    <td><code>docs/tutorials/27_pause_menu.md</code> — panel+buttons+gamepad D-pad nav. <code>docs/tutorials/28_options_screen.md</code> — sliders, <code>SaveData</code>, <code>SaveInputBindings</code>.</td>
+  </tr>
+  <tr>
+    <td>#152</td>
+    <td>Panel borders</td>
+    <td><code>Panel::SetBorderColor(Color)</code> / <code>SetBorderWidth(int)</code>. Implemented as 4 internal child UIElement strips at edges. Lua bindings added to <code>PushPanelProxy</code>.</td>
+  </tr>
+</table>
+
+<h3>Next tasks</h3>
+<div class="grid2">
+  <div class="card">
+    <h3>Task #153 — Button hover color</h3>
+    <p><code>Button::SetHoverColor</code>. Requires subscribing to <code>E_HOVERBEGIN</code> / <code>E_HOVEREND</code> in <code>UIEventRelay</code>; no native <code>SetHoverColor</code> in Urho3D <code>Button</code>.</p>
+  </div>
+  <div class="card">
+    <h3>Task #155 — Resource diagnostics Lua</h3>
+    <p><code>SetResourceDiagnosticsEnabled</code>, <code>GetMissingResources</code> (Lua table), <code>ClearMissingResources</code>, <code>SetFallbackModel/Texture/Sound</code> as Lua globals.</p>
   </div>
 </div>
 

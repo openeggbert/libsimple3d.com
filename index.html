@@ -163,7 +163,7 @@
   </div>
   <div class="card">
     <h3>Audio</h3>
-    <p>Stream OGG/WAV music with loop control. One-shot SFX with per-call volume. Master volume. Spatial 3D audio planned.</p>
+    <p>Stream OGG/WAV music with loop control. One-shot SFX with per-call volume. Master volume. Spatial 3D positional audio via <code>AudioSource</code> component.</p>
   </div>
   <div class="card">
     <h3>2D rendering</h3>
@@ -171,11 +171,11 @@
   </div>
   <div class="card">
     <h3>Input</h3>
-    <p>Keyboard (held / first-frame), mouse position / delta / buttons, multi-touch with pressure. Gamepad planned.</p>
+    <p>Keyboard (held / first-frame), mouse position / delta / buttons, multi-touch with pressure. Full gamepad API with rumble and hot-plug.</p>
   </div>
   <div class="card">
     <h3>UI labels</h3>
-    <p>On-screen text (HUD): screen position, font size, RGBA color, visibility toggle. Full UI panel/button system planned.</p>
+    <p>On-screen text (HUD): screen position, font size, RGBA color, visibility toggle. Full UI system: Panel, Button, Image, ProgressBar, Slider — all available.</p>
   </div>
   <div class="card card-green">
     <h3>CharacterController</h3>
@@ -429,10 +429,10 @@ jumpForce = <span class="lua-num">8</span>    <span class="lua-cm">-- impulse on
   </tr>
   <tr>
     <td>Lua scripting</td>
-    <td><span class="status-wip">🔄 In progress</span></td>
+    <td><span class="status-done">✅ Done</span></td>
     <td>—</td>
     <td><a href="lua-api.html">Lua API</a></td>
-    <td>Core done; custom bindings Task #3</td>
+    <td>Full API bound; liveness guards; type-checked; 48 Lua smoke assertions</td>
   </tr>
   <tr>
     <td>Full UI system</td>
@@ -548,8 +548,8 @@ jumpForce = <span class="lua-num">8</span>    <span class="lua-cm">-- impulse on
   </tr>
   <tr>
     <td>Spatial audio</td>
-    <td><span class="status-plan">📋 Planned</span></td>
-    <td>—</td>
+    <td><span class="status-done">✅ Done</span></td>
+    <td><a href="api.html#audiosource">AudioSource</a></td>
     <td>—</td>
     <td>Legacy entry — covered by AudioSource 3D above</td>
   </tr>
